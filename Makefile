@@ -9,7 +9,7 @@ OBJECTS_MAIN = $(SOURCES_MAIN:.c=.o)
 
 # Target 2: Hugo's Game
 TARGET_GAME = jeuhugo.exe
-SOURCES_GAME = jeuhugo.c
+SOURCES_GAME = jeuhugo.c textures.c
 OBJECTS_GAME = $(SOURCES_GAME:.c=.o)
 
 all: $(TARGET_MAIN) $(TARGET_GAME)
