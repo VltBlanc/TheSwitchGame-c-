@@ -1,25 +1,27 @@
-# Makefile for Retro Game Menu
-# Requires Raylib to be installed
-
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -O2
-LDFLAGS = -lraylib -lm -lpthread -ldl -lrt -lX11
+CFLAGS = -Wall -Wextra -g -I include
+LDFLAGS = -L lib -lraylib -lopengl32 -lgdi32 -lwinmm
 
-# Source files
-SOURCES = main.c menu.c scores.c
-OBJECTS = $(SOURCES:.c=.o)
-TARGET = the_switch_game
+# Target 1: The Menu System
+TARGET_MAIN = main.exe
+SOURCES_MAIN = main.c menu.c scores.c
+OBJECTS_MAIN = $(SOURCES_MAIN:.c=.o)
 
-# Default target
-all: $(TARGET)
+# Target 2: Hugo's Game
+TARGET_GAME = jeuhugo.exe
+SOURCES_GAME = jeuhugo.c
+OBJECTS_GAME = $(SOURCES_GAME:.c=.o)
 
-# Build the executable
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+all: $(TARGET_MAIN) $(TARGET_GAME)
 
+$(TARGET_MAIN): $(OBJECTS_MAIN)
+	$(CC) $(OBJECTS_MAIN) -o $(TARGET_MAIN) $(LDFLAGS)
 
-# Clean build artifacts
+$(TARGET_GAME): $(OBJECTS_GAME)
+	$(CC) $(OBJECTS_GAME) -o $(TARGET_GAME) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 clean:
-	rm -f $(OBJECTS) $(TARGET)
-
-.PHONY: all debug clean install-deps install-deps-arch check-deps run help
+	del /Q *.o *.exe
