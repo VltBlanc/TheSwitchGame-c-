@@ -1,0 +1,5 @@
+libraylib.*
+raylib.h
+*.o
+the_switch_game
+
