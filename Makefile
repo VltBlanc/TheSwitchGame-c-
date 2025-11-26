@@ -22,7 +22,15 @@ else
 
     ifeq ($(UNAME_S),Darwin)
         # macOS
-        LDFLAGS = -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
+        RAYLIB_PATH := $(shell brew --prefix raylib 2>/dev/null)
+        ifeq ($(RAYLIB_PATH),)
+            # Fallback if brew not found
+            LDFLAGS = -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
+        else
+            # Use framework from Homebrew
+            LDFLAGS = -framework raylib -F $(RAYLIB_PATH)/lib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
+            CFLAGS += -I $(RAYLIB_PATH)/include
+        endif
     else ifeq ($(UNAME_S),Linux)
         # Linux
         LDFLAGS = -lraylib -lm -lpthread -ldl -lrt -lX11 -lGL
