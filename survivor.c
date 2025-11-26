@@ -119,8 +119,7 @@ float FloatClamp(float value, float min, float max) {
 
 void InitGame() {
   // Player Init
-  player.position = (Vector2){
-      MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
+  player.position = (Vector2){MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
   player.radius = 20.0f;
   player.speed = 200.0f;
   player.maxHealth = 5;
