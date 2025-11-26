@@ -27,9 +27,17 @@ else
             # Fallback if brew not found
             LDFLAGS = -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
         else
-            # Use framework from Homebrew
-            LDFLAGS = -framework raylib -F $(RAYLIB_PATH)/lib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
-            CFLAGS += -I $(RAYLIB_PATH)/include
+            # Check if raylib framework exists
+            FRAMEWORK_EXISTS := $(shell test -d $(RAYLIB_PATH)/lib/raylib.framework && echo yes || echo no)
+            ifeq ($(FRAMEWORK_EXISTS),yes)
+                # Use framework from Homebrew
+                LDFLAGS = -framework raylib -F $(RAYLIB_PATH)/lib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
+                CFLAGS += -I $(RAYLIB_PATH)/include
+            else
+                # Use traditional library from Homebrew
+                LDFLAGS = -L $(RAYLIB_PATH)/lib -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
+                CFLAGS += -I $(RAYLIB_PATH)/include
+            endif
         endif
     else ifeq ($(UNAME_S),Linux)
         # Linux
