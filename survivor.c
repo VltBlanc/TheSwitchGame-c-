@@ -81,7 +81,7 @@ typedef struct {
   int damage;
 } Bullet;
 
-typedef enum { BONUS_DAMAGE } BonusType;
+typedef enum { BONUS_DAMAGE, BONUS_HEALTH } BonusType;
 
 typedef struct {
   bool active;
@@ -172,8 +172,14 @@ void SpawnBonus() {
   bonuses[slot].active = true;
   bonuses[slot].position = (Vector2){x, y};
   bonuses[slot].radius = 15.0f;
-  bonuses[slot].type = BONUS_DAMAGE;
-  bonuses[slot].color = GREEN;
+
+  if (GetRandomValue(0, 1) == 0) {
+    bonuses[slot].type = BONUS_DAMAGE;
+    bonuses[slot].color = RED;
+  } else {
+    bonuses[slot].type = BONUS_HEALTH;
+    bonuses[slot].color = GREEN;
+  }
 }
 
 void SpawnEnemy() {
@@ -375,6 +381,9 @@ void UpdateGame(float dt) {
                                 bonuses[i].position, bonuses[i].radius)) {
         if (bonuses[i].type == BONUS_DAMAGE) {
           player.damage += 1;
+        } else if (bonuses[i].type == BONUS_HEALTH) {
+          player.maxHealth += 1;
+          player.health = player.maxHealth;
         }
         bonuses[i].active = false;
       }
@@ -420,13 +429,7 @@ void DrawGame() {
   for (int y = 0; y <= MAP_HEIGHT; y += 100)
     DrawLine(0, y, MAP_WIDTH, y, LIGHTGRAY);
 
-  // Draw Player
   DrawCircleV(player.position, player.radius, BLUE);
-  // Health Bar above player
-  float hpPct = (float)player.health / (float)player.maxHealth;
-  DrawRectangle(player.position.x - 20, player.position.y - 35, 40, 5, RED);
-  DrawRectangle(player.position.x - 20, player.position.y - 35, 40 * hpPct, 5,
-                GREEN);
 
   // Draw Enemies
   for (int i = 0; i < MAX_ENEMIES; i++) {
@@ -456,7 +459,24 @@ void DrawGame() {
   // UI
   DrawText(TextFormat("SCORE: %d", score), 20, 20, 20, DARKGRAY);
   DrawText(TextFormat("TIME: %.1fs", gameTime), 20, 50, 20, DARKGRAY);
-  DrawText(TextFormat("DAMAGE: %.0f", player.damage), 20, 80, 20, DARKGREEN);
+
+  // Health Bar at bottom
+  float hpPct = (float)player.health / (float)player.maxHealth;
+  int barWidth = 300;
+  int barHeight = 20;
+  int barX = SCREEN_WIDTH / 2 - barWidth / 2;
+  int barY = SCREEN_HEIGHT - 40;
+
+  DrawRectangle(barX, barY, barWidth, barHeight, RED);
+  DrawRectangle(barX, barY, (int)(barWidth * hpPct), barHeight, GREEN);
+  DrawRectangleLines(barX, barY, barWidth, barHeight, BLACK);
+
+  DrawText(TextFormat("%d/%d", player.health, player.maxHealth),
+           barX + barWidth / 2 - 20, barY + 2, 20, WHITE);
+
+  // Damage Indicator next to Health Bar
+  DrawText(TextFormat("DMG: %.0f", player.damage), barX + barWidth + 20, barY,
+           20, RED);
 
   if (gameOver) {
     DrawText("GAME OVER", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 40, 40,
