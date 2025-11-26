@@ -119,7 +119,8 @@ float FloatClamp(float value, float min, float max) {
 
 void InitGame() {
   // Player Init
-  player.position = (Vector2){MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
+  player.position = (Vector2){
+      MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
   player.radius = 20.0f;
   player.speed = 200.0f;
   player.maxHealth = 5;
@@ -467,7 +468,9 @@ void DrawGame() {
   EndDrawing();
 }
 
-int main() {
+#include "include/survivor.h"
+
+void RunSurvivorGame(void) {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Survivor Simple");
   SetTargetFPS(60);
 
@@ -480,5 +483,4 @@ int main() {
   }
 
   CloseWindow();
-  return 0;
 }
