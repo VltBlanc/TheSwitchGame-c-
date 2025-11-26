@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 // --- VECTOR MATH HELPERS ---
 Vector2 MyVector2Add(Vector2 v1, Vector2 v2) {
   return (Vector2){v1.x + v2.x, v1.y + v2.y};
@@ -41,6 +40,7 @@ float MyVector2DistanceSqr(Vector2 v1, Vector2 v2) {
 
 #define MAX_ENEMIES 100
 #define MAX_BULLETS 200
+#define MAX_BONUSES 10
 
 // --- STRUCTS ---
 typedef struct {
@@ -81,16 +81,28 @@ typedef struct {
   int damage;
 } Bullet;
 
+typedef enum { BONUS_DAMAGE } BonusType;
+
+typedef struct {
+  bool active;
+  Vector2 position;
+  float radius;
+  BonusType type;
+  Color color;
+} Bonus;
+
 // --- GLOBALS ---
 Player player;
 Enemy enemies[MAX_ENEMIES] = {0};
 Bullet bullets[MAX_BULLETS] = {0};
+Bonus bonuses[MAX_BONUSES] = {0};
 
 Camera2D camera = {0};
 
 float gameTime = 0.0f;
 float spawnTimer = 0.0f;
-float timeToSpawn = 2.0f; // Initial spawn rate (slower than original)
+float bonusSpawnTimer = 0.0f;
+float timeToSpawn = 1.0f; // le spawn rate est de 1 par frame
 int score = 0;
 bool gameOver = false;
 
@@ -107,7 +119,8 @@ float FloatClamp(float value, float min, float max) {
 
 void InitGame() {
   // Player Init
-  player.position = (Vector2){MAP_WIDTH / 2, MAP_HEIGHT / 2};
+  player.position = (Vector2){
+      MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
   player.radius = 20.0f;
   player.speed = 200.0f;
   player.maxHealth = 5;
@@ -137,6 +150,30 @@ void InitGame() {
     enemies[i].active = false;
   for (int i = 0; i < MAX_BULLETS; i++)
     bullets[i].active = false;
+  for (int i = 0; i < MAX_BONUSES; i++)
+    bonuses[i].active = false;
+}
+
+void SpawnBonus() {
+  int slot = -1;
+  for (int i = 0; i < MAX_BONUSES; i++) {
+    if (!bonuses[i].active) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot == -1)
+    return;
+
+  // Random position within map bounds
+  float x = (float)GetRandomValue(50, MAP_WIDTH - 50);
+  float y = (float)GetRandomValue(50, MAP_HEIGHT - 50);
+
+  bonuses[slot].active = true;
+  bonuses[slot].position = (Vector2){x, y};
+  bonuses[slot].radius = 15.0f;
+  bonuses[slot].type = BONUS_DAMAGE;
+  bonuses[slot].color = GREEN;
 }
 
 void SpawnEnemy() {
@@ -247,6 +284,14 @@ void UpdateGame(float dt) {
   if (player.shootTimer >= player.fireRate) {
     int targetIdx = FindNearestEnemy();
     if (targetIdx != -1) {
+      float distSq =
+          MyVector2DistanceSqr(player.position, enemies[targetIdx].position);
+      // Only shoot if visible (approx half screen diagonal + buffer)
+      if (distSq > 675.0f * 675.0f)
+        targetIdx = -1;
+    }
+
+    if (targetIdx != -1) {
       // Find bullet slot
       int bSlot = -1;
       for (int i = 0; i < MAX_BULLETS; i++) {
@@ -317,6 +362,25 @@ void UpdateGame(float dt) {
     spawnTimer = 0.0f;
   }
 
+  // --- BONUSES ---
+  bonusSpawnTimer += dt;
+  if (bonusSpawnTimer >= 15.0f) {
+    SpawnBonus();
+    bonusSpawnTimer = 0.0f;
+  }
+
+  for (int i = 0; i < MAX_BONUSES; i++) {
+    if (bonuses[i].active) {
+      if (CheckCollisionCircles(player.position, player.radius,
+                                bonuses[i].position, bonuses[i].radius)) {
+        if (bonuses[i].type == BONUS_DAMAGE) {
+          player.damage += 1;
+        }
+        bonuses[i].active = false;
+      }
+    }
+  }
+
   // --- ENEMIES ---
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
@@ -378,11 +442,21 @@ void DrawGame() {
     }
   }
 
+  // Draw Bonuses
+  for (int i = 0; i < MAX_BONUSES; i++) {
+    if (bonuses[i].active) {
+      DrawCircleV(bonuses[i].position, bonuses[i].radius, bonuses[i].color);
+      DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y,
+                      bonuses[i].radius, WHITE);
+    }
+  }
+
   EndMode2D();
 
   // UI
   DrawText(TextFormat("SCORE: %d", score), 20, 20, 20, DARKGRAY);
   DrawText(TextFormat("TIME: %.1fs", gameTime), 20, 50, 20, DARKGRAY);
+  DrawText(TextFormat("DAMAGE: %.0f", player.damage), 20, 80, 20, DARKGREEN);
 
   if (gameOver) {
     DrawText("GAME OVER", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 40, 40,
