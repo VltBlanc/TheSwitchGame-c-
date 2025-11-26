@@ -1,5 +1,6 @@
-#include "menu.h"
+#include "include/menu.h"
 #include <stdio.h>
+#include <raylib.h>
 
 int main(void) {
     printf("Démarrage du jeu...\n");

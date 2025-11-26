@@ -1,4 +1,5 @@
-#include "menu.h"
+#include "include/menu.h"
+#include <stdlib.h>
 
 // Palette de couleurs pour le jeu
 #define COULEUR_FOND      (Color){ 20, 20, 40, 255 }      // Fond bleu foncé
