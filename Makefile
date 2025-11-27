@@ -16,7 +16,7 @@ $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	del /Q *.o *.exe
+	rm -f *.o *.exe
 
 run: $(TARGET)
 	./$(TARGET)
