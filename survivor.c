@@ -11,9 +11,9 @@
 #define MAP_WIDTH 3000
 #define MAP_HEIGHT 3000
 
-#define MAX_ENEMIES 100
-#define MAX_BULLETS 200
-#define MAX_BONUSES 10
+#define MAX_ENEMIES 300
+#define MAX_BULLETS 1000
+#define MAX_BONUSES 20
 
 // --- STRUCTS ---
 typedef struct {
@@ -31,6 +31,7 @@ typedef struct {
   float damage;
   float bulletSpeed;
   float bulletSize;
+
 } Player;
 
 typedef enum { ENEMY_NORMAL, ENEMY_TANK, ENEMY_FAST } EnemyType;
@@ -91,11 +92,11 @@ void InitGame(Difficulte difficulty) {
   player.position = (Vector2){
       MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
   player.radius = 20.0f;
-  player.speed = 200.0f;
+  player.speed = 450.0f;
 
   // Set stats based on difficulty
   if (difficulty == FACILE) {
-    player.maxHealth = 8;
+    player.maxHealth = 10;
     player.damage = 2;
   } else if (difficulty == DIFFICILE) {
     player.maxHealth = 3;
@@ -108,14 +109,14 @@ void InitGame(Difficulte difficulty) {
   player.health = player.maxHealth;
   player.isAlive = true;
 
-  player.fireRate = 0.5f;
+  player.fireRate = 0.15f; // Fast fire rate
   player.shootTimer = 0.0f;
   // Base damage is set above, but we ensure it's at least 1
   if (player.damage < 1)
     player.damage = 1;
 
-  player.bulletSpeed = 600.0f;
-  player.bulletSize = 8.0f;
+  player.bulletSpeed = 1200.0f;
+  player.bulletSize = 10.0f;
 
   // Camera Init
   camera.target = player.position;
@@ -178,14 +179,14 @@ void SpawnEnemy() {
     return;
 
   // Spawn logic based on time
-  // Difficulty factor increases slowly
-  float difficultyFactor = gameTime / 60.0f; // Increase every minute
+  // Difficulty factor increases fast
+  float difficultyFactor = gameTime / 10.0f; // Increase every 10s
 
   // Adjust difficulty factor based on selected difficulty
   if (currentDifficulty == FACILE) {
-    difficultyFactor = gameTime / 90.0f; // Slower increase
+    difficultyFactor = gameTime / 20.0f; // Slower increase
   } else if (currentDifficulty == DIFFICILE) {
-    difficultyFactor = gameTime / 45.0f; // Faster increase
+    difficultyFactor = gameTime / 5.0f; // Faster increase
   }
 
   // Spawn Position (outside camera view)
@@ -211,27 +212,28 @@ void SpawnEnemy() {
   // Determine Type based on difficulty/random
   int roll = GetRandomValue(0, 100);
 
-  if (difficultyFactor > 2.0f && roll < 20) {
+  if (difficultyFactor > 2.0f && roll < 15) {
     enemies[slot].type = ENEMY_TANK;
-    enemies[slot].radius = 30.0f;
-    enemies[slot].speed = 100.0f;
-    enemies[slot].maxHealth = 5 + (int)difficultyFactor * 2;
+    enemies[slot].radius = 35.0f;
+    enemies[slot].speed = 250.0f;
+    enemies[slot].maxHealth = 10 + (int)difficultyFactor; // Reduced scaling
     enemies[slot].color = DARKPURPLE;
-  } else if (difficultyFactor > 1.0f && roll > 80) {
+  } else if (difficultyFactor > 1.0f && roll > 70) {
     enemies[slot].type = ENEMY_FAST;
-    enemies[slot].radius = 15.0f;
-    enemies[slot].speed = 280.0f;
+    enemies[slot].radius = 12.0f;
+    enemies[slot].speed = 550.0f;
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
-    enemies[slot].maxHealth = 1 + (int)difficultyFactor;
+    enemies[slot].maxHealth =
+        1 + (int)(difficultyFactor * 0.2f); // Very low scaling
     enemies[slot].color = ORANGE;
   } else {
     enemies[slot].type = ENEMY_NORMAL;
     enemies[slot].radius = 20.0f;
-    enemies[slot].speed = 180.0f + (difficultyFactor * 10.0f);
+    enemies[slot].speed = 380.0f + (difficultyFactor * 5.0f);
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
-    enemies[slot].maxHealth = 1.5 + (int)difficultyFactor;
+    enemies[slot].maxHealth = 2 + (int)(difficultyFactor * 0.3f); // Low scaling
     enemies[slot].color = RED;
   }
 
@@ -296,6 +298,21 @@ void UpdateGame(float dt) {
 
   // Camera Follow
   camera.target = player.position;
+
+  // Clamp Camera to Map Bounds
+  float minX = SCREEN_WIDTH / 2.0f;
+  float minY = SCREEN_HEIGHT / 2.0f;
+  float maxX = MAP_WIDTH - SCREEN_WIDTH / 2.0f;
+  float maxY = MAP_HEIGHT - SCREEN_HEIGHT / 2.0f;
+
+  if (camera.target.x < minX)
+    camera.target.x = minX;
+  if (camera.target.x > maxX)
+    camera.target.x = maxX;
+  if (camera.target.y < minY)
+    camera.target.y = minY;
+  if (camera.target.y > maxY)
+    camera.target.y = maxY;
 
   // --- SHOOTING ---
   player.shootTimer += dt;
@@ -374,11 +391,11 @@ void UpdateGame(float dt) {
   }
 
   // --- SPAWNING ---
-  // Spawn rate increases slowly over time
-  // Base 2.0s, decreases by 0.1s every 30s, min 0.2s
-  float currentSpawnRate = 1.0f - (gameTime / 30.0f) * 0.1f;
-  if (currentSpawnRate < 0.2f)
-    currentSpawnRate = 0.2f;
+  // Spawn rate increases fast
+  // Base 0.8s, decreases by 0.05s every 10s, min 0.1s
+  float currentSpawnRate = 0.8f - (gameTime / 10.0f) * 0.05f;
+  if (currentSpawnRate < 0.1f)
+    currentSpawnRate = 0.1f;
 
   spawnTimer += dt;
   if (spawnTimer >= currentSpawnRate) {
@@ -446,17 +463,6 @@ void DrawGame() {
   // Draw Background
   DrawTexture(background, 0, 0, WHITE);
 
-  // Draw Map Borders (Thick black line)
-  DrawRectangleLinesEx((Rectangle){0, 0, MAP_WIDTH, MAP_HEIGHT}, 50, BLACK);
-
-  // Draw Grid for reference (Optional, maybe remove if background is good)
-  /*
-  for (int x = 0; x <= MAP_WIDTH; x += 100)
-    DrawLine(x, 0, x, MAP_HEIGHT, LIGHTGRAY);
-  for (int y = 0; y <= MAP_HEIGHT; y += 100)
-    DrawLine(0, y, MAP_WIDTH, y, LIGHTGRAY);
-  */
-
   DrawCircleV(player.position, player.radius, BLUE);
 
   // Draw Enemies
@@ -485,6 +491,9 @@ void DrawGame() {
   EndMode2D();
 
   // UI
+  int screenW = GetScreenWidth();
+  int screenH = GetScreenHeight();
+
   DrawText(TextFormat("SCORE: %d", score), 20, 20, 20, DARKGRAY);
   DrawText(TextFormat("TIME: %.1fs", gameTime), 20, 50, 20, DARKGRAY);
 
@@ -492,8 +501,8 @@ void DrawGame() {
   float hpPct = (float)player.health / (float)player.maxHealth;
   int barWidth = 300;
   int barHeight = 20;
-  int barX = SCREEN_WIDTH / 2 - barWidth / 2;
-  int barY = SCREEN_HEIGHT - 40;
+  int barX = screenW / 2 - barWidth / 2;
+  int barY = screenH - 40;
 
   DrawRectangle(barX, barY, barWidth, barHeight, RED);
   DrawRectangle(barX, barY, (int)(barWidth * hpPct), barHeight, GREEN);
@@ -507,10 +516,9 @@ void DrawGame() {
            20, RED);
 
   if (gameOver) {
-    DrawText("GAME OVER", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 40, 40,
-             RED);
-    DrawText("Press R to Restart", SCREEN_WIDTH / 2 - 100,
-             SCREEN_HEIGHT / 2 + 10, 20, DARKGRAY);
+    DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
+    DrawText("Press R to Restart", screenW / 2 - 100, screenH / 2 + 10, 20,
+             DARKGRAY);
   }
 
   DrawFPS(10, 10); // Show FPS to debug performance
@@ -520,12 +528,8 @@ void DrawGame() {
 #include "include/survivor.h"
 
 void RunSurvivorGame(Difficulte difficulty) {
-  SetConfigFlags(FLAG_VSYNC_HINT); // Try VSync to smooth out frame pacing
-  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Survivor Simple");
-  ClearWindowState(FLAG_FULLSCREEN_MODE);  // Explicitly ensure no fullscreen
-  ClearWindowState(FLAG_WINDOW_RESIZABLE); // Ensure not resizable
-  ClearWindowState(FLAG_WINDOW_MAXIMIZED); // Ensure not maximized
-  SetTargetFPS(60);
+  SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+  SetWindowTitle("Survivor Simple");
 
   background = LoadTexture("assets/Space-Background.png");
 
@@ -538,5 +542,4 @@ void RunSurvivorGame(Difficulte difficulty) {
   }
 
   UnloadTexture(background);
-  CloseWindow();
 }

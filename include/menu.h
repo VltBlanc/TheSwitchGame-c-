@@ -1,7 +1,7 @@
 #ifndef MENU_H
 #define MENU_H
 
-#include "raylib.h"
+#include <raylib.h>
 #include "scores.h"
 
 #define LARGEUR_ECRAN 800

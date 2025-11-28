@@ -49,15 +49,12 @@ int main(void) {
       printf("Paramètres: %d joueur(s), difficulté %s\n", menu->mode + 1,
              get_difficulty_text(menu->niveau));
 
-      // Fermer la fenêtre du menu
-      CloseWindow();
-
       // Lancer le jeu
       RunSurvivorGame(menu->niveau);
 
-      // Réinitialiser la fenêtre du menu après le jeu
-      InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Jeu de Menu - Projet C");
-      SetTargetFPS(60);
+      // Restaurer la fenêtre du menu
+      SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);
+      SetWindowTitle("Jeu de Menu - Projet C");
 
       printf("Retour au menu principal...\n");
       menu->etat = MENU_PRINCIPAL;
