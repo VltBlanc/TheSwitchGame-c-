@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 // --- Constantes ---
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -169,12 +168,16 @@ void SpawnEnemy() {
                       player.position.y + sinf(angle) * dist};
 
   // Clamp to map
-  spawnPos.x = (spawnPos.x < 0)
-                   ? 0
-                   : ((spawnPos.x > MAP_WIDTH) ? MAP_WIDTH : spawnPos.x);
-  spawnPos.y = (spawnPos.y < 0)
-                   ? 0
-                   : ((spawnPos.y > MAP_HEIGHT) ? MAP_HEIGHT : spawnPos.y);
+  // Clamp to map
+  if (spawnPos.x < 0)
+    spawnPos.x = 0;
+  else if (spawnPos.x > MAP_WIDTH)
+    spawnPos.x = MAP_WIDTH;
+
+  if (spawnPos.y < 0)
+    spawnPos.y = 0;
+  else if (spawnPos.y > MAP_HEIGHT)
+    spawnPos.y = MAP_HEIGHT;
 
   enemies[slot].position = spawnPos;
   enemies[slot].active = true;
