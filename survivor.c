@@ -491,7 +491,9 @@ void DrawGame() {
 #include "include/survivor.h"
 
 void RunSurvivorGame(void) {
+  SetConfigFlags(0); // Reset flags to default (windowed, not resizable)
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Survivor Simple");
+  ClearWindowState(FLAG_FULLSCREEN_MODE); // Explicitly ensure no fullscreen
   SetTargetFPS(60);
 
   InitGame();
