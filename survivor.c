@@ -8,8 +8,8 @@
 // --- Constantes ---
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
-#define MAP_WIDTH 2000
-#define MAP_HEIGHT 2000
+#define MAP_WIDTH 3000
+#define MAP_HEIGHT 3000
 
 #define MAX_ENEMIES 100
 #define MAX_BULLETS 200
@@ -70,6 +70,7 @@ Player player;
 Enemy enemies[MAX_ENEMIES] = {0};
 Bullet bullets[MAX_BULLETS] = {0};
 Bonus bonuses[MAX_BONUSES] = {0};
+Texture2D background;
 
 Camera2D camera = {0};
 
@@ -442,14 +443,19 @@ void DrawGame() {
 
   BeginMode2D(camera);
 
-  // Draw Map Borders
-  DrawRectangleLines(0, 0, MAP_WIDTH, MAP_HEIGHT, GRAY);
+  // Draw Background
+  DrawTexture(background, 0, 0, WHITE);
 
-  // Draw Grid for reference
+  // Draw Map Borders (Thick black line)
+  DrawRectangleLinesEx((Rectangle){0, 0, MAP_WIDTH, MAP_HEIGHT}, 50, BLACK);
+
+  // Draw Grid for reference (Optional, maybe remove if background is good)
+  /*
   for (int x = 0; x <= MAP_WIDTH; x += 100)
     DrawLine(x, 0, x, MAP_HEIGHT, LIGHTGRAY);
   for (int y = 0; y <= MAP_HEIGHT; y += 100)
     DrawLine(0, y, MAP_WIDTH, y, LIGHTGRAY);
+  */
 
   DrawCircleV(player.position, player.radius, BLUE);
 
@@ -507,18 +513,21 @@ void DrawGame() {
              SCREEN_HEIGHT / 2 + 10, 20, DARKGRAY);
   }
 
+  DrawFPS(10, 10); // Show FPS to debug performance
   EndDrawing();
 }
 
 #include "include/survivor.h"
 
 void RunSurvivorGame(Difficulte difficulty) {
-  SetConfigFlags(0); // Reset flags to default
+  SetConfigFlags(FLAG_VSYNC_HINT); // Try VSync to smooth out frame pacing
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Survivor Simple");
   ClearWindowState(FLAG_FULLSCREEN_MODE);  // Explicitly ensure no fullscreen
   ClearWindowState(FLAG_WINDOW_RESIZABLE); // Ensure not resizable
   ClearWindowState(FLAG_WINDOW_MAXIMIZED); // Ensure not maximized
   SetTargetFPS(60);
+
+  background = LoadTexture("assets/Space-Background.png");
 
   InitGame(difficulty);
 
@@ -528,5 +537,6 @@ void RunSurvivorGame(Difficulte difficulty) {
     DrawGame();
   }
 
+  UnloadTexture(background);
   CloseWindow();
 }
