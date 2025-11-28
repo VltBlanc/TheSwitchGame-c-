@@ -12,9 +12,6 @@ bash```
 ./the_switch_game
 ```
 
-branche de Hugo :
-pour lancer : 
- gcc jeuhugo.c -o jeuhugo -L"C:/raylib/raylib/src" -lraylib -lopengl32 -lgdi32 -lwinmm ; .\jeuhugo.exe
 
 
 Prochaines étapes,
