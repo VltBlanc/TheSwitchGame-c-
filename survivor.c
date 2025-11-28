@@ -1,3 +1,4 @@
+#include "include/menu.h"
 #include <math.h>
 #include <raylib.h>
 #include <stdbool.h>
@@ -78,22 +79,40 @@ float bonusSpawnTimer = 0.0f;
 float timeToSpawn = 1.0f; // le spawn rate est de 1 par frame
 int score = 0;
 bool gameOver = false;
+Difficulte currentDifficulty = MOYEN;
 
 // --- GAME LOGIC ---
 
-void InitGame() {
+void InitGame(Difficulte difficulty) {
+  currentDifficulty = difficulty;
+
   // Player Init
   player.position = (Vector2){
       MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
   player.radius = 20.0f;
   player.speed = 200.0f;
-  player.maxHealth = 5;
+
+  // Set stats based on difficulty
+  if (difficulty == FACILE) {
+    player.maxHealth = 8;
+    player.damage = 2;
+  } else if (difficulty == DIFFICILE) {
+    player.maxHealth = 3;
+    player.damage = 1;
+  } else {
+    player.maxHealth = 5;
+    player.damage = 1;
+  }
+
   player.health = player.maxHealth;
   player.isAlive = true;
 
   player.fireRate = 0.5f;
   player.shootTimer = 0.0f;
-  player.damage = 1;
+  // Base damage is set above, but we ensure it's at least 1
+  if (player.damage < 1)
+    player.damage = 1;
+
   player.bulletSpeed = 600.0f;
   player.bulletSize = 8.0f;
 
@@ -159,7 +178,14 @@ void SpawnEnemy() {
 
   // Spawn logic based on time
   // Difficulty factor increases slowly
-  float difficulty = gameTime / 60.0f; // Increase every minute
+  float difficultyFactor = gameTime / 60.0f; // Increase every minute
+
+  // Adjust difficulty factor based on selected difficulty
+  if (currentDifficulty == FACILE) {
+    difficultyFactor = gameTime / 90.0f; // Slower increase
+  } else if (currentDifficulty == DIFFICILE) {
+    difficultyFactor = gameTime / 45.0f; // Faster increase
+  }
 
   // Spawn Position (outside camera view)
   float angle = GetRandomValue(0, 360) * DEG2RAD;
@@ -167,7 +193,6 @@ void SpawnEnemy() {
   Vector2 spawnPos = {player.position.x + cosf(angle) * dist,
                       player.position.y + sinf(angle) * dist};
 
-  // Clamp to map
   // Clamp to map
   if (spawnPos.x < 0)
     spawnPos.x = 0;
@@ -185,23 +210,27 @@ void SpawnEnemy() {
   // Determine Type based on difficulty/random
   int roll = GetRandomValue(0, 100);
 
-  if (difficulty > 2.0f && roll < 20) {
+  if (difficultyFactor > 2.0f && roll < 20) {
     enemies[slot].type = ENEMY_TANK;
     enemies[slot].radius = 30.0f;
     enemies[slot].speed = 100.0f;
-    enemies[slot].maxHealth = 5 + (int)difficulty * 2;
+    enemies[slot].maxHealth = 5 + (int)difficultyFactor * 2;
     enemies[slot].color = DARKPURPLE;
-  } else if (difficulty > 1.0f && roll > 80) {
+  } else if (difficultyFactor > 1.0f && roll > 80) {
     enemies[slot].type = ENEMY_FAST;
     enemies[slot].radius = 15.0f;
     enemies[slot].speed = 280.0f;
-    enemies[slot].maxHealth = 1 + (int)difficulty;
+    if (currentDifficulty == DIFFICILE)
+      enemies[slot].speed *= 1.2f;
+    enemies[slot].maxHealth = 1 + (int)difficultyFactor;
     enemies[slot].color = ORANGE;
   } else {
     enemies[slot].type = ENEMY_NORMAL;
     enemies[slot].radius = 20.0f;
-    enemies[slot].speed = 180.0f + (difficulty * 10.0f);
-    enemies[slot].maxHealth = 1.5 + (int)difficulty;
+    enemies[slot].speed = 180.0f + (difficultyFactor * 10.0f);
+    if (currentDifficulty == DIFFICILE)
+      enemies[slot].speed *= 1.2f;
+    enemies[slot].maxHealth = 1.5 + (int)difficultyFactor;
     enemies[slot].color = RED;
   }
 
@@ -229,7 +258,7 @@ int FindNearestEnemy() {
 void UpdateGame(float dt) {
   if (gameOver) {
     if (IsKeyPressed(KEY_R))
-      InitGame();
+      InitGame(currentDifficulty);
     return;
   }
 
@@ -483,7 +512,7 @@ void DrawGame() {
 
 #include "include/survivor.h"
 
-void RunSurvivorGame(void) {
+void RunSurvivorGame(Difficulte difficulty) {
   SetConfigFlags(0); // Reset flags to default
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Survivor Simple");
   ClearWindowState(FLAG_FULLSCREEN_MODE);  // Explicitly ensure no fullscreen
@@ -491,7 +520,7 @@ void RunSurvivorGame(void) {
   ClearWindowState(FLAG_WINDOW_MAXIMIZED); // Ensure not maximized
   SetTargetFPS(60);
 
-  InitGame();
+  InitGame(difficulty);
 
   while (!WindowShouldClose()) {
     float dt = GetFrameTime();

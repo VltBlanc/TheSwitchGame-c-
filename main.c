@@ -53,7 +53,7 @@ int main(void) {
       CloseWindow();
 
       // Lancer le jeu
-      RunSurvivorGame();
+      RunSurvivorGame(menu->niveau);
 
       // Réinitialiser la fenêtre du menu après le jeu
       InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Jeu de Menu - Projet C");

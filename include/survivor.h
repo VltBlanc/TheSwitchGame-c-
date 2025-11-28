@@ -3,6 +3,10 @@
 
 // Lance la boucle de jeu survivor
 // Cette fonction initialise sa propre fenêtre et la ferme à la fin
-void RunSurvivorGame(void);
+#include "menu.h"
+
+// Lance la boucle de jeu survivor
+// Cette fonction initialise sa propre fenêtre et la ferme à la fin
+void RunSurvivorGame(Difficulte difficulty);
 
 #endif // SURVIVOR_H
