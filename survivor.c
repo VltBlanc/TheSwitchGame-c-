@@ -32,6 +32,13 @@ typedef struct {
   float bulletSpeed;
   float bulletSize;
 
+  // dash
+  bool isDashing;
+  float dashTimer;
+  float dashCooldown;
+  float dashSpeed;
+  float dashDuration;
+
 } Player;
 
 typedef enum { ENEMY_NORMAL, ENEMY_TANK, ENEMY_FAST } EnemyType;
@@ -117,6 +124,13 @@ void InitGame(Difficulte difficulty) {
 
   player.bulletSpeed = 1200.0f;
   player.bulletSize = 10.0f;
+
+  // Dash Init
+  player.isDashing = false;
+  player.dashTimer = 0.0f;
+  player.dashCooldown = 0.1f;
+  player.dashSpeed = 2000.0f; // Fast dash
+  player.dashDuration = 0.1f; // Short duration
 
   // Camera Init
   camera.target = player.position;
@@ -282,8 +296,32 @@ void UpdateGame(float dt) {
   if (moveLen > 0) {
     move.x /= moveLen;
     move.y /= moveLen;
-    player.position.x += move.x * player.speed * dt;
-    player.position.y += move.y * player.speed * dt;
+  }
+
+  // Dash Logic
+  if (player.dashCooldown > 0)
+    player.dashCooldown -= dt;
+
+  if (IsKeyPressed(KEY_SPACE) && player.dashCooldown <= 0 && moveLen > 0) {
+    player.isDashing = true;
+    player.dashTimer = player.dashDuration;
+    player.dashCooldown = 1.0f; // 1 second cooldown
+  }
+
+  float currentSpeed = player.speed;
+  if (player.isDashing) {
+    currentSpeed = player.dashSpeed;
+    player.dashTimer -= dt;
+    if (player.dashTimer <= 0) {
+      player.isDashing = false;
+    }
+  }
+
+  if (moveLen > 0 || player.isDashing) {
+    // If dashing, keep moving in last direction if no input?
+    // Simplified: Dash only works while moving
+    player.position.x += move.x * currentSpeed * dt;
+    player.position.y += move.y * currentSpeed * dt;
   }
 
   // Clamp Player
@@ -528,8 +566,8 @@ void DrawGame() {
 #include "include/survivor.h"
 
 void RunSurvivorGame(Difficulte difficulty) {
-  SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
-  SetWindowTitle("Survivor Simple");
+  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "survivor");
+  SetTargetFPS(60);
 
   background = LoadTexture("assets/Space-Background.png");
 
