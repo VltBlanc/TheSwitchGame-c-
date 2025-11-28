@@ -1,38 +1,11 @@
-#include "raylib.h"
 #include <math.h>
+#include <raylib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-// --- VECTOR MATH HELPERS ---
-Vector2 MyVector2Add(Vector2 v1, Vector2 v2) {
-  return (Vector2){v1.x + v2.x, v1.y + v2.y};
-}
 
-Vector2 MyVector2Subtract(Vector2 v1, Vector2 v2) {
-  return (Vector2){v1.x - v2.x, v1.y - v2.y};
-}
-
-Vector2 MyVector2Scale(Vector2 v, float scale) {
-  return (Vector2){v.x * scale, v.y * scale};
-}
-
-float MyVector2Length(Vector2 v) { return sqrtf(v.x * v.x + v.y * v.y); }
-
-Vector2 MyVector2Normalize(Vector2 v) {
-  float length = MyVector2Length(v);
-  if (length > 0)
-    return MyVector2Scale(v, 1.0f / length);
-  return (Vector2){0, 0};
-}
-
-float MyVector2DistanceSqr(Vector2 v1, Vector2 v2) {
-  float dx = v1.x - v2.x;
-  float dy = v1.y - v2.y;
-  return dx * dx + dy * dy;
-}
-
-// --- CONSTANTS ---
+// --- Constantes ---
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 #define MAP_WIDTH 2000
@@ -44,6 +17,7 @@ float MyVector2DistanceSqr(Vector2 v1, Vector2 v2) {
 
 // --- STRUCTS ---
 typedef struct {
+  // personnage
   Vector2 position;
   float radius;
   float speed;
@@ -51,7 +25,7 @@ typedef struct {
   int maxHealth;
   bool isAlive;
 
-  // Shooting
+  // variables pour le tir
   float fireRate;
   float shootTimer;
   float damage;
@@ -60,7 +34,7 @@ typedef struct {
 } Player;
 
 typedef enum { ENEMY_NORMAL, ENEMY_TANK, ENEMY_FAST } EnemyType;
-
+// enemies
 typedef struct {
   bool active;
   Vector2 position;
@@ -105,15 +79,6 @@ float bonusSpawnTimer = 0.0f;
 float timeToSpawn = 1.0f; // le spawn rate est de 1 par frame
 int score = 0;
 bool gameOver = false;
-
-// --- MATH HELPERS ---
-float FloatClamp(float value, float min, float max) {
-  if (value < min)
-    return min;
-  if (value > max)
-    return max;
-  return value;
-}
 
 // --- GAME LOGIC ---
 
@@ -204,8 +169,12 @@ void SpawnEnemy() {
                       player.position.y + sinf(angle) * dist};
 
   // Clamp to map
-  spawnPos.x = FloatClamp(spawnPos.x, 0, MAP_WIDTH);
-  spawnPos.y = FloatClamp(spawnPos.y, 0, MAP_HEIGHT);
+  spawnPos.x = (spawnPos.x < 0)
+                   ? 0
+                   : ((spawnPos.x > MAP_WIDTH) ? MAP_WIDTH : spawnPos.x);
+  spawnPos.y = (spawnPos.y < 0)
+                   ? 0
+                   : ((spawnPos.y > MAP_HEIGHT) ? MAP_HEIGHT : spawnPos.y);
 
   enemies[slot].position = spawnPos;
   enemies[slot].active = true;
@@ -242,7 +211,9 @@ int FindNearestEnemy() {
 
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
-      float d = MyVector2DistanceSqr(player.position, enemies[i].position);
+      float dx = player.position.x - enemies[i].position.x;
+      float dy = player.position.y - enemies[i].position.y;
+      float d = dx * dx + dy * dy;
       if (d < minDistSq) {
         minDistSq = d;
         nearest = i;
@@ -272,15 +243,23 @@ void UpdateGame(float dt) {
   if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
     move.x += 1;
 
-  if (MyVector2Length(move) > 0) {
-    move = MyVector2Normalize(move);
-    player.position =
-        MyVector2Add(player.position, MyVector2Scale(move, player.speed * dt));
+  float moveLen = sqrtf(move.x * move.x + move.y * move.y);
+  if (moveLen > 0) {
+    move.x /= moveLen;
+    move.y /= moveLen;
+    player.position.x += move.x * player.speed * dt;
+    player.position.y += move.y * player.speed * dt;
   }
 
   // Clamp Player
-  player.position.x = FloatClamp(player.position.x, 0, MAP_WIDTH);
-  player.position.y = FloatClamp(player.position.y, 0, MAP_HEIGHT);
+  player.position.x =
+      (player.position.x < 0)
+          ? 0
+          : ((player.position.x > MAP_WIDTH) ? MAP_WIDTH : player.position.x);
+  player.position.y =
+      (player.position.y < 0)
+          ? 0
+          : ((player.position.y > MAP_HEIGHT) ? MAP_HEIGHT : player.position.y);
 
   // Camera Follow
   camera.target = player.position;
@@ -290,8 +269,9 @@ void UpdateGame(float dt) {
   if (player.shootTimer >= player.fireRate) {
     int targetIdx = FindNearestEnemy();
     if (targetIdx != -1) {
-      float distSq =
-          MyVector2DistanceSqr(player.position, enemies[targetIdx].position);
+      float dx = player.position.x - enemies[targetIdx].position.x;
+      float dy = player.position.y - enemies[targetIdx].position.y;
+      float distSq = dx * dx + dy * dy;
       // Only shoot if visible (approx half screen diagonal + buffer)
       if (distSq > 675.0f * 675.0f)
         targetIdx = -1;
@@ -308,13 +288,18 @@ void UpdateGame(float dt) {
       }
 
       if (bSlot != -1) {
-        Vector2 dir =
-            MyVector2Subtract(enemies[targetIdx].position, player.position);
-        dir = MyVector2Normalize(dir);
+        Vector2 dir = {enemies[targetIdx].position.x - player.position.x,
+                       enemies[targetIdx].position.y - player.position.y};
+        float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
+        if (dirLen > 0) {
+          dir.x /= dirLen;
+          dir.y /= dirLen;
+        }
 
         bullets[bSlot].active = true;
         bullets[bSlot].position = player.position;
-        bullets[bSlot].velocity = MyVector2Scale(dir, player.bulletSpeed);
+        bullets[bSlot].velocity =
+            (Vector2){dir.x * player.bulletSpeed, dir.y * player.bulletSpeed};
         bullets[bSlot].radius = player.bulletSize;
         bullets[bSlot].lifeTime = 2.0f;
         bullets[bSlot].damage = player.damage;
@@ -327,8 +312,8 @@ void UpdateGame(float dt) {
   // --- BULLETS ---
   for (int i = 0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
-      bullets[i].position = MyVector2Add(
-          bullets[i].position, MyVector2Scale(bullets[i].velocity, dt));
+      bullets[i].position.x += bullets[i].velocity.x * dt;
+      bullets[i].position.y += bullets[i].velocity.y * dt;
       bullets[i].lifeTime -= dt;
 
       if (bullets[i].lifeTime <= 0) {
@@ -393,10 +378,15 @@ void UpdateGame(float dt) {
   // --- ENEMIES ---
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
-      Vector2 dir = MyVector2Subtract(player.position, enemies[i].position);
-      dir = MyVector2Normalize(dir);
-      enemies[i].position = MyVector2Add(
-          enemies[i].position, MyVector2Scale(dir, enemies[i].speed * dt));
+      Vector2 dir = {player.position.x - enemies[i].position.x,
+                     player.position.y - enemies[i].position.y};
+      float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
+      if (dirLen > 0) {
+        dir.x /= dirLen;
+        dir.y /= dirLen;
+      }
+      enemies[i].position.x += dir.x * enemies[i].speed * dt;
+      enemies[i].position.y += dir.y * enemies[i].speed * dt;
 
       // Collision with Player
       if (CheckCollisionCircles(player.position, player.radius,
@@ -491,9 +481,11 @@ void DrawGame() {
 #include "include/survivor.h"
 
 void RunSurvivorGame(void) {
-  SetConfigFlags(0); // Reset flags to default (windowed, not resizable)
+  SetConfigFlags(0); // Reset flags to default
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Survivor Simple");
-  ClearWindowState(FLAG_FULLSCREEN_MODE); // Explicitly ensure no fullscreen
+  ClearWindowState(FLAG_FULLSCREEN_MODE);  // Explicitly ensure no fullscreen
+  ClearWindowState(FLAG_WINDOW_RESIZABLE); // Ensure not resizable
+  ClearWindowState(FLAG_WINDOW_MAXIMIZED); // Ensure not maximized
   SetTargetFPS(60);
 
   InitGame();
