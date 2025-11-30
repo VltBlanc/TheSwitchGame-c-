@@ -7,18 +7,15 @@ CFLAGS = -Wall -Wextra -std=c99 -O2
 
 # Detect operating system
 UNAME_S := $(shell uname -s)
-UNAME_M := $(shell uname -m)
 
 # Platform-specific libraries
 ifeq ($(OS),Windows_NT)
     # Windows (MinGW)
     LDFLAGS = -lraylib -lwinmm -lgdi32 -lopengl32
     EXE_EXT = .exe
-    RM_CMD = del /Q
 else
     # Unix-like systems (Linux, macOS)
     EXE_EXT =
-    RM_CMD = rm -f
 
     ifeq ($(UNAME_S),Darwin)
         # macOS
@@ -45,17 +42,35 @@ else
     endif
 endif
 
-# Source files
-SOURCES = main.c menu.c scores.c survivor.c
-OBJECTS = $(SOURCES:.c=.o)
+# Common commands (assuming unix-like shell available via MinGW/Git Bash)
+RM_CMD = rm -rf
+MKDIR_CMD = mkdir -p
+
+# Directories
+BUILD_DIR = build
+SRC_DIR = .
+
+# Sources (wildcard for all .c files in current directory, excluding test_stdio.c)
+SRCS = $(filter-out $(SRC_DIR)/test_stdio.c, $(wildcard $(SRC_DIR)/*.c))
+# Objects in build directory
+OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
 TARGET = the_switch_game$(EXE_EXT)
 
 # Default target
 all: $(TARGET)
 
 # Build the executable
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+# Compile object files
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Create build directory
+$(BUILD_DIR):
+	$(MKDIR_CMD) $@
 
 # Run the game
 run: $(TARGET)
@@ -63,26 +78,14 @@ run: $(TARGET)
 
 # Clean build artifacts
 clean:
-	$(RM_CMD) $(OBJECTS) $(TARGET)
+	$(RM_CMD) $(BUILD_DIR) $(TARGET)
 
 # Show build info
 info:
 	@echo "Detected OS: $(UNAME_S)"
 	@echo "Target executable: $(TARGET)"
 	@echo "Linker flags: $(LDFLAGS)"
+	@echo "Sources: $(SRCS)"
+	@echo "Objects: $(OBJS)"
 
-# Platform-specific installation help
-help-platform:
-	@echo "Platform-specific Raylib installation instructions:"
-	@echo ""
-	@if [ "$(UNAME_S)" = "Darwin" ]; then \
-		echo "macOS: brew install raylib"; \
-	elif [ "$(UNAME_S)" = "Linux" ]; then \
-		echo "Linux (Ubuntu/Debian): sudo apt install libraylib-dev"; \
-		echo "Linux (Arch): sudo pacman -S raylib"; \
-		echo "Linux (Fedora): sudo dnf install raylib-devel"; \
-	else \
-		echo "Windows: Download from https://www.raylib.com/ or use vcpkg"; \
-	fi
-
-.PHONY: all debug clean install-deps install-deps-arch check-deps run help info help-platform
+.PHONY: all clean run info

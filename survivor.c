@@ -1,6 +1,7 @@
 #include "include/menu.h"
 #include <math.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,10 +16,10 @@
 #define MAX_BULLETS 1000
 #define MAX_BONUSES 20
 
-// --- STRUCTS ---
+// --- STRUCTURES ---
 typedef struct {
   // personnage
-  Vector2 position;
+  Vector2 position; 
   float radius;
   float speed;
   int health;
@@ -42,7 +43,7 @@ typedef struct {
 } Player;
 
 typedef enum { ENEMY_NORMAL, ENEMY_TANK, ENEMY_FAST } EnemyType;
-// enemies
+// ennemis
 typedef struct {
   bool active;
   Vector2 position;
@@ -95,13 +96,13 @@ Difficulte currentDifficulty = MOYEN;
 void InitGame(Difficulte difficulty) {
   currentDifficulty = difficulty;
 
-  // Player Init
+  // Initialisation du joueur
   player.position = (Vector2){
       MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
   player.radius = 20.0f;
   player.speed = 450.0f;
 
-  // Set stats based on difficulty
+  // Définir les stats selon la difficulté
   if (difficulty == FACILE) {
     player.maxHealth = 10;
     player.damage = 2;
@@ -116,29 +117,25 @@ void InitGame(Difficulte difficulty) {
   player.health = player.maxHealth;
   player.isAlive = true;
 
-  player.fireRate = 0.15f; // Fast fire rate
+  player.fireRate = 0.15f; // Cadence de tir rapide
   player.shootTimer = 0.0f;
-  // Base damage is set above, but we ensure it's at least 1
-  if (player.damage < 1)
-    player.damage = 1;
-
   player.bulletSpeed = 1200.0f;
   player.bulletSize = 10.0f;
 
-  // Dash Init
+  // Initialisation du Dash
   player.isDashing = false;
   player.dashTimer = 0.0f;
   player.dashCooldown = 0.1f;
-  player.dashSpeed = 2000.0f; // Fast dash
-  player.dashDuration = 0.1f; // Short duration
+  player.dashSpeed = 2000.0f; // Dash rapide
+  player.dashDuration = 0.1f; // Courte durée
 
-  // Camera Init
+  // Initialisation de la caméra
   camera.target = player.position;
   camera.offset = (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f};
   camera.rotation = 0.0f;
   camera.zoom = 1.0f;
 
-  // Reset Globals
+  // Réinitialisation des variables globales
   gameTime = 0.0f;
   spawnTimer = 0.0f;
   timeToSpawn = 2.0f;
@@ -164,7 +161,7 @@ void SpawnBonus() {
   if (slot == -1)
     return;
 
-  // Random position within map bounds
+  // Position aléatoire dans les limites de la map
   float x = (float)GetRandomValue(50, MAP_WIDTH - 50);
   float y = (float)GetRandomValue(50, MAP_HEIGHT - 50);
 
@@ -192,24 +189,24 @@ void SpawnEnemy() {
   if (slot == -1)
     return;
 
-  // Spawn logic based on time
-  // Difficulty factor increases fast
-  float difficultyFactor = gameTime / 10.0f; // Increase every 10s
+  // Logique de spawn basée sur le temps
+  // Le facteur de difficulté augmente rapidement
+  float difficultyFactor = gameTime / 10.0f; // Augmente toutes les 10f
 
-  // Adjust difficulty factor based on selected difficulty
+  // Ajuster le facteur de difficulté selon la difficulté sélectionnée
   if (currentDifficulty == FACILE) {
-    difficultyFactor = gameTime / 20.0f; // Slower increase
+    difficultyFactor = gameTime / 20.0f; // Augmentation plus lente
   } else if (currentDifficulty == DIFFICILE) {
-    difficultyFactor = gameTime / 5.0f; // Faster increase
+    difficultyFactor = gameTime / 5.0f; // Augmentation plus rapide
   }
 
-  // Spawn Position (outside camera view)
+  // Position de spawn (hors du champ de la caméra)
   float angle = GetRandomValue(0, 360) * DEG2RAD;
-  float dist = 800.0f; // Outside typical screen range
+  float dist = 800.0f; // Hors de la portée typique de l'écran
   Vector2 spawnPos = {player.position.x + cosf(angle) * dist,
                       player.position.y + sinf(angle) * dist};
 
-  // Clamp to map
+  // Restreindre à la map
   if (spawnPos.x < 0)
     spawnPos.x = 0;
   else if (spawnPos.x > MAP_WIDTH)
@@ -223,14 +220,14 @@ void SpawnEnemy() {
   enemies[slot].position = spawnPos;
   enemies[slot].active = true;
 
-  // Determine Type based on difficulty/random
+  // Déterminer le type d'ennemi basé sur la difficulté/aléatoire
   int roll = GetRandomValue(0, 100);
 
   if (difficultyFactor > 2.0f && roll < 15) {
     enemies[slot].type = ENEMY_TANK;
     enemies[slot].radius = 35.0f;
     enemies[slot].speed = 250.0f;
-    enemies[slot].maxHealth = 10 + (int)difficultyFactor; // Reduced scaling
+    enemies[slot].maxHealth = 10 + (int)difficultyFactor;
     enemies[slot].color = DARKPURPLE;
   } else if (difficultyFactor > 1.0f && roll > 70) {
     enemies[slot].type = ENEMY_FAST;
@@ -239,7 +236,7 @@ void SpawnEnemy() {
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
     enemies[slot].maxHealth =
-        1 + (int)(difficultyFactor * 0.2f); // Very low scaling
+        1 + (int)(difficultyFactor * 0.2f);
     enemies[slot].color = ORANGE;
   } else {
     enemies[slot].type = ENEMY_NORMAL;
@@ -247,7 +244,8 @@ void SpawnEnemy() {
     enemies[slot].speed = 380.0f + (difficultyFactor * 5.0f);
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
-    enemies[slot].maxHealth = 2 + (int)(difficultyFactor * 0.3f); // Low scaling
+    enemies[slot].maxHealth =
+        2 + (int)(difficultyFactor * 0.3f); // Scaling faible
     enemies[slot].color = RED;
   }
 
@@ -281,7 +279,7 @@ void UpdateGame(float dt) {
 
   gameTime += dt;
 
-  // --- PLAYER MOVEMENT ---
+  // --- MOUVEMENT DU JOUEUR ---
   Vector2 move = {0};
   if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
     move.y -= 1;
@@ -298,14 +296,14 @@ void UpdateGame(float dt) {
     move.y /= moveLen;
   }
 
-  // Dash Logic
+  // Logique du Dash
   if (player.dashCooldown > 0)
     player.dashCooldown -= dt;
 
   if (IsKeyPressed(KEY_SPACE) && player.dashCooldown <= 0 && moveLen > 0) {
     player.isDashing = true;
     player.dashTimer = player.dashDuration;
-    player.dashCooldown = 1.0f; // 1 second cooldown
+    player.dashCooldown = 1.0f; // 1 seconde de cooldown
   }
 
   float currentSpeed = player.speed;
@@ -318,26 +316,20 @@ void UpdateGame(float dt) {
   }
 
   if (moveLen > 0 || player.isDashing) {
-    // If dashing, keep moving in last direction if no input?
-    // Simplified: Dash only works while moving
+    // Si on dash, on continue de bouger dans la dernière direction si pas
+    // d'entrée ? Simplifié : Le dash ne fonctionne que si on bouge
     player.position.x += move.x * currentSpeed * dt;
     player.position.y += move.y * currentSpeed * dt;
   }
 
-  // Clamp Player
-  player.position.x =
-      (player.position.x < 0)
-          ? 0
-          : ((player.position.x > MAP_WIDTH) ? MAP_WIDTH : player.position.x);
-  player.position.y =
-      (player.position.y < 0)
-          ? 0
-          : ((player.position.y > MAP_HEIGHT) ? MAP_HEIGHT : player.position.y);
+  // Empêche le joueur de sortir de la map
+  player.position.x = Clamp(player.position.x, 0, MAP_WIDTH);
+  player.position.y = Clamp(player.position.y, 0, MAP_HEIGHT);
 
-  // Camera Follow
+  // Suivi de la caméra
   camera.target = player.position;
 
-  // Clamp Camera to Map Bounds
+  // Empêche la caméra de sortir de la map
   float minX = SCREEN_WIDTH / 2.0f;
   float minY = SCREEN_HEIGHT / 2.0f;
   float maxX = MAP_WIDTH - SCREEN_WIDTH / 2.0f;
@@ -352,7 +344,7 @@ void UpdateGame(float dt) {
   if (camera.target.y > maxY)
     camera.target.y = maxY;
 
-  // --- SHOOTING ---
+  // --- TIR ---
   player.shootTimer += dt;
   if (player.shootTimer >= player.fireRate) {
     int targetIdx = FindNearestEnemy();
@@ -360,13 +352,13 @@ void UpdateGame(float dt) {
       float dx = player.position.x - enemies[targetIdx].position.x;
       float dy = player.position.y - enemies[targetIdx].position.y;
       float distSq = dx * dx + dy * dy;
-      // Only shoot if visible (approx half screen diagonal + buffer)
+      // Si l'ennemi est trop éloigné, on ne tire pas
       if (distSq > 675.0f * 675.0f)
         targetIdx = -1;
     }
 
     if (targetIdx != -1) {
-      // Find bullet slot
+      // Trouve un slot pour la balle
       int bSlot = -1;
       for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
@@ -409,28 +401,28 @@ void UpdateGame(float dt) {
         continue;
       }
 
-      // Collision with Enemies
+      // Collision avec les ennemis
       for (int e = 0; e < MAX_ENEMIES; e++) {
         if (enemies[e].active) {
           if (CheckCollisionCircles(bullets[i].position, bullets[i].radius,
                                     enemies[e].position, enemies[e].radius)) {
             enemies[e].health -= bullets[i].damage;
-            bullets[i].active = false; // Destroy bullet
+            bullets[i].active = false; // Détruire la balle
 
             if (enemies[e].health <= 0) {
               enemies[e].active = false;
               score += 10;
             }
-            break; // Bullet hit one enemy
+            break; // La balle touche un ennemi
           }
         }
       }
     }
   }
 
-  // --- SPAWNING ---
-  // Spawn rate increases fast
-  // Base 0.8s, decreases by 0.05s every 10s, min 0.1s
+  // --- APPARITION ---
+  // Le taux d'apparition augmente rapidement
+  // Base 0.8s, diminue de 0.05s toutes les 10s, min 0.1s
   float currentSpawnRate = 0.8f - (gameTime / 10.0f) * 0.05f;
   if (currentSpawnRate < 0.1f)
     currentSpawnRate = 0.1f;
@@ -463,7 +455,7 @@ void UpdateGame(float dt) {
     }
   }
 
-  // --- ENEMIES ---
+  // --- ENNEMIS ---
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
       Vector2 dir = {player.position.x - enemies[i].position.x,
@@ -476,12 +468,12 @@ void UpdateGame(float dt) {
       enemies[i].position.x += dir.x * enemies[i].speed * dt;
       enemies[i].position.y += dir.y * enemies[i].speed * dt;
 
-      // Collision with Player
+      // Collision avec le joueur
       if (CheckCollisionCircles(player.position, player.radius,
                                 enemies[i].position, enemies[i].radius)) {
         player.health--;
         enemies[i].active =
-            false; // Enemy dies on impact (or bounces? simple: dies)
+            false; // L'ennemi meurt à l'impact (ou rebondit ? simple : meurt)
 
         if (player.health <= 0) {
           player.isAlive = false;
@@ -498,26 +490,26 @@ void DrawGame() {
 
   BeginMode2D(camera);
 
-  // Draw Background
+  // Dessiner le fond
   DrawTexture(background, 0, 0, WHITE);
 
   DrawCircleV(player.position, player.radius, BLUE);
 
-  // Draw Enemies
+  // Dessiner les ennemis
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
       DrawCircleV(enemies[i].position, enemies[i].radius, enemies[i].color);
     }
   }
 
-  // Draw Bullets
+  // Dessiner les balles
   for (int i = 0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       DrawCircleV(bullets[i].position, bullets[i].radius, BLACK);
     }
   }
 
-  // Draw Bonuses
+  // Dessiner les bonus
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
       DrawCircleV(bonuses[i].position, bonuses[i].radius, bonuses[i].color);
@@ -535,7 +527,7 @@ void DrawGame() {
   DrawText(TextFormat("SCORE: %d", score), 20, 20, 20, DARKGRAY);
   DrawText(TextFormat("TIME: %.1fs", gameTime), 20, 50, 20, DARKGRAY);
 
-  // Health Bar at bottom
+  // Barre de vie en bas
   float hpPct = (float)player.health / (float)player.maxHealth;
   int barWidth = 300;
   int barHeight = 20;
@@ -549,17 +541,17 @@ void DrawGame() {
   DrawText(TextFormat("%d/%d", player.health, player.maxHealth),
            barX + barWidth / 2 - 20, barY + 2, 20, WHITE);
 
-  // Damage Indicator next to Health Bar
+  // Indicateur de dégâts à côté de la barre de vie
   DrawText(TextFormat("DMG: %.0f", player.damage), barX + barWidth + 20, barY,
            20, RED);
 
   if (gameOver) {
     DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
-    DrawText("Press R to Restart", screenW / 2 - 100, screenH / 2 + 10, 20,
-             DARKGRAY);
+    DrawText("Appuyez sur R pour recommencer", screenW / 2 - 100,
+             screenH / 2 + 10, 20, DARKGRAY);
   }
 
-  DrawFPS(10, 10); // Show FPS to debug performance
+  DrawFPS(10, 10); // Afficher les FPS pour debugguer la performance
   EndDrawing();
 }
 
