@@ -19,12 +19,18 @@
 // --- STRUCTURES ---
 typedef struct {
   // personnage
-  Vector2 position; 
+  Vector2 position;
   float radius;
   float speed;
   int health;
   int maxHealth;
   bool isAlive;
+  float rotation; // Rotation en degrés
+
+  // Animation
+  Rectangle frameRec;
+  int currentFrame;
+  float frameTimer;
 
   // variables pour le tir
   float fireRate;
@@ -76,10 +82,13 @@ typedef struct {
 
 // --- GLOBALS ---
 Player player;
-Enemy enemies[MAX_ENEMIES] = {0};
-Bullet bullets[MAX_BULLETS] = {0};
-Bonus bonuses[MAX_BONUSES] = {0};
+// on stock les enemis dans un tableau
+Enemy *enemies = NULL;
+// de même pour les balles tirées et les bonus
+Bullet *bullets = NULL;
+Bonus *bonuses = NULL;
 Texture2D background;
+Texture2D spaceshipTexture;
 
 Camera2D camera = {0};
 
@@ -116,9 +125,21 @@ void InitGame(Difficulte difficulty) {
 
   player.health = player.maxHealth;
   player.isAlive = true;
+  player.rotation = 0.0f;
+
+  // Animation Init
+  player.currentFrame = 0;
+  player.frameTimer = 0.0f;
+  // Le sprite fait 331x1197, 3 frames verticales -> 331x399 par frame
+  player.frameRec = (Rectangle){0.0f, 0.0f, 331.0f, 399.0f};
 
   player.fireRate = 0.15f; // Cadence de tir rapide
   player.shootTimer = 0.0f;
+  // Les dégâts de base sont définis au-dessus, mais on s'assure qu'ils sont au
+  // moins de 1
+  if (player.damage < 1)
+    player.damage = 1;
+
   player.bulletSpeed = 1200.0f;
   player.bulletSize = 10.0f;
 
@@ -227,7 +248,7 @@ void SpawnEnemy() {
     enemies[slot].type = ENEMY_TANK;
     enemies[slot].radius = 35.0f;
     enemies[slot].speed = 250.0f;
-    enemies[slot].maxHealth = 10 + (int)difficultyFactor;
+    enemies[slot].maxHealth = 10 + (int)difficultyFactor; // Scaling réduit
     enemies[slot].color = DARKPURPLE;
   } else if (difficultyFactor > 1.0f && roll > 70) {
     enemies[slot].type = ENEMY_FAST;
@@ -236,7 +257,7 @@ void SpawnEnemy() {
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
     enemies[slot].maxHealth =
-        1 + (int)(difficultyFactor * 0.2f);
+        1 + (int)(difficultyFactor * 0.2f); // Scaling très faible
     enemies[slot].color = ORANGE;
   } else {
     enemies[slot].type = ENEMY_NORMAL;
@@ -294,6 +315,12 @@ void UpdateGame(float dt) {
   if (moveLen > 0) {
     move.x /= moveLen;
     move.y /= moveLen;
+
+    // Calculer la rotation (en degrés)
+    // atan2 renvoie l'angle en radians, on convertit en degrés
+    // On ajoute 90 degrés car le sprite pointe vers le haut par défaut
+    // (supposition standard)
+    player.rotation = atan2f(move.y, move.x) * RAD2DEG + 90.0f;
   }
 
   // Logique du Dash
@@ -320,6 +347,20 @@ void UpdateGame(float dt) {
     // d'entrée ? Simplifié : Le dash ne fonctionne que si on bouge
     player.position.x += move.x * currentSpeed * dt;
     player.position.y += move.y * currentSpeed * dt;
+
+    // Animation du vaisseau quand on bouge
+    player.frameTimer += dt;
+    if (player.frameTimer >= 0.1f) {
+      player.frameTimer = 0.0f;
+      player.currentFrame++;
+      if (player.currentFrame >= 3)
+        player.currentFrame = 0;
+      player.frameRec.y = (float)player.currentFrame * 399.0f;
+    }
+  } else {
+    // Reset animation frame si on ne bouge pas
+    player.currentFrame = 1; // Frame du milieu (souvent neutre)
+    player.frameRec.y = 399.0f;
   }
 
   // Empêche le joueur de sortir de la map
@@ -493,7 +534,18 @@ void DrawGame() {
   // Dessiner le fond
   DrawTexture(background, 0, 0, WHITE);
 
-  DrawCircleV(player.position, player.radius, BLUE);
+  // Draw Player (Spaceship)
+  // Destination rectangle: centré sur la position du joueur, taille ajustée
+  // On réduit la taille du sprite (331x399) à quelque chose de plus gérable,
+  // ex: 50x60
+  float scale = 0.15f;
+  float width = 331.0f * scale;
+  float height = 399.0f * scale;
+  Rectangle destRec = {player.position.x, player.position.y, width, height};
+  Vector2 origin = {width / 2.0f, height / 2.0f}; // Rotation autour du centre
+
+  DrawTexturePro(spaceshipTexture, player.frameRec, destRec, origin,
+                 player.rotation, WHITE);
 
   // Dessiner les ennemis
   for (int i = 0; i < MAX_ENEMIES; i++) {
@@ -505,7 +557,7 @@ void DrawGame() {
   // Dessiner les balles
   for (int i = 0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
-      DrawCircleV(bullets[i].position, bullets[i].radius, BLACK);
+      DrawCircleV(bullets[i].position, bullets[i].radius, GREEN);
     }
   }
 
@@ -551,7 +603,7 @@ void DrawGame() {
              screenH / 2 + 10, 20, DARKGRAY);
   }
 
-  DrawFPS(10, 10); // Afficher les FPS pour debugguer la performance
+  DrawFPS(10, 10);
   EndDrawing();
 }
 
@@ -561,7 +613,34 @@ void RunSurvivorGame(Difficulte difficulty) {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "survivor");
   SetTargetFPS(60);
 
+  // Allocation dynamique
+  enemies = (Enemy *)malloc(MAX_ENEMIES * sizeof(Enemy));
+  bullets = (Bullet *)malloc(MAX_BULLETS * sizeof(Bullet));
+  bonuses = (Bonus *)malloc(MAX_BONUSES * sizeof(Bonus));
+
+  if (enemies == NULL || bullets == NULL || bonuses == NULL) {
+    fprintf(stderr, "Erreur d'allocation mémoire !\n");
+    if (enemies)
+      free(enemies);
+    if (bullets)
+      free(bullets);
+    if (bonuses)
+      free(bonuses);
+    CloseWindow();
+    return;
+  }
+
+  // Initialisation à 0 pour éviter des comportements indéfinis
+  // (calloc aurait pu être utilisé, ou memset)
+  for (int i = 0; i < MAX_ENEMIES; i++)
+    enemies[i] = (Enemy){0};
+  for (int i = 0; i < MAX_BULLETS; i++)
+    bullets[i] = (Bullet){0};
+  for (int i = 0; i < MAX_BONUSES; i++)
+    bonuses[i] = (Bonus){0};
+
   background = LoadTexture("assets/Space-Background.png");
+  spaceshipTexture = LoadTexture("assets/spaceship.png");
 
   InitGame(difficulty);
 
@@ -572,4 +651,13 @@ void RunSurvivorGame(Difficulte difficulty) {
   }
 
   UnloadTexture(background);
+  UnloadTexture(spaceshipTexture);
+
+  // Libération de la mémoire
+  free(enemies);
+  free(bullets);
+  free(bonuses);
+  enemies = NULL;
+  bullets = NULL;
+  bonuses = NULL;
 }
