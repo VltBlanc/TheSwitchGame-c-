@@ -6,7 +6,7 @@
 
 // --- DÉFINITIONS DU JEU ET VALEURS CLÉS À AJUSTER ---
 // MODIFICATION : VOUS POUVEZ CHANGER CES 3 VALEURS
-const float FALL_WARNING_TIME = 0.5f; // Temps en secondes pour l'avertissement ROUGE
+const float FALL_WARNING_TIME = 0.6f; // Temps en secondes pour l'avertissement ROUGE
 const float FALL_DOWN_TIME = 0.2f;    // Temps en secondes où le bloc est GRIS (Zone de Mort)
 const float WAIT_TIME = 0.1f;         // Temps en secondes d'attente (Bloc VERT)
 // -----------------------------------------------------
@@ -23,7 +23,7 @@ const float CYCLE_DURATION = FALL_WARNING_TIME + FALL_DOWN_TIME + WAIT_TIME;
 // ... Le reste des constantes de taille de fenêtre, etc., reste inchangé ...
 
 const int screenWidth = (GRID_SIZE + 2) * CELL_SIZE;
-const int screenHeight = (GRID_SIZE + 2) * CELL_SIZE + 40;
+const int screenHeight = (GRID_SIZE + 2) * CELL_SIZE;
 const int GRID_START_X = CELL_SIZE;
 const int GRID_START_Y = CELL_SIZE;
 
@@ -81,8 +81,8 @@ void InitGrid()
 Player InitPlayer()
 {
     Player player;
-    player.position.x = GRID_START_X + (GRID_SIZE * CELL_SIZE) / 2;
-    player.position.y = GRID_START_Y + (GRID_SIZE * CELL_SIZE) / 2;
+    player.position.x = screenWidth / 2;
+    player.position.y = screenHeight / 2;
     player.isAlive = true;
     player.score = 0;
     player.lastMovementDirection = (Vector2){0.0f, -1.0f};
@@ -100,10 +100,11 @@ void TeleportPlayer(Player *player)
     player->position.x += teleportAmountX;
     player->position.y += teleportAmountY;
 
+    //ne pas dépasser les limites de l'écran
     float minX = PLAYER_RADIUS;
     float maxX = screenWidth - PLAYER_RADIUS;
     float minY = PLAYER_RADIUS;
-    float maxY = screenHeight - 40 - PLAYER_RADIUS;
+    float maxY = screenHeight - PLAYER_RADIUS;
 
     if (player->position.x < minX)
         player->position.x = minX;
@@ -149,7 +150,7 @@ void UpdatePlayerMovement(Player *player, float deltaTime)
     float minX = PLAYER_RADIUS;
     float maxX = screenWidth - PLAYER_RADIUS;
     float minY = PLAYER_RADIUS;
-    float maxY = screenHeight - 40 - PLAYER_RADIUS;
+    float maxY = screenHeight - PLAYER_RADIUS;
 
     if (player->position.x < minX)
         player->position.x = minX;
@@ -345,7 +346,7 @@ void UpdateGridCycle(Player *player, float deltaTime)
 
 void DrawCustomGrid()
 {
-    DrawRectangle(0, 0, screenWidth, screenHeight - 40, DARKGRAY);
+    DrawRectangle(0, 0, screenWidth, screenHeight, DARKGRAY);
 
     for (int y = 0; y < GRID_SIZE; y++)
     {
@@ -438,31 +439,10 @@ int main(void)
 
         DrawPlayer(player);
 
-        // Affichage du score et du statut
-        DrawText(TextFormat("Score: %d", player.score), 10, screenHeight - 30, 20, BLACK);
-
-        // Affichage précis des phases
-        if (timer < TIME_TO_WARNING_START)
-        {
-            DrawText(TextFormat("Attente (%.2f s)", TIME_TO_WARNING_START - timer), 200, screenHeight - 30, 20, BLACK);
-        }
-        else if (timer < TIME_TO_DROP_START)
-        {
-            DrawText(TextFormat("Avertissement ROUGE! (%.2f s)", TIME_TO_DROP_START - timer), 200, screenHeight - 30, 20, RED);
-        }
-        else if (timer < CYCLE_DURATION)
-        {
-            DrawText(TextFormat("CHUTE! (%.2f s)", CYCLE_DURATION - timer), 200, screenHeight - 30, 20, RAYWHITE);
-        }
-        else
-        {
-            DrawText(TextFormat("NOUVEAU CYCLE!"), 200, screenHeight - 30, 20, BLACK);
-        }
-
         if (!player.isAlive)
         {
-            DrawText("GAME OVER!", screenWidth / 2 - MeasureText("GAME OVER!", 40) / 2, screenHeight / 2 - 20, 40, RED);
-            DrawText("Appuyez sur ESPACE pour recommencer", screenWidth / 2 - MeasureText("Appuyez sur ESPACE pour recommencer", 20) / 2, screenHeight / 2 + 30, 20, RAYWHITE);
+            DrawText("GAME OVER!", screenWidth / 2- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
+            DrawText("Appuyez sur ESPACE pour recommencer", screenWidth / 2 - MeasureText("Appuyez sur ESPACE pour recommencer", 25) / 2, screenHeight / 2, 25, RAYWHITE);
         }
 
         EndDrawing();
