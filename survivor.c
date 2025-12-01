@@ -181,6 +181,7 @@ void SpawnBonus() {
   }
   if (slot == -1)
     return;
+  //on se place à l'emplacement disponible pour un slot en attendant qu'une place se libère
 
   // Position aléatoire dans les limites de la map
   float x = (float)GetRandomValue(50, MAP_WIDTH - 50);
@@ -200,6 +201,7 @@ void SpawnBonus() {
 }
 
 void SpawnEnemy() {
+  //on se place à l'emplacement disponible pour un slot en attendant qu'une place se libère
   int slot = -1;
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (!enemies[i].active) {
@@ -212,6 +214,7 @@ void SpawnEnemy() {
 
   // Logique de spawn basée sur le temps
   // Le facteur de difficulté augmente rapidement
+  //dificulté normale
   float difficultyFactor = gameTime / 10.0f; // Augmente toutes les 10f
 
   // Ajuster le facteur de difficulté selon la difficulté sélectionnée
@@ -243,7 +246,15 @@ void SpawnEnemy() {
 
   // Déterminer le type d'ennemi basé sur la difficulté/aléatoire
   int roll = GetRandomValue(0, 100);
-
+//génération des enemies en fonction du temps, et de la difficulté
+//difficultyFactor correspond au temps/ (n frames) ou n dépend de la difficulté
+//si difficultyFactor est plus grand que 2, on a un tank
+//si difficultyFactor est plus grand que 1, on a un fast
+//si difficultyFactor est plus petit que 1, on a un normal
+//roll est un random entre 0 et 100, pour ajouter de la variabilité
+//si roll est inférieur à 15, on a un tank
+//si roll est supérieur à 70, on a un fast
+//sinon, on a un normal
   if (difficultyFactor > 2.0f && roll < 15) {
     enemies[slot].type = ENEMY_TANK;
     enemies[slot].radius = 35.0f;
@@ -276,7 +287,7 @@ void SpawnEnemy() {
 int FindNearestEnemy() {
   int nearest = -1;
   float minDistSq = 99999999.0f;
-
+// on regarde chaque enemi actif
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
       float dx = player.position.x - enemies[i].position.x;
@@ -310,23 +321,22 @@ void UpdateGame(float dt) {
     move.x -= 1;
   if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
     move.x += 1;
-
+// on calcule la longueur du vecteur move
   float moveLen = sqrtf(move.x * move.x + move.y * move.y);
+// on normalise le vecteur move
   if (moveLen > 0) {
     move.x /= moveLen;
     move.y /= moveLen;
-
-    // Calculer la rotation (en degrés)
-    // atan2 renvoie l'angle en radians, on convertit en degrés
-    // On ajoute 90 degrés car le sprite pointe vers le haut par défaut
-    // (supposition standard)
+// on calcule la rotation du joueur
     player.rotation = atan2f(move.y, move.x) * RAD2DEG + 90.0f;
   }
 
-  // Logique du Dash
+// Logique du Dash
+// on décrémente le cooldown du dash
   if (player.dashCooldown > 0)
     player.dashCooldown -= dt;
 
+// si on appuie sur espace et que le cooldown est terminé et que le joueur bouge
   if (IsKeyPressed(KEY_SPACE) && player.dashCooldown <= 0 && moveLen > 0) {
     player.isDashing = true;
     player.dashTimer = player.dashDuration;
@@ -343,12 +353,11 @@ void UpdateGame(float dt) {
   }
 
   if (moveLen > 0 || player.isDashing) {
-    // Si on dash, on continue de bouger dans la dernière direction si pas
-    // d'entrée ? Simplifié : Le dash ne fonctionne que si on bouge
+//Le dash ne fonctionne que si on bouge
     player.position.x += move.x * currentSpeed * dt;
     player.position.y += move.y * currentSpeed * dt;
 
-    // Animation du vaisseau quand on bouge
+// Animation du vaisseau quand on bouge
     player.frameTimer += dt;
     if (player.frameTimer >= 0.1f) {
       player.frameTimer = 0.0f;
@@ -358,12 +367,12 @@ void UpdateGame(float dt) {
       player.frameRec.y = (float)player.currentFrame * 399.0f;
     }
   } else {
-    // Reset animation frame si on ne bouge pas
+// Reset animation frame si on ne bouge pas
     player.currentFrame = 1; // Frame du milieu (souvent neutre)
     player.frameRec.y = 399.0f;
   }
 
-  // Empêche le joueur de sortir de la map
+// Empêche le joueur de sortir de la map
   player.position.x = Clamp(player.position.x, 0, MAP_WIDTH);
   player.position.y = Clamp(player.position.y, 0, MAP_HEIGHT);
 
@@ -401,22 +410,24 @@ void UpdateGame(float dt) {
     if (targetIdx != -1) {
       // Trouve un slot pour la balle
       int bSlot = -1;
-      for (int i = 0; i < MAX_BULLETS; i++) {
-        if (!bullets[i].active) {
-          bSlot = i;
-          break;
-        }
+      int i =0;
+      while(!bullets[i].active){
+        i++;
       }
-
+      if (!bullets[i].active) {
+          bSlot = i;
+      }
+//si on a une balle de disponible
       if (bSlot != -1) {
         Vector2 dir = {enemies[targetIdx].position.x - player.position.x,
                        enemies[targetIdx].position.y - player.position.y};
         float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
-        if (dirLen > 0) {
+        // pour éviter une division par 0
+        if (dirLen > 0.001f) {
           dir.x /= dirLen;
           dir.y /= dirLen;
         }
-
+//on prépare le tir
         bullets[bSlot].active = true;
         bullets[bSlot].position = player.position;
         bullets[bSlot].velocity =
@@ -430,7 +441,7 @@ void UpdateGame(float dt) {
     }
   }
 
-  // --- BULLETS ---
+  // on fait partir la balle
   for (int i = 0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       bullets[i].position.x += bullets[i].velocity.x * dt;
@@ -501,8 +512,12 @@ void UpdateGame(float dt) {
     if (enemies[i].active) {
       Vector2 dir = {player.position.x - enemies[i].position.x,
                      player.position.y - enemies[i].position.y};
+      //on doit normaliser le vecteur direction sinon 
+      //l'ennemi se dirige vers le joueur
+      // à une vitesse proportionnelle à la distance
       float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
-      if (dirLen > 0) {
+      // pour éviter une division par 0
+      if (dirLen > 0.001f) {
         dir.x /= dirLen;
         dir.y /= dirLen;
       }
@@ -514,7 +529,7 @@ void UpdateGame(float dt) {
                                 enemies[i].position, enemies[i].radius)) {
         player.health--;
         enemies[i].active =
-            false; // L'ennemi meurt à l'impact (ou rebondit ? simple : meurt)
+            false; // L'ennemi meurt à l'impact
 
         if (player.health <= 0) {
           player.isAlive = false;
@@ -614,9 +629,10 @@ void RunSurvivorGame(Difficulte difficulty) {
   SetTargetFPS(60);
 
   // Allocation dynamique
-  enemies = (Enemy *)malloc(MAX_ENEMIES * sizeof(Enemy));
-  bullets = (Bullet *)malloc(MAX_BULLETS * sizeof(Bullet));
-  bonuses = (Bonus *)malloc(MAX_BONUSES * sizeof(Bonus));
+  // calloc à 0 par défaut
+  enemies = (Enemy *)calloc(0,MAX_ENEMIES * sizeof(Enemy));
+  bullets = (Bullet *)calloc(0,MAX_BULLETS * sizeof(Bullet));
+  bonuses = (Bonus *)calloc(0,MAX_BONUSES * sizeof(Bonus));
 
   if (enemies == NULL || bullets == NULL || bonuses == NULL) {
     fprintf(stderr, "Erreur d'allocation mémoire !\n");
@@ -629,15 +645,6 @@ void RunSurvivorGame(Difficulte difficulty) {
     CloseWindow();
     return;
   }
-
-  // Initialisation à 0 pour éviter des comportements indéfinis
-  // (calloc aurait pu être utilisé, ou memset)
-  for (int i = 0; i < MAX_ENEMIES; i++)
-    enemies[i] = (Enemy){0};
-  for (int i = 0; i < MAX_BULLETS; i++)
-    bullets[i] = (Bullet){0};
-  for (int i = 0; i < MAX_BONUSES; i++)
-    bonuses[i] = (Bonus){0};
 
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
