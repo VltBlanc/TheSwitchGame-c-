@@ -1,4 +1,5 @@
 #include "include/menu.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 // Palette de couleurs pour le jeu

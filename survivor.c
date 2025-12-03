@@ -1,3 +1,4 @@
+#include "include/hyperspace.h"
 #include "include/menu.h"
 #include <math.h>
 #include <raylib.h>
@@ -14,7 +15,8 @@
 
 #define MAX_ENEMIES 300
 #define MAX_BULLETS 1000
-#define MAX_BONUSES 20
+#define MAX_BONUSES 50
+#define MAX_TRAILS 20
 
 // --- STRUCTURES ---
 typedef struct {
@@ -70,7 +72,7 @@ typedef struct {
   int damage;
 } Bullet;
 
-typedef enum { BONUS_DAMAGE, BONUS_HEALTH } BonusType;
+typedef enum { BONUS_DAMAGE, BONUS_HEALTH, BONUS_SPEED } BonusType;
 
 typedef struct {
   bool active;
@@ -80,6 +82,14 @@ typedef struct {
   Color color;
 } Bonus;
 
+typedef struct {
+  bool active;
+  Vector2 position;
+  float rotation;
+  Rectangle frameRec;
+  float alpha;
+} Trail;
+
 // --- GLOBALS ---
 Player player;
 // on stock les enemis dans un tableau
@@ -87,6 +97,7 @@ Enemy *enemies = NULL;
 // de même pour les balles tirées et les bonus
 Bullet *bullets = NULL;
 Bonus *bonuses = NULL;
+Trail trails[MAX_TRAILS] = {0};
 Texture2D background;
 Texture2D spaceshipTexture;
 
@@ -169,6 +180,8 @@ void InitGame(Difficulte difficulty) {
     bullets[i].active = false;
   for (int i = 0; i < MAX_BONUSES; i++)
     bonuses[i].active = false;
+  for (int i = 0; i < MAX_TRAILS; i++)
+    trails[i].active = false;
 }
 
 void SpawnBonus() {
@@ -192,12 +205,16 @@ void SpawnBonus() {
   bonuses[slot].position = (Vector2){x, y};
   bonuses[slot].radius = 15.0f;
 
-  if (GetRandomValue(0, 1) == 0) {
+  int typeRoll = GetRandomValue(0, 100);
+  if (typeRoll < 40) {
     bonuses[slot].type = BONUS_DAMAGE;
     bonuses[slot].color = RED;
-  } else {
+  } else if (typeRoll < 80) {
     bonuses[slot].type = BONUS_HEALTH;
     bonuses[slot].color = GREEN;
+  } else {
+    bonuses[slot].type = BONUS_SPEED;
+    bonuses[slot].color = SKYBLUE;
   }
 }
 
@@ -348,10 +365,41 @@ void UpdateGame(float dt) {
   if (player.isDashing) {
     currentSpeed = player.dashSpeed;
     player.dashTimer -= dt;
+
+    // Spawn trail
+    static float trailSpawnTimer = 0.0f;
+    trailSpawnTimer += dt;
+    if (trailSpawnTimer >= 0.02f) { // Spawn toutes les 20ms
+      trailSpawnTimer = 0.0f;
+      for (int i = 0; i < MAX_TRAILS; i++) {
+        if (!trails[i].active) {
+          trails[i].active = true;
+          trails[i].position = player.position;
+          trails[i].rotation = player.rotation;
+          trails[i].frameRec = player.frameRec;
+          trails[i].alpha = 0.8f;
+          break;
+        }
+      }
+    }
+
     if (player.dashTimer <= 0) {
       player.isDashing = false;
     }
   }
+
+  // Update trails
+  for (int i = 0; i < MAX_TRAILS; i++) {
+    if (trails[i].active) {
+      trails[i].alpha -= 2.0f * dt; // Fade out rapide
+      if (trails[i].alpha <= 0)
+        trails[i].active = false;
+    }
+  }
+
+  // Camera Zoom Effect
+  float targetZoom = player.isDashing ? 0.9f : 1.0f;
+  camera.zoom += (targetZoom - camera.zoom) * 5.0f * dt;
 
   if (moveLen > 0 || player.isDashing) {
     // Le dash ne fonctionne que si on bouge
@@ -411,12 +459,11 @@ void UpdateGame(float dt) {
     if (targetIdx != -1) {
       // Trouve un slot pour la balle
       int bSlot = -1;
-      int i = 0;
-      while (!bullets[i].active) {
-        i++;
-      }
-      if (!bullets[i].active) {
-        bSlot = i;
+      for (int i = 0; i < MAX_BULLETS; i++) {
+        if (!bullets[i].active) {
+          bSlot = i;
+          break;
+        }
       }
       // si on a une balle de disponible
       if (bSlot != -1) {
@@ -488,7 +535,7 @@ void UpdateGame(float dt) {
 
   // --- BONUSES ---
   bonusSpawnTimer += dt;
-  if (bonusSpawnTimer >= 15.0f) {
+  if (bonusSpawnTimer >= 7.5f) {
     SpawnBonus();
     bonusSpawnTimer = 0.0f;
   }
@@ -502,6 +549,10 @@ void UpdateGame(float dt) {
         } else if (bonuses[i].type == BONUS_HEALTH) {
           player.maxHealth += 1;
           player.health = player.maxHealth;
+        } else if (bonuses[i].type == BONUS_SPEED) {
+          player.speed += 50.0f;
+          if (player.speed > 800.0f)
+            player.speed = 800.0f;
         }
         bonuses[i].active = false;
       }
@@ -549,6 +600,22 @@ void DrawGame() {
   // Dessiner le fond
   DrawTexture(background, 0, 0, WHITE);
 
+  // Dessiner les trails (Ghost effect)
+  for (int i = 0; i < MAX_TRAILS; i++) {
+    if (trails[i].active) {
+      float scale = 0.15f;
+      float width = 331.0f * scale;
+      float height = 399.0f * scale;
+      Rectangle destRec = {trails[i].position.x, trails[i].position.y, width,
+                           height};
+      Vector2 origin = {width / 2.0f, height / 2.0f};
+      Color trailColor = WHITE;
+      trailColor.a = (unsigned char)(trails[i].alpha * 255);
+      DrawTexturePro(spaceshipTexture, trails[i].frameRec, destRec, origin,
+                     trails[i].rotation, trailColor);
+    }
+  }
+
   // Draw Player (Spaceship)
   // Destination rectangle: centré sur la position du joueur, taille ajustée
   // On réduit la taille du sprite (331x399) à quelque chose de plus gérable,
@@ -577,11 +644,36 @@ void DrawGame() {
   }
 
   // Dessiner les bonus
+  // Dessiner les bonus et indicateurs
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
+      // Dessin du bonus
       DrawCircleV(bonuses[i].position, bonuses[i].radius, bonuses[i].color);
       DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y,
                       bonuses[i].radius, WHITE);
+
+      // Indicateur hors écran
+      Vector2 screenPos = GetWorldToScreen2D(bonuses[i].position, camera);
+      if (screenPos.x < 0 || screenPos.x > GetScreenWidth() ||
+          screenPos.y < 0 || screenPos.y > GetScreenHeight()) {
+
+        Vector2 center = {GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
+        Vector2 dir = Vector2Subtract(screenPos, center);
+        float angle = atan2f(dir.y, dir.x);
+
+        // Clamp to screen edge with margin
+        float margin = 30.0f;
+        float clampX = Clamp(screenPos.x, margin, GetScreenWidth() - margin);
+        float clampY = Clamp(screenPos.y, margin, GetScreenHeight() - margin);
+
+        // Simple projection to edge if strictly outside
+        // This is a simplified approach; for perfect corner tracking we'd
+        // intersect lines But clamping works well enough for simple indicators
+
+        // Draw Arrow
+        DrawPoly((Vector2){clampX, clampY}, 3, 10.0f, angle * RAD2DEG,
+                 bonuses[i].color);
+      }
     }
   }
 
@@ -611,6 +703,13 @@ void DrawGame() {
   // Indicateur de dégâts à côté de la barre de vie
   DrawText(TextFormat("DMG: %.0f", player.damage), barX + barWidth + 20, barY,
            20, RED);
+  DrawText(TextFormat("SPD: %.0f", player.speed), barX + barWidth + 20,
+           barY + 20, 20, SKYBLUE);
+
+  // Controls Display
+  DrawText("WASD/Arrows: Move", screenW - 200, 20, 20, DARKGRAY);
+  DrawText("SPACE: Dash", screenW - 200, 45, 20, DARKGRAY);
+  DrawText("R: Restart", screenW - 200, 70, 20, DARKGRAY);
 
   if (gameOver) {
     DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
@@ -635,7 +734,7 @@ void RunSurvivorGame(Difficulte difficulty) {
   bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
 
   if (enemies == NULL || bullets == NULL || bonuses == NULL) {
-    fprintf(stderr, "Erreur d'allocation mémoire !\n");
+    printf("Erreur d'allocation mémoire !\n");
     if (enemies)
       free(enemies);
     if (bullets)
@@ -650,6 +749,9 @@ void RunSurvivorGame(Difficulte difficulty) {
   spaceshipTexture = LoadTexture("assets/spaceship.png");
 
   InitGame(difficulty);
+
+  // Jouer l'effet d'hyperespace avant de commencer
+  PlayHyperspaceEffect(1.0f, spaceshipTexture);
 
   while (!WindowShouldClose()) {
     float dt = GetFrameTime();
