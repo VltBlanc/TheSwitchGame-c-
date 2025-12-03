@@ -9,6 +9,7 @@ int main(void) {
   // Initialisation de la fenêtre Raylib
   InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Jeu de Menu - Projet C");
   SetTargetFPS(60);
+  SetExitKey(KEY_NULL); // Empêche Raylib de fermer la fenêtre avec Echap
 
   // Initialisation du menu
   MenuJeu *menu = init_menu();
@@ -50,7 +51,8 @@ int main(void) {
              get_difficulty_text(menu->niveau));
 
       // Lancer le jeu
-      RunSurvivorGame(menu->niveau);
+      RunSurvivorGame(menu->niveau, menu->partie_en_cours,
+                      &menu->partie_en_cours);
 
       // Restaurer la fenêtre du menu
       SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);

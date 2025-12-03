@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 // --- Constantes ---
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -723,50 +724,100 @@ void DrawGame() {
 
 #include "include/survivor.h"
 
-void RunSurvivorGame(Difficulte difficulty) {
-  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "survivor");
+void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
+  // On ajuste la fenêtre au lieu de la recréer
+  SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+  SetWindowTitle("survivor");
   SetTargetFPS(60);
 
-  // Allocation dynamique
-  // calloc à 0 par défaut
-  enemies = (Enemy *)calloc(MAX_ENEMIES, sizeof(Enemy));
-  bullets = (Bullet *)calloc(MAX_BULLETS, sizeof(Bullet));
-  bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
-
-  if (enemies == NULL || bullets == NULL || bonuses == NULL) {
-    printf("Erreur d'allocation mémoire !\n");
+  // Allocation dynamique seulement si on ne reprend pas une partie
+  if (!resume) {
+    // Sécurité : on libère si jamais il restait quelque chose
     if (enemies)
       free(enemies);
     if (bullets)
       free(bullets);
     if (bonuses)
       free(bonuses);
-    CloseWindow();
-    return;
+
+    enemies = (Enemy *)calloc(MAX_ENEMIES, sizeof(Enemy));
+    bullets = (Bullet *)calloc(MAX_BULLETS, sizeof(Bullet));
+    bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
+
+    if (enemies == NULL || bullets == NULL || bonuses == NULL) {
+      printf("Erreur d'allocation mémoire !\n");
+      if (enemies)
+        free(enemies);
+      if (bullets)
+        free(bullets);
+      if (bonuses)
+        free(bonuses);
+      // On ne ferme pas la fenêtre ici car elle appartient au main
+      *game_active = false;
+      return;
+    }
+
+    InitGame(difficulty);
   }
 
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
 
-  InitGame(difficulty);
+  // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
+  // partie)
+  if (!resume) {
+    PlayHyperspaceEffect(1.0f, spaceshipTexture);
+  }
 
-  // Jouer l'effet d'hyperespace avant de commencer
-  PlayHyperspaceEffect(1.0f, spaceshipTexture);
+  *game_active = true;
 
   while (!WindowShouldClose()) {
+    // Si on appuie sur Echap, on met en pause ou on quitte
+    if (IsKeyPressed(KEY_ESCAPE)) {
+      if (gameOver) {
+        *game_active = false;
+      } else {
+        *game_active = true; // Pause
+      }
+      
+      // Attendre que la touche soit relâchée pour éviter de fermer le menu aussi
+      while (IsKeyDown(KEY_ESCAPE)) {
+          BeginDrawing();
+          EndDrawing();
+      }
+      break;
+    }
+
     float dt = GetFrameTime();
     UpdateGame(dt);
     DrawGame();
   }
 
+  // Si la fenêtre est fermée par la croix, on ne sauvegarde pas forcément
+  if (WindowShouldClose()) {
+    *game_active = false;
+  }
+
+  // Si Game Over, la partie est finie
+  if (gameOver) {
+    *game_active = false;
+  }
+
   UnloadTexture(background);
   UnloadTexture(spaceshipTexture);
 
-  // Libération de la mémoire
-  free(enemies);
-  free(bullets);
-  free(bonuses);
-  enemies = NULL;
-  bullets = NULL;
-  bonuses = NULL;
+  // Libération de la mémoire seulement si la partie est finie
+  if (!*game_active) {
+    if (enemies)
+      free(enemies);
+    if (bullets)
+      free(bullets);
+    if (bonuses)
+      free(bonuses);
+    enemies = NULL;
+    bullets = NULL;
+    bonuses = NULL;
+  }
+
+  // Ne pas fermer la fenêtre ici !
 }

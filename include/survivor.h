@@ -7,6 +7,6 @@
 
 // Lance la boucle de jeu survivor
 // Cette fonction initialise sa propre fenêtre et la ferme à la fin
-void RunSurvivorGame(Difficulte difficulty);
+void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active);
 
 #endif // SURVIVOR_H
