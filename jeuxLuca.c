@@ -4,16 +4,6 @@
 #include <raymath.h>
 #include <time.h>
 
-// --- DÉFINITIONS DU JEU ET VALEURS CLÉS À AJUSTER ---
-// MODIFICATION : VOUS POUVEZ CHANGER CES 3 VALEURS
-const float FALL_WARNING_TIME = 0.6f; // Temps en secondes pour l'avertissement ROUGE
-const float FALL_DOWN_TIME = 0.2f;    // Temps en secondes où le bloc est GRIS (Zone de Mort)
-const float WAIT_TIME = 0.1f;         // Temps en secondes d'attente (Bloc VERT)
-// ---------------$$-------------------------------------
-
-// La durée totale du cycle est la somme des 3 temps ci-dessus
-const float CYCLE_DURATION = FALL_WARNING_TIME + FALL_DOWN_TIME + WAIT_TIME;
-
 #define GRID_SIZE 10
 #define CELL_SIZE 60
 #define PLAYER_RADIUS 15
@@ -36,6 +26,12 @@ typedef enum
     BLOCK_PENDING = 3
 } BlockState;
 
+typedef enum {
+    CYCLE_WAIT = 0,
+    CYCLE_WARNING = 1,
+    CYCLE_DROP = 2
+} CycleState;
+
 // Structure pour le joueur
 typedef struct Player
 {
@@ -46,8 +42,12 @@ typedef struct Player
 } Player;
 
 // Variables globales du jeu
+CycleState currentCycleState = CYCLE_WAIT;
 BlockState **grid = NULL;
 float timer = 0.0f;
+const float FALL_WARNING_TIME = 0.6f; // Temps en secondes pour l'avertissement ROUGE
+const float FALL_DOWN_TIME = 0.2f;    // Temps en secondes où le bloc est GRIS (Zone de Mort)
+const float WAIT_TIME = 0.1f;         // Temps en secondes d'attente (Bloc VERT)
 int blocksToDrop = 8;
 bool scoreIncreasedThisCycle = false;
 
@@ -203,16 +203,24 @@ void CheckDeath(Player *player)
     // en indices de grille. Cela couvre toutes les cases que le joueur peut chevaucher.
 
     int minGridX = (int)floor(((player->position.x - PLAYER_RADIUS) - GRID_START_X) / (float)CELL_SIZE);
-    minGridX = (minGridX < 0) ? 0 : minGridX; // On s'assure de ne pas sortir de la grille (min 0)
+    if(minGridX < 0) {
+        minGridX=0;
+    }// On s'assure de ne pas sortir de la grille (min 0)
 
     int maxGridX = (int)floor(((player->position.x + PLAYER_RADIUS) - GRID_START_X) / (float)CELL_SIZE);
-    maxGridX = (maxGridX >= GRID_SIZE) ? GRID_SIZE - 1 : maxGridX; // On s'assure de ne pas sortir de la grille (max GRID_SIZE-1)
+    if(maxGridX >= GRID_SIZE){
+        maxGridX = GRID_SIZE - 1;
+     } // On s'assure de ne pas sortir de la grille (max GRID_SIZE-1)
 
     int minGridY = (int)floor(((player->position.y - PLAYER_RADIUS) - GRID_START_Y) / (float)CELL_SIZE);
-    minGridY = (minGridY < 0) ? 0 : minGridY;
+    if(minGridY < 0) {
+        minGridY=0;
+    }
 
     int maxGridY = (int)floor(((player->position.y + PLAYER_RADIUS) - GRID_START_Y) / (float)CELL_SIZE);
-    maxGridY = (maxGridY >= GRID_SIZE) ? GRID_SIZE - 1 : maxGridY;
+    if(maxGridY >= GRID_SIZE){
+        maxGridY = GRID_SIZE - 1;
+     }
 
     // 3. Boucle et vérification de collision Cercle-Rectangle
     for (int y = minGridY; y <= maxGridY; y++)
@@ -224,7 +232,7 @@ void CheckDeath(Player *player)
             if (grid[x][y] == BLOCK_DOWN)
             {
 
-                // On définit la zone rectangulaire de la case courante
+                // (poisition x haut gauche,poisition y haut gauche,longueur,largeur)
                 Rectangle cellRect = {
                     GRID_START_X + x * CELL_SIZE,
                     GRID_START_Y + y * CELL_SIZE,
@@ -232,6 +240,7 @@ void CheckDeath(Player *player)
                     CELL_SIZE};
 
                 // On utilise la fonction de Raylib pour vérifier si le cercle touche le rectangle
+                //(centre cercle,rayon,rectangle)
                 if (CheckCollisionCircleRec(player->position, PLAYER_RADIUS, cellRect))
                 {
                     player->isAlive = false;
@@ -248,21 +257,15 @@ void UpdateGridCycle(Player *player, float deltaTime)
     if (!player->isAlive)
         return;
 
-    // Calcul des points de déclenchement basés sur les constantes ajustables
-    const float TIME_TO_WARNING_START = WAIT_TIME;
-    const float TIME_TO_DROP_START = WAIT_TIME + FALL_WARNING_TIME;
-    const float TIME_TO_RESET_START = CYCLE_DURATION;
-
-    // Détection des événements par croisement de seuil
-    bool shouldTriggerWarning = (timer < TIME_TO_WARNING_START && timer + deltaTime >= TIME_TO_WARNING_START);
-    bool shouldTriggerDrop = (timer < TIME_TO_DROP_START && timer + deltaTime >= TIME_TO_DROP_START);
-    bool shouldTriggerReset = (timer < TIME_TO_RESET_START && timer + deltaTime >= TIME_TO_RESET_START);
-
     timer += deltaTime;
 
     // --- ÉVÉNEMENT 1 : AVERTISSEMENT (Début de la phase ROUGE) ---
-    if (shouldTriggerWarning)
+    if (currentCycleState == CYCLE_WAIT && timer >= WAIT_TIME)
     {
+        // On passe à l'état WARNING (ROUGE)
+        currentCycleState = CYCLE_WARNING;
+        timer = 0.0f;
+
         if (!scoreIncreasedThisCycle)
         {
             player->score++;
@@ -292,8 +295,12 @@ void UpdateGridCycle(Player *player, float deltaTime)
     }
 
     // --- ÉVÉNEMENT 2 : CHUTE (Début de la phase GRISE/Mort) ---
-    if (shouldTriggerDrop)
+    else if (currentCycleState == CYCLE_WARNING && timer >= FALL_WARNING_TIME)
     {
+        // On passe à l'état DROP (GRIS)
+        currentCycleState = CYCLE_DROP;
+        timer = 0.0f; // Remise à zéro pour le timer de la prochaine phase
+
         for (int y = 0; y < GRID_SIZE; y++)
         {
             for (int x = 0; x < GRID_SIZE; x++)
@@ -308,9 +315,11 @@ void UpdateGridCycle(Player *player, float deltaTime)
     }
 
     // --- ÉVÉNEMENT 3 : NOUVEAU CYCLE (TIMER atteint la durée totale) ---
-    if (shouldTriggerReset)
+    else if (currentCycleState == CYCLE_DROP && timer >= FALL_DOWN_TIME)
     {
-        timer = 0.0f;
+        // On remet à l'état WAIT (Vert)
+        currentCycleState = CYCLE_WAIT;
+        timer = 0.0f; // Remise à zéro pour le timer de la prochaine phase
         scoreIncreasedThisCycle = false;
 
         // Réinitialisation des blocs non tombés au vert
@@ -338,12 +347,6 @@ void UpdateGridCycle(Player *player, float deltaTime)
                 drops++;
             }
         }
-    }
-
-    // Si le timer dépasse la durée totale (sécurité)
-    if (timer >= CYCLE_DURATION)
-    {
-        timer = 0.0f;
     }
 }
 
@@ -412,9 +415,6 @@ int main(void)
     InitGrid();
     Player player = InitPlayer();
 
-    // Calcul des points de déclenchement pour l'affichage uniquement
-    const float TIME_TO_WARNING_START = WAIT_TIME;
-    const float TIME_TO_DROP_START = WAIT_TIME + FALL_WARNING_TIME;
 
     while (!WindowShouldClose())
     {
