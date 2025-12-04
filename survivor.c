@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 // --- Constantes ---
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -62,6 +61,11 @@ typedef struct {
   int health;
   int maxHealth;
   Color color;
+  // Animation
+  Rectangle frameRec;
+  int currentFrame;
+  float frameTimer;
+  float rotation;
 } Enemy;
 
 typedef struct {
@@ -101,6 +105,8 @@ Bonus *bonuses = NULL;
 Trail trails[MAX_TRAILS] = {0};
 Texture2D background;
 Texture2D spaceshipTexture;
+Texture2D hunterTexture;
+Texture2D tankTexture;
 
 Camera2D camera = {0};
 
@@ -282,7 +288,7 @@ void SpawnEnemy() {
   } else if (difficultyFactor > 1.0f && roll > 70) {
     enemies[slot].type = ENEMY_FAST;
     enemies[slot].radius = 12.0f;
-    enemies[slot].speed = 550.0f;
+    enemies[slot].speed = 450.0f; // Vitesse réduite (était 550)
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
     enemies[slot].maxHealth =
@@ -290,14 +296,27 @@ void SpawnEnemy() {
     enemies[slot].color = ORANGE;
   } else {
     enemies[slot].type = ENEMY_NORMAL;
-    enemies[slot].radius = 20.0f;
-    enemies[slot].speed = 380.0f + (difficultyFactor * 5.0f);
+    enemies[slot].radius = 30.0f; // Rayon augmenté (était 20)
+    enemies[slot].speed =
+        280.0f + (difficultyFactor * 5.0f); // Vitesse réduite (était 380)
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
     enemies[slot].maxHealth =
         2 + (int)(difficultyFactor * 0.3f); // Scaling faible
     enemies[slot].color = RED;
   }
+
+  // Init Animation
+  if (enemies[slot].type == ENEMY_TANK) {
+    enemies[slot].frameRec = (Rectangle){0.0f, 0.0f, (float)tankTexture.width,
+                                         (float)tankTexture.height / 2.0f};
+  } else {
+    enemies[slot].frameRec = (Rectangle){0.0f, 0.0f, (float)hunterTexture.width,
+                                         (float)hunterTexture.height / 3.0f};
+  }
+  enemies[slot].currentFrame = 0;
+  enemies[slot].frameTimer = 0.0f;
+  enemies[slot].rotation = 0.0f;
 
   enemies[slot].health = enemies[slot].maxHealth;
 }
@@ -577,6 +596,38 @@ void UpdateGame(float dt) {
       enemies[i].position.x += dir.x * enemies[i].speed * dt;
       enemies[i].position.y += dir.y * enemies[i].speed * dt;
 
+      // Rotation
+      if (enemies[i].type == ENEMY_TANK) {
+        // Tank: Orientation horizontale fixe (Gauche ou Droite)
+        // On utilise le flip horizontal (largeur négative) au lieu de la
+        // rotation
+        enemies[i].rotation = 0.0f;
+
+        if (dir.x >= 0) {
+          // Vers la droite : largeur positive
+          if (enemies[i].frameRec.width < 0)
+            enemies[i].frameRec.width *= -1;
+        } else {
+          // Vers la gauche : largeur négative (flip)
+          if (enemies[i].frameRec.width > 0)
+            enemies[i].frameRec.width *= -1;
+        }
+      } else {
+        enemies[i].rotation = atan2f(dir.y, dir.x) * RAD2DEG + 90.0f;
+      }
+
+      // Animation
+      enemies[i].frameTimer += dt;
+      if (enemies[i].frameTimer >= 0.1f) {
+        enemies[i].frameTimer = 0.0f;
+        enemies[i].currentFrame++;
+        int maxFrames = (enemies[i].type == ENEMY_TANK) ? 2 : 3;
+        if (enemies[i].currentFrame >= maxFrames)
+          enemies[i].currentFrame = 0;
+        enemies[i].frameRec.y =
+            (float)enemies[i].currentFrame * enemies[i].frameRec.height;
+      }
+
       // Collision avec le joueur
       if (CheckCollisionCircles(player.position, player.radius,
                                 enemies[i].position, enemies[i].radius)) {
@@ -618,9 +669,6 @@ void DrawGame() {
   }
 
   // Draw Player (Spaceship)
-  // Destination rectangle: centré sur la position du joueur, taille ajustée
-  // On réduit la taille du sprite (331x399) à quelque chose de plus gérable,
-  // ex: 50x60
   float scale = 0.15f;
   float width = 331.0f * scale;
   float height = 399.0f * scale;
@@ -633,7 +681,20 @@ void DrawGame() {
   // Dessiner les ennemis
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
-      DrawCircleV(enemies[i].position, enemies[i].radius, enemies[i].color);
+      Texture2D tex =
+          (enemies[i].type == ENEMY_TANK) ? tankTexture : hunterTexture;
+      float baseScale = (enemies[i].type == ENEMY_TANK)
+                            ? 0.4f
+                            : 0.6f; // Chasseurs plus gros (0.6 vs 0.4)
+      // On utilise la valeur absolue pour la taille de destination car
+      // frameRec.width peut être négatif pour le flip
+      float width = fabsf(enemies[i].frameRec.width) * baseScale;
+      float height = enemies[i].frameRec.height * baseScale;
+      Rectangle dest = {enemies[i].position.x, enemies[i].position.y, width,
+                        height};
+      Vector2 origin = {width / 2.0f, height / 2.0f};
+      DrawTexturePro(tex, enemies[i].frameRec, dest, origin,
+                     enemies[i].rotation, WHITE);
     }
   }
 
@@ -644,7 +705,6 @@ void DrawGame() {
     }
   }
 
-  // Dessiner les bonus
   // Dessiner les bonus et indicateurs
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
@@ -658,22 +718,41 @@ void DrawGame() {
       if (screenPos.x < 0 || screenPos.x > GetScreenWidth() ||
           screenPos.y < 0 || screenPos.y > GetScreenHeight()) {
 
-        Vector2 center = {GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
-        Vector2 dir = Vector2Subtract(screenPos, center);
-        float angle = atan2f(dir.y, dir.x);
+        // Calcul en coordonnées MONDE (World Coordinates)
+        Vector2 dir = Vector2Subtract(bonuses[i].position, player.position);
 
-        // Clamp to screen edge with margin
-        float margin = 30.0f;
-        float clampX = Clamp(screenPos.x, margin, GetScreenWidth() - margin);
-        float clampY = Clamp(screenPos.y, margin, GetScreenHeight() - margin);
+        // Normaliser la direction
+        float length = Vector2Length(dir);
+        if (length > 0) {
+          dir = Vector2Scale(dir, 1.0f / length);
+        }
 
-        // Simple projection to edge if strictly outside
-        // This is a simplified approach; for perfect corner tracking we'd
-        // intersect lines But clamping works well enough for simple indicators
+        // Rayon du cercle autour du joueur
+        float indicatorRadius = 60.0f;
 
-        // Draw Arrow
-        DrawPoly((Vector2){clampX, clampY}, 3, 10.0f, angle * RAD2DEG,
-                 bonuses[i].color);
+        // Calcul des sommets du triangle isocèle
+        float triangleSize = 15.0f;
+
+        // Centre de la base du triangle (sur le cercle)
+        Vector2 baseCenter =
+            Vector2Add(player.position, Vector2Scale(dir, indicatorRadius));
+
+        // Pointe du triangle (vers le bonus, vers l'extérieur du
+        // cercle)
+        Vector2 tip = Vector2Add(
+            player.position, Vector2Scale(dir, indicatorRadius + triangleSize));
+
+        // Vecteur perpendiculaire pour la base
+        Vector2 perp = {-dir.y, dir.x};
+
+        // Coins de la base
+        Vector2 baseLeft =
+            Vector2Add(baseCenter, Vector2Scale(perp, -triangleSize * 0.5f));
+        Vector2 baseRight =
+            Vector2Add(baseCenter, Vector2Scale(perp, triangleSize * 0.5f));
+
+        // Dessiner le triangle
+        DrawTriangle(tip, baseLeft, baseRight, bonuses[i].color);
       }
     }
   }
@@ -762,6 +841,8 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
 
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
+  hunterTexture = LoadTexture("assets/sprite-chasseur.png");
+  tankTexture = LoadTexture("assets/sprite-tank.png");
 
   // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
   // partie)
@@ -779,11 +860,12 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
       } else {
         *game_active = true; // Pause
       }
-      
-      // Attendre que la touche soit relâchée pour éviter de fermer le menu aussi
+
+      // Attendre que la touche soit relâchée pour éviter de fermer le menu
+      // aussi
       while (IsKeyDown(KEY_ESCAPE)) {
-          BeginDrawing();
-          EndDrawing();
+        BeginDrawing();
+        EndDrawing();
       }
       break;
     }
