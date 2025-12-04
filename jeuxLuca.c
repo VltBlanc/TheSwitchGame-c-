@@ -59,7 +59,7 @@ void ResetGridState();
 Player InitPlayer();
 void UpdatePlayerMovement(Player *player, float deltaTime);
 void TeleportPlayer(Player *player);
-void GetPlayerGridCoords(Vector2 playerPos, int *gridX, int *gridY);
+void LimitePlayerPosition(Player *player);
 void CheckDeath(Player *player);
 void UpdateGridCycle(Player *player, float deltaTime);
 void DrawCustomGrid();
@@ -130,7 +130,7 @@ Player InitPlayer()
     player.position.y = screenHeight / 2;
     player.isAlive = true;
     player.score = 0;
-    player.lastMovementDirection = (Vector2){0.0f, -1.0f};
+    player.lastMovementDirection = (Vector2){0.0f, 0.0f}; //utile pour teleport et pour savoir où regarde le joueur
     return player;
 }
 
@@ -144,21 +144,6 @@ void TeleportPlayer(Player *player)
 
     player->position.x += teleportAmountX;
     player->position.y += teleportAmountY;
-
-    //ne pas dépasser les limites de l'écran
-    float minX = PLAYER_RADIUS;
-    float maxX = screenWidth - PLAYER_RADIUS;
-    float minY = PLAYER_RADIUS;
-    float maxY = screenHeight - PLAYER_RADIUS;
-
-    if (player->position.x < minX)
-        player->position.x = minX;
-    if (player->position.x > maxX)
-        player->position.x = maxX;
-    if (player->position.y < minY)
-        player->position.y = minY;
-    if (player->position.y > maxY)
-        player->position.y = maxY;
 }
 
 void UpdatePlayerMovement(Player *player, float deltaTime)
@@ -192,33 +177,10 @@ void UpdatePlayerMovement(Player *player, float deltaTime)
     player->position.x += movement.x * currentSpeed * deltaTime;
     player->position.y += movement.y * currentSpeed * deltaTime;
 
-    float minX = PLAYER_RADIUS;
-    float maxX = screenWidth - PLAYER_RADIUS;
-    float minY = PLAYER_RADIUS;
-    float maxY = screenHeight - PLAYER_RADIUS;
-
-    if (player->position.x < minX)
-        player->position.x = minX;
-    if (player->position.x > maxX)
-        player->position.x = maxX;
-    if (player->position.y < minY)
-        player->position.y = minY;
-    if (player->position.y > maxY)
-        player->position.y = maxY;
-
     if (IsKeyPressed(KEY_SPACE))
     {
         TeleportPlayer(player);
     }
-}
-
-void GetPlayerGridCoords(Vector2 playerPos, int *gridX, int *gridY)
-{
-    int relativeX = (int)playerPos.x - GRID_START_X;
-    int relativeY = (int)playerPos.y - GRID_START_Y;
-
-    *gridX = relativeX / CELL_SIZE;
-    *gridY = relativeY / CELL_SIZE;
 }
 
 void CheckDeath(Player *player)
