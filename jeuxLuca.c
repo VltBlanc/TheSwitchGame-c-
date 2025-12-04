@@ -9,7 +9,7 @@
 const float FALL_WARNING_TIME = 0.6f; // Temps en secondes pour l'avertissement ROUGE
 const float FALL_DOWN_TIME = 0.2f;    // Temps en secondes où le bloc est GRIS (Zone de Mort)
 const float WAIT_TIME = 0.1f;         // Temps en secondes d'attente (Bloc VERT)
-// -----------------------------------------------------
+// ---------------$$-------------------------------------
 
 // La durée totale du cycle est la somme des 3 temps ci-dessus
 const float CYCLE_DURATION = FALL_WARNING_TIME + FALL_DOWN_TIME + WAIT_TIME;
@@ -46,13 +46,16 @@ typedef struct Player
 } Player;
 
 // Variables globales du jeu
-BlockState grid[GRID_SIZE][GRID_SIZE];
+BlockState **grid = NULL;
 float timer = 0.0f;
 int blocksToDrop = 8;
 bool scoreIncreasedThisCycle = false;
 
-// --- Prototypes de Fonctions ---
+//Prototypes de Fonctions
+//utile pour écrire les fonctions dans l'ordre qu'on veut
 void InitGrid();
+void FreeGrid();
+void ResetGridState();
 Player InitPlayer();
 void UpdatePlayerMovement(Player *player, float deltaTime);
 void TeleportPlayer(Player *player);
@@ -67,13 +70,55 @@ void DrawPlayer(Player player);
 // Fonctions InitGrid, InitPlayer, TeleportPlayer, UpdatePlayerMovement, GetPlayerGridCoords, CheckDeath...
 // ... (Ces fonctions restent inchangées, je les omettrai pour la concision) ...
 
-void InitGrid()
-{
-    for (int y = 0; y < GRID_SIZE; y++)
-    {
-        for (int x = 0; x < GRID_SIZE; x++)
-        {
+void InitGrid() {
+    // 1. Allouer l'espace pour le tableau de pointeurs (les lignes)
+    grid = (BlockState**)malloc(GRID_SIZE * sizeof(BlockState*));
+    if (grid == NULL) {
+        // Gestion d'erreur si l'allocation échoue
+        printf("Erreur malloc lignes initGrid\n");
+        exit(1); 
+    }
+
+    // 2. Allouer l'espace pour chaque colonne de chaque ligne
+    for (int x = 0; x < GRID_SIZE; x++) {
+        grid[x] = (BlockState*)malloc(GRID_SIZE * sizeof(BlockState));
+        if (grid[x] == NULL) {
+            // Gestion d'erreur (libérer les lignes déjà allouées avant de quitter)
+            fprintf(stderr, "Erreur malloc cases initGrid\n");
+            FreeGrid();
+            exit(1);
+        }
+    }
+    
+    // 3. Initialisation des valeurs (comme avant)
+    for (int y = 0; y < GRID_SIZE; y++) {
+        for (int x = 0; x < GRID_SIZE; x++) {
             grid[x][y] = BLOCK_UP;
+        }
+    }
+}
+
+void FreeGrid() {
+    if (grid != NULL) {
+        // 1. Libérer la mémoire pour chaque ligne (les colonnes)
+        for (int x = 0; x < GRID_SIZE; x++) {
+            if (grid[x] != NULL) {
+                free(grid[x]);
+                grid[x] = NULL;
+            }
+        }
+        // 2. Libérer la mémoire pour le tableau de pointeurs (les lignes)
+        free(grid);
+        grid = NULL;
+    }
+}
+
+// Nouvelle fonction pour réinitialiser les états des blocs dans la mémoire existante
+void ResetGridState() {
+    for (int y = 0; y < GRID_SIZE; y++) {
+        for (int x = 0; x < GRID_SIZE; x++) {
+            // Remet simplement l'état à UP (0)
+            grid[x][y] = BLOCK_UP; 
         }
     }
 }
@@ -399,7 +444,7 @@ int main(void)
     // Cela garantit que la séquence de blocs qui tombent est différente à chaque lancement.
     srand((unsigned int)time(NULL));
 
-    InitWindow(screenWidth, screenHeight, "Raylib - Blocs Dynamiques (Paramètres de Temps Flexibles)");
+    InitWindow(screenWidth, screenHeight, "jeuxLuca");
     SetTargetFPS(60);
 
     InitGrid();
@@ -424,7 +469,7 @@ int main(void)
         {
             if (IsKeyPressed(KEY_SPACE))
             {
-                InitGrid();
+                ResetGridState();
                 player = InitPlayer();
                 blocksToDrop = 8;
                 timer = 0.0f;
@@ -449,5 +494,6 @@ int main(void)
     }
 
     CloseWindow();
+    FreeGrid();
     return 0;
 }
