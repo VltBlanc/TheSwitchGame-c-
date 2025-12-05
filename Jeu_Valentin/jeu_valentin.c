@@ -4,130 +4,142 @@
 #include "raylib.h"
 #include "raymath.h"
 
-// --- Constantes Fondamentales du Jeu ---
-#define SCREEN_WIDTH 800 // Largeur de l'écran (Ancien : taille écran de jeu)
-#define SCREEN_HEIGHT 600 // Hauteur de l'écran (Ancien : taille écran de jeu)
-#define NUM_LANES_X 3 // Nombre de voies horizontales (Gauche, Centre, Droite)
-#define NUM_LANES_Y 2 // Nombre de voies verticales (Bas, Haut)
-#define MAX_OBSTACLES 30 // Nombre maximum d'astéroïdes simultanés
-#define ASTEROID_SPEED 0.50f // Vitesse de déplacement des astéroïdes
-#define ASTEROID_SPAWN_Z -50.0f // Position Z initiale lointaine des astéroïdes
-#define ASTEROID_RADIUS 1.0f // Rayon de l'astéroïde (Ancien : doit être une constant finalement)
 
-// --- Structure pour les Obstacles (Astéroïdes) ---
+// --- I. CONSTANTES DU JEU ---
+#define LARGEUR_ECRAN 800 
+#define HAUTEUR_ECRAN 600 
+#define NB_VOIES_X 3       // Nombre de voies horizontales (Gauche, Centre, Droite)
+#define NB_VOIES_Y 2       // Nombre de voies verticales (Bas, Haut)
+#define MAX_OBSTACLES 30    
+#define VITESSE_ASTEROIDE 0.50f
+#define Z_INIT_ASTEROIDE -50.0f // Position Z initiale lointaine des astéroïdes
+#define RAYON_ASTEROIDE 1.0f
+
+// --- II. CONSTANTES DE DIFFICULTÉ ---
+#define TAUX_APPARITION_BASE 0.35f 
+#define TEMPS_PALIER_DIFFICULTE 5.0f // Temps (en secondes) après lequel la difficulté augmente
+#define MULTIPLIER_DIFFICULTE 0.85f // Multiplicateur de réduction du taux d'apparition
+
+// --- III. STRUCTURES ---
 typedef struct Obstacle {
-    float z;            // Distance entre l'astéroïde et le joueur (Ancien : distance entre lui et le joueur)
-    int Voie_X;          // Voie horizontale de l'astéroïde
-    int Voie_Y;          // Voie verticale de l'astéroïde
-    bool active;        // Détermine si l'astéroïde est visible et actif (Ancien : Détermine si visible et actif)
-    float rayon;       // Rayon de l'astéroïde
-    Color color;        // Couleur de l'astéroïde (Ancien : Couleur astéoroïde)
+    float z_distance;            // Distance entre l'astéroïde et le joueur
+    int Voie_X;          
+    int Voie_Y;          
+    bool actif;        // Détermine si l'astéroïde est visible et actif
+    float rayon;       
+    Color couleur;        
 } Obstacle;
 
-// --- Prototypes des Fonctions ---
-int LimiteEspace(int value, int min, int max); // Limite la valeur entre min et max (Ancien : vérifie que le joueur est toujours dans l'espace de jeu et l'empèche de sortir)
-void InitGame(void);  // Initialise le jeu (Ancien : initialise le jeu)
-void ActualiseJoueurs(void); // Met à jour la position du joueur
-void ApparitionAsteroide(void); // Tente de créer un astéroïde (Ancien : Créer les astéroides)
-void ActualiseAsteroide(void); // Met à jour la position et l'état des astéroïdes
-void CheckCollisions(void); // Vérifie les collisions entre le joueur et les astéroïdes
-void ActualiseJeu(void); // Met à jour l'état du jeu (joueur, astéroïdes, collisions) (Ancien : met à jour le jeu sans cesse permet l'évolution de la partie + fluidité)
-void DessinerJeu(void); // Rend le jeu (Ancien : affichage graphique du jeu)
+// --- IV. PROTOTYPES DES FONCTIONS ---
+int LimiteEspace(int valeur, int min, int max); 
+void InitGame(void);  
+void ActualiseJoueur(void); 
+void ApparitionAsteroide(void); 
+void ActualiseAsteroides(void); 
+void VerifieCollisions(void); 
+void ActualiseJeu(void); 
+void DessinerJeu(void); 
 
-// --- Variables Globales ---
-Vector3 playerPosition = {0.0f, 0.0f, 0.0f}; // Position du vaisseau du joueur (Ancien : position du vaisseau)
-int JoeurligneX = 1;                         // Voie X actuelle (0, 1, 2) (Ancien : voie X)
-int JoeurligneY = 0;                         // Voie Y actuelle (0, 1) (Ancien : voie Y)
-float ligneXPositions[NUM_LANES_X] = {-2.5f, 0.0f, 2.5f}; // Positions X des voies (Ancien : positions X des voies)
-float ligneYPositions[NUM_LANES_Y] = { -1.5f, 1.5f };     // Positions Y des voies (Ancien : positions Y des voies)
+// --- V. VARIABLES GLOBALES ---
 
-Obstacle obstacles[MAX_OBSTACLES]; // Tableau des astéroïdes
-Camera3D camera = { 0 };           // Caméra du jeu
-bool gameOver = false;             // État du jeu
+Vector3 positionJoueur = {0.0f, 0.0f, 0.0f}; // Position 3D du joueur
+int voieJoueurX = 1;                         // Voie X actuelle (0, 1, 2)
+int voieJoueurY = 0;                         // Voie Y actuelle (0, 1)
+float positionsXVoies[NB_VOIES_X] = {-2.5f, 0.0f, 2.5f}; 
+float positionsYVoies[NB_VOIES_Y] = { -1.5f, 1.5f };     
 
-// --- Fonctions ---
+Obstacle tableauObstacles[MAX_OBSTACLES]; // Tableau des astéroïdes
+Camera3D cameraJeu = { 0 };           
+bool jeuFini = false;             
+
+float tempsSurvie = 0.0f;          // Temps de survie (score)
+int niveauDifficulte = 0;            // Niveau de difficulté actuel
+
+// --- VI. IMPLÉMENTATION DES FONCTIONS ---
 
 // Initialisation du jeu
 void InitGame(void) {
-    // Initialise le générateur de nombres aléatoires
     srand((unsigned int)time(NULL)); 
 
-    // Initialisation de la Caméra
-    // Position de la caméra : légèrement au-dessus (5.0f) et derrière (10.0f) l'origine.
-    camera.position = (Vector3){0.0f, 5.0f, 10.0f}; 
-    camera.target   = (Vector3){0.0f, 0.0f, 0.0f};  // Regarde le centre
-    camera.up       = (Vector3){0.0f, 1.0f, 0.0f}; // Vecteur 'haut'
-    camera.fovy     = 75.0f; // Champ de vision
-    camera.projection = CAMERA_PERSPECTIVE;
+    // Configuration Caméra
+    cameraJeu.position = (Vector3){0.0f, 4.0f, 10.0f}; 
+    cameraJeu.target   = (Vector3){0.0f, 0.0f, 0.0f};  
+    cameraJeu.up       = (Vector3){0.0f, 1.0f, 0.0f}; 
+    cameraJeu.fovy     = 75.0f; 
+    cameraJeu.projection = CAMERA_PERSPECTIVE;
 
-    // Initialisation du joueur
-    JoeurligneX = 1; // Voie X centrale par défaut
-    JoeurligneY = 0; // Voie Y inférieure par défaut
-    playerPosition.x = ligneXPositions[JoeurligneX];
-    playerPosition.y = ligneYPositions[JoeurligneY];
-    playerPosition.z = 0.0f; // Le joueur reste à z=0
+    // Réinitialisation du joueur
+    voieJoueurX = 1; 
+    voieJoueurY = 0; 
+    positionJoueur.x = positionsXVoies[voieJoueurX];
+    positionJoueur.y = positionsYVoies[voieJoueurY];
+    positionJoueur.z = 0.0f; 
 
-    // Initialisation des astéroïdes
+    // Réinitialisation des astéroïdes
     for (int i = 0; i < MAX_OBSTACLES; i++) {
-        obstacles[i].active = false;
-        obstacles[i].rayon = ASTEROID_RADIUS;
+        tableauObstacles[i].actif = false;
     }
     
-    gameOver = false; // Réinitialisation de l'état du jeu
+    // Réinitialisation de l'état et de la difficulté
+    jeuFini = false; 
+    tempsSurvie = 0.0f;
+    niveauDifficulte = 0;
 }
 
 // Limite la valeur entre min et max
-int LimiteEspace(int value, int min, int max) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
+int LimiteEspace(int valeur, int min, int max) {
+    if (valeur < min) return min;
+    if (valeur > max) return max;
+    return valeur;
 }
 
 // Met à jour la position du joueur en fonction des entrées
-void ActualiseJoueurs(void) {
-    // Changement de voie X (gauche/droite)
-    if (IsKeyPressed(KEY_LEFT))  JoeurligneX--;
-    if (IsKeyPressed(KEY_RIGHT)) JoeurligneX++;
-    // Changement de voie Y (haut/bas)
-    if (IsKeyPressed(KEY_UP))    JoeurligneY++;
-    if (IsKeyPressed(KEY_DOWN))  JoeurligneY--;
+void ActualiseJoueur(void) {
+    // Entrées utilisateur et limitation de voie
+    if (IsKeyPressed(KEY_LEFT))  voieJoueurX--;
+    if (IsKeyPressed(KEY_RIGHT)) voieJoueurX++;
+    if (IsKeyPressed(KEY_UP))    voieJoueurY++;
+    if (IsKeyPressed(KEY_DOWN))  voieJoueurY--;
 
-    // Limiter le joueur aux voies disponibles
-    JoeurligneX = LimiteEspace(JoeurligneX, 0, NUM_LANES_X - 1);
-    JoeurligneY = LimiteEspace(JoeurligneY, 0, NUM_LANES_Y - 1);
+    voieJoueurX = LimiteEspace(voieJoueurX, 0, NB_VOIES_X - 1);
+    voieJoueurY = LimiteEspace(voieJoueurY, 0, NB_VOIES_Y - 1);
 
-    // Mise à jour de la position 3D du joueur
-    playerPosition.x = ligneXPositions[JoeurligneX];
-    playerPosition.y = ligneYPositions[JoeurligneY];
+    // Mise à jour de la position 3D
+    positionJoueur.x = positionsXVoies[voieJoueurX];
+    positionJoueur.y = positionsYVoies[voieJoueurY];
 }
 
 // Tente de faire apparaître un nouvel astéroïde aléatoirement
 void ApparitionAsteroide(void) {
-    static float timer = 0.0f;
-    // Cadence d'apparition plus rapide
-    const float spawnRate = 0.15f; 
+    static float minuterie = 0.0f;
+    
+    // Calcul du taux d'apparition (tauxApparition)
+    float tauxApparition = TAUX_APPARITION_BASE;
+    // Diminue le tauxApparition à chaque niveau de difficulté
+    for (int i = 0; i < niveauDifficulte; i++) {
+        tauxApparition *= MULTIPLIER_DIFFICULTE;
+    }
+    if (tauxApparition < 0.05f) tauxApparition = 0.05f; // Limite minimale
 
-    timer += GetFrameTime();
+    minuterie += GetFrameTime();
 
-    // Condition d'apparition: temps écoulé
-    if (timer >= spawnRate) {
-        timer = 0.0f; // Réinitialiser le minuteur
+    if (minuterie >= tauxApparition) {
+        minuterie = 0.0f;
         
-        // Trouver un astéroïde inactif
+        // Chercher et initialiser un astéroïde inactif
         for (int i = 0; i < MAX_OBSTACLES; i++) {
-            if (!obstacles[i].active) {
-                // Initialisation de l'astéroïde
-                obstacles[i].z = ASTEROID_SPAWN_Z; // Loin devant
-                // Choix aléatoire de la voie
-                obstacles[i].Voie_X = rand() % NUM_LANES_X; 
-                obstacles[i].Voie_Y = rand() % NUM_LANES_Y;
-                obstacles[i].active = true;
+            if (!tableauObstacles[i].actif) {
+                tableauObstacles[i].z_distance = Z_INIT_ASTEROIDE; 
+                tableauObstacles[i].Voie_X = rand() % NB_VOIES_X; 
+                tableauObstacles[i].Voie_Y = rand() % NB_VOIES_Y;
+                tableauObstacles[i].actif = true;
+                tableauObstacles[i].rayon = RAYON_ASTEROIDE; // Assurer que le rayon est défini
+
                 
-                // Couleur aléatoire simple
-                int color_choice = rand() % 3;
-                if (color_choice == 0) obstacles[i].color = RED;
-                else if (color_choice == 1) obstacles[i].color = GREEN;
-                else obstacles[i].color = YELLOW;
+                int choixCouleur = rand() % 3;
+                if (choixCouleur == 0) tableauObstacles[i].couleur = RED;
+                else if (choixCouleur == 1) tableauObstacles[i].couleur = GREEN;
+                else tableauObstacles[i].couleur = YELLOW;
                 
                 return; 
             }
@@ -135,109 +147,114 @@ void ApparitionAsteroide(void) {
     }
 }
 
-// Met à jour la position des astéroïdes et les désactive s'ils dépassent le joueur
-void ActualiseAsteroide(void) {
+// Met à jour la position des astéroïdes
+void ActualiseAsteroides(void) {
     for (int i = 0; i < MAX_OBSTACLES; i++) {
-        if (obstacles[i].active) {
+        if (tableauObstacles[i].actif) {
             // L'astéroïde se déplace vers le joueur (z augmente)
-            obstacles[i].z += ASTEROID_SPEED;
+            tableauObstacles[i].z_distance += VITESSE_ASTEROIDE;
 
-            // Si l'astéroïde a dépassé le joueur (z > playerPosition.z + rayon)
-            if (obstacles[i].z > playerPosition.z + obstacles[i].rayon) {
-                obstacles[i].active = false; // Désactiver l'astéroïde
+            // Désactivation si l'astéroïde est dépassé
+            if (tableauObstacles[i].z_distance > positionJoueur.z + tableauObstacles[i].rayon) {
+                tableauObstacles[i].actif = false; 
             }
         }
     }
 }
 
 // Vérifie les collisions entre le joueur et les astéroïdes
-void CheckCollisions(void) {
-    float playerRadius = 0.5f;
+void VerifieCollisions(void) {
+    float rayonJoueur = 0.5f;
 
     for (int i = 0; i < MAX_OBSTACLES; i++) {
-        if (obstacles[i].active) {
+        if (tableauObstacles[i].actif) {
             
-            // 1. Vérifier si l'astéroïde est sur la même voie que le joueur
-            if (obstacles[i].Voie_X == JoeurligneX && obstacles[i].Voie_Y == JoeurligneY) {
+            // Collision possible uniquement si l'astéroïde est sur la même voie
+            if (tableauObstacles[i].Voie_X == voieJoueurX && tableauObstacles[i].Voie_Y == voieJoueurY) {
                 
-                // 2. Calculer la position 3D de l'astéroïde
-                // L'astéroïde est aux coordonnées x et y de sa voie
-                Vector3 asteroidPosition = { 
-                    ligneXPositions[obstacles[i].Voie_X], 
-                    ligneYPositions[obstacles[i].Voie_Y], 
-                    obstacles[i].z 
+                // Calculer la position 3D réelle de l'astéroïde
+                Vector3 positionAsteroide = { 
+                    positionsXVoies[tableauObstacles[i].Voie_X], 
+                    positionsYVoies[tableauObstacles[i].Voie_Y], 
+                    tableauObstacles[i].z_distance 
                 };
                 
-                float distance = Vector3Distance(playerPosition, asteroidPosition);
+                float distance = Vector3Distance(positionJoueur, positionAsteroide);
+                float distanceMinimale = rayonJoueur + tableauObstacles[i].rayon;
                 
-                // 3. Collision si la distance est inférieure à la somme des rayons
-                float minDistance = playerRadius + obstacles[i].rayon;
-                
-                if (distance < minDistance) {
-                    gameOver = true; // Collision détectée ! Fin du jeu
+                // Fin du jeu si la distance est inférieure à la somme des rayons
+                if (distance < distanceMinimale) {
+                    jeuFini = true; 
                 }
             }
         }
     }
 }
 
-// Met à jour tout l'état du jeu
+// Met à jour tout l'état du jeu (logique principale)
 void ActualiseJeu(void) {
-    if (!gameOver) {
-        ActualiseJoueurs(); // Mouvement du joueur
-        ApparitionAsteroide(); // Tentative d'apparition d'un nouvel astéroïde
-        ActualiseAsteroide(); // Mouvement des astéroïdes
-        CheckCollisions(); // Vérification des collisions
+    if (!jeuFini) {
+        // Mise à jour du temps de survie et du niveau de difficulté
+        tempsSurvie += GetFrameTime();
+        
+        int nouveauNiveauDifficulte = (int)(tempsSurvie / TEMPS_PALIER_DIFFICULTE);
+        if (nouveauNiveauDifficulte > niveauDifficulte) {
+            niveauDifficulte = nouveauNiveauDifficulte;
+        }
+
+        ActualiseJoueur(); 
+        ApparitionAsteroide(); 
+        ActualiseAsteroides(); 
+        VerifieCollisions(); 
     } else {
-        //'Fin du jeu' (touche ENTREE pour recommencer)
+        // Redémarrage du jeu
         if (IsKeyPressed(KEY_ENTER)) {
-            InitGame(); // Réinitialiser le jeu
+            InitGame(); 
         }
     }
 }
 
-
-
+// Rend le jeu (affichage)
 void DessinerJeu(void) {
     BeginDrawing();
     ClearBackground(BLACK);
 
-    BeginMode3D(camera);
+    BeginMode3D(cameraJeu);
     
-
-    
-    // Dessiner le vaisseau (joueur).
-    DrawCube(playerPosition, 1.0f, 1.0f, 1.0f, BLUE); 
+    // Dessiner le vaisseau
+    DrawCube(positionJoueur, 1.0f, 1.0f, 1.0f, BLUE); 
     
     // Dessiner les astéroïdes actifs
     for (int i = 0; i < MAX_OBSTACLES; i++) {
-        if (obstacles[i].active) {
-            // Position de dessin de l'astéroïde
-            Vector3 drawPosition = { 
-                ligneXPositions[obstacles[i].Voie_X], 
-                ligneYPositions[obstacles[i].Voie_Y], 
-                obstacles[i].z 
+        if (tableauObstacles[i].actif) {
+            Vector3 positionDessin = { 
+                positionsXVoies[tableauObstacles[i].Voie_X], 
+                positionsYVoies[tableauObstacles[i].Voie_Y], 
+                tableauObstacles[i].z_distance 
             };
-            DrawSphere(drawPosition, obstacles[i].rayon, obstacles[i].color);
+            DrawSphere(positionDessin, tableauObstacles[i].rayon, tableauObstacles[i].couleur);
         }
     }
-
+    
     EndMode3D();
     
-
+    // Affichage du Score/Temps de Survie
+    char texteTemps[64];
+    sprintf(texteTemps, "Temps: %.1f s | Difficulte: %d", tempsSurvie, niveauDifficulte);
+    DrawText(texteTemps, 10, 10, 20, WHITE);
     
     // Affichage 'Fin du jeu'
-    if (gameOver) {
-        DrawText("GAME OVER", SCREEN_WIDTH / 2 - MeasureText("GAME OVER", 40) / 2, SCREEN_HEIGHT / 2 - 50, 40, RED);
-        DrawText("Appuyez sur ENTREE pour recommencer", SCREEN_WIDTH / 2 - MeasureText("Appuyez sur ENTREE pour recommencer", 20) / 2, SCREEN_HEIGHT / 2 + 20, 20, WHITE);
+    if (jeuFini) {
+        DrawText("GAME OVER", LARGEUR_ECRAN / 2 - MeasureText("GAME OVER", 40) / 2, HAUTEUR_ECRAN / 2 - 50, 40, RED);
+        DrawText(texteTemps, LARGEUR_ECRAN / 2 - MeasureText(texteTemps, 25) / 2, HAUTEUR_ECRAN / 2 + 5, 25, YELLOW);
+        DrawText("Appuyez sur ENTREE pour recommencer", LARGEUR_ECRAN / 2 - MeasureText("Appuyez sur ENTREE pour recommencer", 20) / 2, HAUTEUR_ECRAN / 2 + 40, 20, WHITE);
     }
 
     EndDrawing();
 }
 
 int main(void) {
-    // Initialisation de la fenêtre
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Vaisseau 3D - Esquive d'Astéroïdes");
+    InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Vaisseau 3D - Esquive d'Astéroïdes");
     InitGame(); 
     SetTargetFPS(60); 
 
