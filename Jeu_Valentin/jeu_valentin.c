@@ -5,9 +5,9 @@
 #include <time.h>
 #include "raylib.h"
 #include "raymath.h"
+#include <math.h>
 
 #include "etoile.h" 
-#include <math.h>
 
 
 // --- I. CONSTANTES DU JEU ---
@@ -50,8 +50,12 @@ void DessinerJeu(void);
 Vector3 positionJoueur = {0.0f, 0.0f, 0.0f}; // Position 3D du joueur
 int voieJoueurX = 1;                         // Voie X actuelle (0, 1, 2)
 int voieJoueurY = 0;                         // Voie Y actuelle (0, 1)
-float positionsXVoies[NB_VOIES_X] = {-2.5f, 0.0f, 2.5f}; 
-float positionsYVoies[NB_VOIES_Y] = { -1.5f, 1.5f };     
+
+float positionsXVoies[NB_VOIES_X] = {-4.0f, 0.0f, 4.0f}; // Couloirs X plus larges 
+
+
+float positionsYVoies[NB_VOIES_Y] = { -2.0f, 2.0f };    // Couloirs Y plus larges 
+ 
 
 Obstacle tableauObstacles[MAX_OBSTACLES]; // Tableau des astéroïdes
 Camera3D cameraJeu = { 0 };           
@@ -66,11 +70,11 @@ int niveauDifficulte = 0;            // Niveau de difficulté actuel
 void InitGame(void) {
     srand((unsigned int)time(NULL)); 
 
-    // Configuration Caméra
-    cameraJeu.position = (Vector3){0.0f, 4.0f, 10.0f}; 
-    cameraJeu.target   = (Vector3){0.0f, 0.0f, 0.0f};  
+    cameraJeu.position = (Vector3){0.0f, 6.0f, 12.0f}; 
+    cameraJeu.target   = (Vector3){0.0f, 0.5f, 0.0f};  
     cameraJeu.up       = (Vector3){0.0f, 1.0f, 0.0f}; 
-    cameraJeu.fovy     = 75.0f; 
+    
+    cameraJeu.fovy     = 80.0f; 
     cameraJeu.projection = CAMERA_PERSPECTIVE;
 
     // Réinitialisation du joueur
@@ -91,7 +95,7 @@ void InitGame(void) {
     niveauDifficulte = 0;
     
     // NOUVEAU : Initialisation des étoiles via la fonction dédiée
-    InitialiserStarfield(LARGEUR_ECRAN, HAUTEUR_ECRAN);}
+    Initialiseretoile(LARGEUR_ECRAN, HAUTEUR_ECRAN);}
 
 // Limite la valeur entre min et max
 int LimiteEspace(int valeur, int min, int max) {
@@ -102,7 +106,7 @@ int LimiteEspace(int valeur, int min, int max) {
 
 // Met à jour la position du joueur en fonction des entrées
 void ActualiseJoueur(void) {
-    // 1. Entrées utilisateur et limitation de voie (Identique)
+    //1) Entrées utilisateur et limitation de voie (Identique)
     if (IsKeyPressed(KEY_LEFT))  voieJoueurX--;
     if (IsKeyPressed(KEY_RIGHT)) voieJoueurX++;
     if (IsKeyPressed(KEY_UP))    voieJoueurY++;
@@ -111,24 +115,17 @@ void ActualiseJoueur(void) {
     voieJoueurX = LimiteEspace(voieJoueurX, 0, NB_VOIES_X - 1);
     voieJoueurY = LimiteEspace(voieJoueurY, 0, NB_VOIES_Y - 1);
 
-    // 2. Détermination des positions cibles (X et Y)
+    //2) Détermination des positions cibles (X et Y)
     float cibleX = positionsXVoies[voieJoueurX];
     float cibleY = positionsYVoies[voieJoueurY];
     
-    // 3. Mise à jour de la position 3D avec Interpolation Linéaire (Lerp)
-    
-    // FACTEUR DE LISSAGE (Alpha) : Détermine la vitesse de la transition. 
-    // Plus la valeur est élevée (proche de 1.0f), plus la transition est rapide.
-    // Une valeur entre 0.1f et 0.3f donne généralement un bon lissage.
+    //3) Mise à jour de la position 3D avec Interpolation Linéaire (Lerp)--
     const float facteurLissage = 0.2f; 
-
     positionJoueur.x = Lerp(positionJoueur.x, cibleX, facteurLissage);
     positionJoueur.y = Lerp(positionJoueur.y, cibleY, facteurLissage);
-    
-    // positionJoueur.z reste inchangé (0.0f)
 }
 
-// Tente de faire apparaître un nouvel astéroïde aléatoirement
+// Essaye de faire apparaître un nouvel astéroïde aléatoirement
 void ApparitionAsteroide(void) {
     static float minuterie = 0.0f;
     
@@ -225,7 +222,7 @@ void ActualiseJeu(void) {
         ApparitionAsteroide(); 
         ActualiseAsteroides(); 
         VerifieCollisions(); 
-        ActualiserStarfield(tempsSurvie, niveauDifficulte);
+        Actualiseretoile(tempsSurvie, niveauDifficulte);
     } else {
         // Redémarrage du jeu
         if (IsKeyPressed(KEY_ENTER)) {
@@ -235,15 +232,11 @@ void ActualiseJeu(void) {
 }
 
 // Rend le jeu (affichage)
-// Rend le jeu (affichage)
 void DessinerJeu(void) {
     BeginDrawing();
     ClearBackground(BLACK);
 
-    // --- NOUVEAU : Dessin du Starfield (en 2D, pour l'arrière-plan) ---
-    // Cette fonction est censée être déclarée dans starfield.h
-    // et définie dans starfield.c
-    DessinerStarfield(); 
+    Dessineretoile(); 
 
     // -------------------------------------------------------------------
     
