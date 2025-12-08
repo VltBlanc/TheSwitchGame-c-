@@ -1,8 +1,13 @@
+//func += getgrame()+speed  (à rajouter)
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include "raylib.h"
 #include "raymath.h"
+
+
+#include <math.h>
 
 
 // --- I. CONSTANTES DU JEU ---
