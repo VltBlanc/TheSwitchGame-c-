@@ -46,7 +46,7 @@ else
 endif
 
 # Source files
-SOURCES = Jeu_valentin/jeu_valentin.c
+SOURCES = Jeu_valentin/jeu_valentin.c Jeu_valentin/etoile.c
 OBJECTS = $(SOURCES:.c=.o)
 TARGET = the_switch_game$(EXE_EXT)
 
