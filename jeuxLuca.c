@@ -8,7 +8,8 @@
 
 #define Taille_Grid 10
 #define Taille_Case 60
-#define Rayon_Joueur 15
+#define Demi_Cote_Joueur_X 16
+#define Demi_Cote_Joueur_Y 19
 #define Vitesse_Marche 200.0f
 #define CoefCourse 2.0f
 #define Distance_Case_Dash 2
@@ -50,6 +51,7 @@ const float Temps_Tomber = 0.2f;
 const float Temps_Attente = 0.1f;   // temps en secondes avant prochaine phase
 int nbrBlockQuiTombe = 8;
 bool scoreDoitAugmenter = false;
+Texture2D playerTexture;
 
 //---PROTOTYPES---
 //utile pour écrire les fonctions dans l'ordre qu'on veut
@@ -180,9 +182,16 @@ void VerifieMort(Joueur *Joueur)
         return;
     }
 
+    Rectangle JoueurRec = {
+        Joueur->position.x - Demi_Cote_Joueur_X,  // X du coin supérieur gauche
+        Joueur->position.y - Demi_Cote_Joueur_Y,// Y du coin supérieur gauche
+        Demi_Cote_Joueur_X * 2.0f,                // Largeur (Diamètre)
+        Demi_Cote_Joueur_Y * 2.0f                 // Hauteur (Diamètre)
+    };
+
     // Vérification chute de la grille
-    bool horsGrilleX = Joueur->position.x < Debut_Grille_X || Joueur->position.x > (Debut_Grille_X + Taille_Grid * Taille_Case);
-    bool horsGrilleY = Joueur->position.y < Debut_Grille_Y || Joueur->position.y > (Debut_Grille_Y + Taille_Grid * Taille_Case);
+    bool horsGrilleX = (Joueur->position.x - Demi_Cote_Joueur_X) < Debut_Grille_X || (Joueur->position.x + Demi_Cote_Joueur_X) > (Debut_Grille_X + Taille_Grid * Taille_Case);
+    bool horsGrilleY = (Joueur->position.y - Demi_Cote_Joueur_Y) < Debut_Grille_Y || (Joueur->position.y + Demi_Cote_Joueur_Y) > (Debut_Grille_Y + Taille_Grid * Taille_Case);
 
     if (horsGrilleX || horsGrilleY)
     {
@@ -193,22 +202,22 @@ void VerifieMort(Joueur *Joueur)
     //converit le cercle joueur en ensemble de case qu'il touche
     // et on vérifie qu'on ne sort pas du tableau
 
-    int minGridX = (int)floor(((Joueur->position.x - Rayon_Joueur) - Debut_Grille_X) / (float)Taille_Case);
+    int minGridX = (int)floor(((Joueur->position.x - Demi_Cote_Joueur_X) - Debut_Grille_X) / (float)Taille_Case);
     if(minGridX < 0) {
         minGridX=0;
     }
 
-    int maxGridX = (int)floor(((Joueur->position.x + Rayon_Joueur) - Debut_Grille_X) / (float)Taille_Case);
+    int maxGridX = (int)floor(((Joueur->position.x + Demi_Cote_Joueur_X) - Debut_Grille_X) / (float)Taille_Case);
     if(maxGridX >= Taille_Grid){
         maxGridX = Taille_Grid - 1;
      }
 
-    int minGridY = (int)floor(((Joueur->position.y - Rayon_Joueur) - Debut_Grille_Y) / (float)Taille_Case);
+    int minGridY = (int)floor(((Joueur->position.y - Demi_Cote_Joueur_Y) - Debut_Grille_Y) / (float)Taille_Case);
     if(minGridY < 0) {
         minGridY=0;
     }
 
-    int maxGridY = (int)floor(((Joueur->position.y + Rayon_Joueur) - Debut_Grille_Y) / (float)Taille_Case);
+    int maxGridY = (int)floor(((Joueur->position.y + Demi_Cote_Joueur_Y) - Debut_Grille_Y) / (float)Taille_Case);
     if(maxGridY >= Taille_Grid){
         maxGridY = Taille_Grid - 1;
      }
@@ -230,7 +239,7 @@ void VerifieMort(Joueur *Joueur)
                     Taille_Case};
 
                 //(centre cercle,rayon,rectangle)
-                if (CheckCollisionCircleRec(Joueur->position, Rayon_Joueur, Case))
+                if (CheckCollisionRecs(JoueurRec, Case))
                 {
                     Joueur->vivant = false;
                     return;
@@ -376,7 +385,24 @@ void DessineJoueur(Joueur Joueur)
 {
     if (Joueur.vivant)
     {
-        DrawCircleV(Joueur.position, Rayon_Joueur, SKYBLUE);
+        // 1. Définition du rectangle source (l'image entière)
+        Rectangle sourceRec = { 0.0f, 0.0f, (float)playerTexture.width, (float)playerTexture.height };
+
+        // 2. Définition du rectangle de destination (taille et position à l'écran)
+        // La largeur et la hauteur du dessin seront 2 * Demi_Cote_Joueur.
+        // La position (X, Y) est le coin supérieur gauche du dessin.
+        Rectangle destRec = {
+            Joueur.position.x - Demi_Cote_Joueur_X,  // X du coin supérieur gauche (centre - rayon)
+            Joueur.position.y - Demi_Cote_Joueur_Y,  // Y du coin supérieur gauche (centre - rayon)
+            Demi_Cote_Joueur_X * 2.0f,               // Largeur du dessin (Diamètre)
+            Demi_Cote_Joueur_Y * 2.0f                // Hauteur du dessin (Diamètre)
+        };
+        
+        // 3. Dessin de la texture redimensionnée
+        DrawTexturePro(playerTexture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
+        // On utilise {0, 0} comme origine et 0.0f comme rotation, et WHITE pour l'opacité par défaut.
+
+        //DrawRectangleLinesEx(destRec, 2, MAGENTA);//affiche hitbox utile pur vérif bug collision
     }
 }
 
@@ -389,6 +415,7 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "Jeux Luca");
     SetTargetFPS(60);
 
+    playerTexture = LoadTexture("assets/playerLuca.png");
     InitGrid();
     Joueur Joueur = InitJoueur();
 
@@ -435,6 +462,7 @@ int main(void)
     }
 
     CloseWindow();
+    UnloadTexture(playerTexture);
     FreeGrid();
     return 0;
 }
