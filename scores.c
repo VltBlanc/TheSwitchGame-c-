@@ -85,3 +85,53 @@ void print_scores(ScoreList *scores) {
            scores->entries[i].score);
   }
 }
+
+bool save_scores(ScoreList *scores) {
+  if (!scores)
+    return false;
+
+  FILE *file = fopen(SCORES_FILE, "w");
+  if (!file)
+    return false;
+
+  // En-tête
+  fprintf(file, "Player,Score\n");
+
+  for (int i = 0; i < scores->count; i++) {
+    fprintf(file, "%s,%d\n", scores->entries[i].playername,
+            scores->entries[i].score);
+  }
+
+  fclose(file);
+  return true;
+}
+
+void add_score(ScoreList *scores, const char *name, int score) {
+  if (!scores || !name)
+    return;
+
+  // Si on n'a pas atteint le max, on ajoute à la fin
+  if (scores->count < MAX_SCORES) {
+    strncpy(scores->entries[scores->count].playername, name,
+            MAX_NAME_LENGTH - 1);
+    scores->entries[scores->count].playername[MAX_NAME_LENGTH - 1] = '\0';
+    scores->entries[scores->count].score = score;
+    scores->count++;
+  } else {
+    // Si la liste est pleine, on vérifie si le nouveau score est meilleur que
+    // le pire On suppose que la liste est triée (ce qui devrait être le cas) Le
+    // pire score est à la fin
+    if (score > scores->entries[MAX_SCORES - 1].score) {
+      strncpy(scores->entries[MAX_SCORES - 1].playername, name,
+              MAX_NAME_LENGTH - 1);
+      scores->entries[MAX_SCORES - 1].playername[MAX_NAME_LENGTH - 1] = '\0';
+      scores->entries[MAX_SCORES - 1].score = score;
+    } else {
+      // Score trop faible pour entrer dans le top
+      return;
+    }
+  }
+
+  // On re-trie la liste
+  sort_scores(scores);
+}

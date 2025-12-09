@@ -4,7 +4,9 @@
       "name": "windows-gcc-x64",
       "includePath": [
         "${workspaceFolder}/**",
-        "C:/raylib/raylib/src"
+        "\\\\wsl.localhost\\Ubuntu\\usr\\local\\include",
+        "\\\\wsl.localhost\\Ubuntu\\usr\\include",
+        "\\\\wsl.localhost\\Ubuntu\\usr\\lib\\gcc\\x86_64-linux-gnu\\11\\include"
       ],
       "defines": [
         "_DEBUG",
@@ -15,7 +17,7 @@
       "cppStandard": "gnu++14",
       "intelliSenseMode": "windows-gcc-x64",
       "configurationProvider": "ms-vscode.makefile-tools",
-      "compilerPath": "C:/TDM-GCC-64/bin/gcc.exe"
+      "compilerPath": "/usr/bin/gcc"
     }
   ],
   "version": 4

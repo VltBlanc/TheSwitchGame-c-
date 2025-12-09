@@ -22,7 +22,10 @@ MenuJeu *init_menu(void) {
 
   // Initialiser les valeurs par défaut
   menu->etat = MENU_PRINCIPAL;
+  menu->etat = MENU_PRINCIPAL;
   menu->mode = UN_JOUEUR;
+  menu->niveau = MOYEN;
+  strcpy(menu->playerName, "JOUEUR"); // Nom par défaut
   menu->niveau = MOYEN;
   menu->option_selectionnee = 0;
   menu->partie_en_cours = false;
@@ -54,92 +57,157 @@ void free_menu(MenuJeu *menu) {
 
 void update_menu(MenuJeu *menu) {
   // Navigation avec les flèches haut/bas
-  int max_options = menu->partie_en_cours ? 4 : 3;
-  if (IsKeyPressed(KEY_DOWN)) {
-    menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
-  } else if (IsKeyPressed(KEY_UP)) {
-    menu->option_selectionnee =
-        (menu->option_selectionnee - 1 + max_options) % max_options;
+  if (menu->etat == MENU_PRINCIPAL) {
+    int max_options = menu->partie_en_cours ? 4 : 3;
+    if (IsKeyPressed(KEY_DOWN)) {
+      menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
+    } else if (IsKeyPressed(KEY_UP)) {
+      menu->option_selectionnee =
+          (menu->option_selectionnee - 1 + max_options) % max_options;
+    }
+  } else if (menu->etat == MENU_NAME_INPUT) {
+    // Gestion de la saisie de texte
+    int key = GetCharPressed();
+    while (key > 0) {
+      // Seulement les caractères alphanumériques
+      if ((key >= 32) && (key <= 125) && (strlen(menu->playerName) < 15)) {
+        int len = strlen(menu->playerName);
+        menu->playerName[len] = (char)key;
+        menu->playerName[len + 1] = '\0';
+      }
+      key = GetCharPressed();
+    }
+
+    if (IsKeyPressed(KEY_BACKSPACE)) {
+      int len = strlen(menu->playerName);
+      if (len > 0) {
+        menu->playerName[len - 1] = '\0';
+      }
+    }
+
+    if (IsKeyPressed(KEY_ENTER)) {
+      menu->etat = MENU_PRINCIPAL; // Valider et retourner au menu
+    }
   }
 
-  // Gestion de la sélection avec Enter ou Espace
-  if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-    switch (menu->option_selectionnee) {
-    case 0: // Mode de jeu
-      // Changer le mode de jeu
-      if (menu->mode == UN_JOUEUR) {
-        menu->mode = DEUX_JOUEURS;
-      } else {
-        menu->mode = UN_JOUEUR;
-      }
-      printf("Mode de jeu: %d joueur(s)\n", menu->mode + 1);
-      break;
-
-    case 1: // Difficulté
-      // Passer à la difficulté suivante
-      menu->niveau = (menu->niveau + 1) % 3;
-      printf("Difficulté: %s\n", get_difficulty_text(menu->niveau));
-      break;
-
-    case 2: // Démarrer le jeu / Reprendre
-      menu->etat = MENU_DEMARRAGE;
-      break;
-
-    case 3: // Nouvelle partie (si partie en cours)
-      if (menu->partie_en_cours) {
-        menu->partie_en_cours = false; // On force une nouvelle partie
+  // --- Gestion Clavier ---
+  if (menu->etat == MENU_PRINCIPAL) {
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+      switch (menu->option_selectionnee) {
+      case 0: // Mode de jeu
+        if (menu->mode == UN_JOUEUR)
+          menu->mode = DEUX_JOUEURS;
+        else
+          menu->mode = UN_JOUEUR;
+        break;
+      case 1: // Difficulté
+        menu->niveau = (menu->niveau + 1) % 3;
+        break;
+      case 2: // Démarrer
         menu->etat = MENU_DEMARRAGE;
+        break;
+      case 3: // Restart
+        if (menu->partie_en_cours) {
+          menu->partie_en_cours = false;
+          menu->etat = MENU_DEMARRAGE;
+        }
+        break;
       }
-      break;
+    }
+
+    // Flèches gauche/droite
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) {
+      if (menu->option_selectionnee == 0) { // Mode
+        if (menu->mode == UN_JOUEUR)
+          menu->mode = DEUX_JOUEURS;
+        else
+          menu->mode = UN_JOUEUR;
+      } else if (menu->option_selectionnee == 1) { // Difficulté
+        menu->niveau = (menu->niveau + 1) % 3;
+      }
     }
   }
 
-  // Flèches gauche/droite pour modifier les options
-  if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) {
-    if (menu->option_selectionnee == 0) { // Mode de jeu
-      // Changer le mode avec les flèches
-      if (menu->mode == UN_JOUEUR) {
-        menu->mode = DEUX_JOUEURS;
-      } else {
-        menu->mode = UN_JOUEUR;
-      }
-      printf("Mode: %d joueur(s)\n", menu->mode + 1);
-
-    } else if (menu->option_selectionnee == 1) { // Difficulté
-      // Changer la difficulté avec les flèches
-      menu->niveau = (menu->niveau + 1) % 3;
-      printf("Difficulté: %s\n", get_difficulty_text(menu->niveau));
-    }
-  }
-
-  // Gestion de la souris pour la difficulté
+  // --- Gestion Souris ---
   Vector2 position_souris = GetMousePosition();
+  int centerLeft = 250;
 
-  // Définir les zones de clic pour la difficulté
-  Rectangle zone_facile = {LARGEUR_ECRAN / 2 - 200, 350, 120, 30};
-  Rectangle zone_moyen = {LARGEUR_ECRAN / 2 - 60, 350, 120, 30};
-  Rectangle zone_difficile = {LARGEUR_ECRAN / 2 + 80, 350, 120, 30};
-
-  // Vérifier les clics sur les boutons de difficulté
-  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-    if (CheckCollisionPointRec(position_souris, zone_facile)) {
-      menu->niveau = FACILE;
-    } else if (CheckCollisionPointRec(position_souris, zone_moyen)) {
-      menu->niveau = MOYEN;
-    } else if (CheckCollisionPointRec(position_souris, zone_difficile)) {
-      menu->niveau = DIFFICILE;
+  // 1. Nom (Name Input)
+  Rectangle nomBox = {centerLeft - 100, 150, 200, 30};
+  if (menu->etat == MENU_PRINCIPAL) {
+    if (CheckCollisionPointRec(position_souris, nomBox) &&
+        IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+      menu->etat = MENU_NAME_INPUT;
+    }
+  } else if (menu->etat == MENU_NAME_INPUT) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
+        !CheckCollisionPointRec(position_souris, nomBox)) {
+      menu->etat = MENU_PRINCIPAL;
     }
   }
 
-  // Définir les zones de clic pour le nombre de joueurs
-  Rectangle zone_1joueur = {LARGEUR_ECRAN / 2 - 150, 280, 120, 40};
-  Rectangle zone_2joueurs = {LARGEUR_ECRAN / 2 + 30, 280, 120, 40};
+  // Si on est en saisie de nom, on ne gère pas les autres clics
+  if (menu->etat != MENU_PRINCIPAL)
+    return;
+
+  // 2. Boutons 1J / 2J
+  int yPosMode = 230;
+  Rectangle zone_1joueur = {centerLeft - 105, yPosMode + 40, 100, 30};
+  Rectangle zone_2joueurs = {centerLeft + 5, yPosMode + 40, 100, 30};
+
+  // 3. Difficulté
+  // const char *difficultes[] = {"FACILE", "MOYEN", "DIFF."};
+  int btnWidth = 80;
+  int gap = 10;
+  int startXDiff = centerLeft - (3 * btnWidth + 2 * gap) / 2;
+  int yPosDiff = 320;
+  Rectangle zone_facile = {startXDiff, yPosDiff + 40, btnWidth, 30};
+  Rectangle zone_moyen = {startXDiff + btnWidth + gap, yPosDiff + 40, btnWidth,
+                          30};
+  Rectangle zone_difficile = {startXDiff + 2 * (btnWidth + gap), yPosDiff + 40,
+                              btnWidth, 30};
+
+  // 4. Start / Restart
+  int yPosStart = 420;
+  Rectangle bouton_demarrer = {centerLeft - 90, yPosStart, 180, 50};
+  Rectangle bouton_new = {centerLeft - 70, yPosStart + 60, 140, 30};
 
   if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-    if (CheckCollisionPointRec(position_souris, zone_1joueur)) {
+    // Mode
+    if (CheckCollisionPointRec(position_souris, zone_1joueur))
       menu->mode = UN_JOUEUR;
-    } else if (CheckCollisionPointRec(position_souris, zone_2joueurs)) {
+    else if (CheckCollisionPointRec(position_souris, zone_2joueurs))
       menu->mode = DEUX_JOUEURS;
+
+    // Difficulté
+    if (CheckCollisionPointRec(position_souris, zone_facile))
+      menu->niveau = FACILE;
+    else if (CheckCollisionPointRec(position_souris, zone_moyen))
+      menu->niveau = MOYEN;
+    else if (CheckCollisionPointRec(position_souris, zone_difficile))
+      menu->niveau = DIFFICILE;
+
+    // Start
+    if (CheckCollisionPointRec(position_souris, bouton_demarrer))
+      menu->etat = MENU_DEMARRAGE;
+
+    // New Game
+    if (menu->partie_en_cours &&
+        CheckCollisionPointRec(position_souris, bouton_new)) {
+      menu->partie_en_cours = false;
+      menu->etat = MENU_DEMARRAGE;
+    }
+
+    // 5. Sélection Score (Droit)
+    int centerRight = 600;
+    for (int i = 0; i < menu->nombre_scores; i++) {
+      int scoreY = 180 + i * 30;
+      Rectangle scoreRec = {centerRight - 100, scoreY, 200, 25};
+      if (CheckCollisionPointRec(position_souris, scoreRec)) {
+        // Copier le nom
+        strncpy(menu->playerName, menu->meilleurs_scores[i].playername, 15);
+        menu->playerName[15] = '\0';
+      }
     }
   }
 }
@@ -150,17 +218,53 @@ void draw_menu(const MenuJeu *menu) {
   // Dessiner le titre
   const char *titre = "MENU JEU";
   int taille_titre = MeasureText(titre, 60);
-  DrawText(titre, (LARGEUR_ECRAN - taille_titre) / 2, 50, 60, COULEUR_SURBRILL);
+  DrawText(titre, (LARGEUR_ECRAN - taille_titre) / 2, 30, 60, COULEUR_SURBRILL);
 
-  // Dessiner toutes les sections
-  draw_high_scores(menu);
+  // Colonne Gauche: Contrôles (Centre ~ x=250)
+  int centerLeft = 250;
+
+  // Affichage du nom du joueur
+  Rectangle nomBox = {centerLeft - 100, 150, 200, 30};
+  bool editing = (menu->etat == MENU_NAME_INPUT);
+  Color boxColor = editing ? COULEUR_SURBRILL : COULEUR_BOUTON;
+
+  DrawText("NOM DU JOUEUR:", centerLeft - MeasureText("NOM DU JOUEUR:", 20) / 2,
+           125, 20, COULEUR_TEXTE);
+  DrawRectangleRec(nomBox, boxColor);
+  DrawRectangleLinesEx(nomBox, 2, COULEUR_TEXTE);
+  int nameWidth = MeasureText(menu->playerName, 20);
+  DrawText(menu->playerName, nomBox.x + (nomBox.width - nameWidth) / 2,
+           nomBox.y + 5, 20, BLACK);
+
+  if (editing) {
+    const char *msg = "ENTRÉE pour valider";
+    DrawText(msg, centerLeft - MeasureText(msg, 16) / 2, 185, 16,
+             COULEUR_SURBRILL);
+  }
+
+  // Draw other left column controls
   draw_player_selection(menu);
   draw_difficulty_selection(menu);
   draw_start_button(menu);
+
+  // Colonne Droite: Scores (Centre ~ x=600)
+  draw_high_scores(menu);
+
+  // Séparateur vertical
+  DrawLine(425, 120, 425, 500, GRAY);
+
+  // Instructions
+  DrawText("↑ ↓ Naviguer  |  ← → Modifier  |  ENTRÉE Sélectionner",
+           LARGEUR_ECRAN / 2 - 220, 570, 16, COULEUR_TEXTE);
+  DrawText("Échap pour quitter", LARGEUR_ECRAN / 2 - 70, 590, 16,
+           COULEUR_TEXTE);
 }
 
 void draw_high_scores(const MenuJeu *menu) {
-  DrawText("MEILLEURS SCORES", LARGEUR_ECRAN / 2 - 100, 130, 30, COULEUR_TEXTE);
+  int centerRight = 600;
+  DrawText("MEILLEURS SCORES",
+           centerRight - MeasureText("MEILLEURS SCORES", 30) / 2, 130, 30,
+           COULEUR_TEXTE);
 
   if (menu->nombre_scores > 0) {
     for (int i = 0; i < menu->nombre_scores; i++) {
@@ -168,159 +272,131 @@ void draw_high_scores(const MenuJeu *menu) {
       sprintf(texte_score, "%d. %s - %d", i + 1,
               menu->meilleurs_scores[i].playername,
               menu->meilleurs_scores[i].score);
-      DrawText(texte_score, LARGEUR_ECRAN / 2 - 80, 170 + i * 20, 18,
-               COULEUR_SCORE);
+
+      // Hitbox pour le clic (visualisation implicite)
+      int scoreY = 180 + i * 30;
+
+      Color scoreColor = COULEUR_SCORE;
+      // Petit effet de survol si on veut (optionnel, géré dans update serait
+      // mieux mais ici pour simple feedback visuel)
+      if (CheckCollisionPointRec(
+              GetMousePosition(),
+              (Rectangle){centerRight - 100, scoreY, 200, 25})) {
+        scoreColor = COULEUR_SURVOL;
+      }
+
+      DrawText(texte_score, centerRight - MeasureText(texte_score, 20) / 2,
+               scoreY, 20, scoreColor);
     }
+    DrawText("(Cliquez pour copier)",
+             centerRight - MeasureText("(Cliquez pour copier)", 14) / 2,
+             180 + menu->nombre_scores * 30 + 10, 14, GRAY);
   } else {
-    DrawText("Aucun score disponible", LARGEUR_ECRAN / 2 - 80, 170, 18,
-             COULEUR_TEXTE);
+    DrawText("Aucun score disponible",
+             centerRight - MeasureText("Aucun score disponible", 18) / 2, 170,
+             18, COULEUR_TEXTE);
   }
 }
 
 void draw_player_selection(const MenuJeu *menu) {
-  // Indicateur de sélection si cette section est sélectionnée
+  int centerLeft = 250;
+  int yPos = 230;
+
+  // Indicateur de sélection
   if (menu->option_selectionnee == 0) {
-    DrawText("▶ JOUEURS", LARGEUR_ECRAN / 2 - 80, 250, 25, COULEUR_SURBRILL);
+    DrawText("▶ JOUEURS", centerLeft - 50, yPos, 25, COULEUR_SURBRILL);
   } else {
-    DrawText("JOUEURS", LARGEUR_ECRAN / 2 - 50, 250, 25, COULEUR_TEXTE);
+    DrawText("JOUEURS", centerLeft - MeasureText("JOUEURS", 25) / 2, yPos, 25,
+             COULEUR_TEXTE);
   }
 
   // Bouton 1 joueur
-  Rectangle bouton_1j = {LARGEUR_ECRAN / 2 - 150, 280, 120, 40};
+  Rectangle bouton_1j = {centerLeft - 105, yPos + 40, 100, 30};
   Color couleur_1j =
       (menu->mode == UN_JOUEUR) ? COULEUR_SURBRILL : COULEUR_BOUTON;
   DrawRectangleRec(bouton_1j, couleur_1j);
-  DrawRectangleLinesEx(bouton_1j, 3, COULEUR_TEXTE);
-
-  int largeur_texte_1j = MeasureText("1 JOUEUR", 20);
-  DrawText("1 JOUEUR", bouton_1j.x + (bouton_1j.width - largeur_texte_1j) / 2,
-           bouton_1j.y + 10, 20, BLACK);
+  DrawRectangleLinesEx(bouton_1j, 2, COULEUR_TEXTE);
+  DrawText("1 JOUEUR",
+           bouton_1j.x + (bouton_1j.width - MeasureText("1 JOUEUR", 10)) / 2 -
+               15,
+           bouton_1j.y + 8, 16, BLACK);
 
   // Bouton 2 joueurs
-  Rectangle bouton_2j = {LARGEUR_ECRAN / 2 + 30, 280, 120, 40};
+  Rectangle bouton_2j = {centerLeft + 5, yPos + 40, 100, 30};
   Color couleur_2j =
       (menu->mode == DEUX_JOUEURS) ? COULEUR_SURBRILL : COULEUR_BOUTON;
   DrawRectangleRec(bouton_2j, couleur_2j);
-  DrawRectangleLinesEx(bouton_2j, 3, COULEUR_TEXTE);
-
-  int largeur_texte_2j = MeasureText("2 JOUEURS", 20);
-  DrawText("2 JOUEURS", bouton_2j.x + (bouton_2j.width - largeur_texte_2j) / 2,
-           bouton_2j.y + 10, 20, BLACK);
-
-  // Indication de navigation si sélectionné
-  if (menu->option_selectionnee == 0) {
-    DrawText("Utilisez ← → ou ENTRÉE", LARGEUR_ECRAN / 2 - 100, 330, 14,
-             COULEUR_SURBRILL);
-  }
+  DrawRectangleLinesEx(bouton_2j, 2, COULEUR_TEXTE);
+  DrawText("2 JOUEURS",
+           bouton_2j.x + (bouton_2j.width - MeasureText("2 JOUEURS", 10)) / 2 -
+               15,
+           bouton_2j.y + 8, 16, BLACK);
 }
 
 void draw_difficulty_selection(const MenuJeu *menu) {
-  // Indicateur de sélection si cette section est sélectionnée
+  int centerLeft = 250;
+  int yPos = 320;
+
+  // Indicateur de sélection
   if (menu->option_selectionnee == 1) {
-    DrawText("▶ DIFFICULTÉ", LARGEUR_ECRAN / 2 - 90, 320, 25, COULEUR_SURBRILL);
+    DrawText("▶ DIFFICULTÉ", centerLeft - 60, yPos, 25, COULEUR_SURBRILL);
   } else {
-    DrawText("DIFFICULTÉ", LARGEUR_ECRAN / 2 - 60, 320, 25, COULEUR_TEXTE);
+    DrawText("DIFFICULTÉ", centerLeft - MeasureText("DIFFICULTÉ", 25) / 2, yPos,
+             25, COULEUR_TEXTE);
   }
 
-  // Barre de difficulté
-  Rectangle barre_fond = {LARGEUR_ECRAN / 2 - 200, 370, 400, 20};
-  DrawRectangleRec(barre_fond, COULEUR_ROUGE_FON);
-  DrawRectangleLinesEx(barre_fond, 2, COULEUR_TEXTE);
-
-  // Remplissage de la barre selon la difficulté
-  float pourcentage = get_difficulty_percentage(menu->niveau);
-  Rectangle barre_remplie = {barre_fond.x, barre_fond.y,
-                             barre_fond.width * pourcentage, barre_fond.height};
-  DrawRectangleRec(barre_remplie, COULEUR_ROUGE);
-
-  // Boutons de difficulté
-  const char *difficultes[] = {"FACILE", "MOYEN", "DIFFICILE"};
-  Rectangle rectangles_difficulte[] = {{LARGEUR_ECRAN / 2 - 200, 350, 120, 30},
-                                       {LARGEUR_ECRAN / 2 - 60, 350, 120, 30},
-                                       {LARGEUR_ECRAN / 2 + 80, 350, 120, 30}};
+  // Boutons de difficulté (plus petits)
+  const char *difficultes[] = {"FACILE", "MOYEN", "DIFF."};
+  int btnWidth = 80;
+  int gap = 10;
+  int startX = centerLeft - (3 * btnWidth + 2 * gap) / 2;
 
   for (int i = 0; i < 3; i++) {
-    Color couleur_btn = (menu->niveau == i) ? COULEUR_SURBRILL : COULEUR_BOUTON;
-    DrawRectangleRec(rectangles_difficulte[i], couleur_btn);
-    DrawRectangleLinesEx(rectangles_difficulte[i], 2, COULEUR_TEXTE);
+    Rectangle btnRec = {startX + i * (btnWidth + gap), yPos + 40, btnWidth, 30};
+    Color couleur_btn =
+        (menu->niveau == (Difficulte)i) ? COULEUR_SURBRILL : COULEUR_BOUTON;
+    DrawRectangleRec(btnRec, couleur_btn);
+    DrawRectangleLinesEx(btnRec, 2, COULEUR_TEXTE);
 
-    int largeur_texte = MeasureText(difficultes[i], 18);
-    DrawText(difficultes[i],
-             rectangles_difficulte[i].x +
-                 (rectangles_difficulte[i].width - largeur_texte) / 2,
-             rectangles_difficulte[i].y + 6, 18, BLACK);
-  }
-
-  // Indication de navigation si sélectionné
-  if (menu->option_selectionnee == 1) {
-    DrawText("Utilisez ← → ou ENTRÉE", LARGEUR_ECRAN / 2 - 100, 400, 14,
-             COULEUR_SURBRILL);
+    int textX = btnRec.x + (btnRec.width - MeasureText(difficultes[i], 16)) / 2;
+    DrawText(difficultes[i], textX, btnRec.y + 7, 16, BLACK);
   }
 }
 
 void draw_start_button(const MenuJeu *menu) {
-  // Bouton démarrer / reprendre
-  Rectangle bouton_demarrer = {LARGEUR_ECRAN / 2 - 100, 450, 200, 60};
+  int centerLeft = 250;
+  int yPos = 420;
+
+  Rectangle bouton_demarrer = {centerLeft - 90, yPos, 180, 50};
   Color couleur_demarrer =
       (menu->option_selectionnee == 2) ? COULEUR_SURBRILL : COULEUR_SURVOL;
 
-  // Vérifier le survol de la souris
   Vector2 position_souris = GetMousePosition();
   if (CheckCollisionPointRec(position_souris, bouton_demarrer)) {
     couleur_demarrer = COULEUR_SURBRILL;
   }
 
   DrawRectangleRec(bouton_demarrer, couleur_demarrer);
-  DrawRectangleLinesEx(bouton_demarrer, 4, COULEUR_TEXTE);
+  DrawRectangleLinesEx(bouton_demarrer, 3, COULEUR_TEXTE);
 
   const char *texte_bouton = menu->partie_en_cours ? "REPRENDRE" : "DÉMARRER";
-  int largeur_texte_demarrer = MeasureText(texte_bouton, 30);
+  int largeur_texte_demarrer = MeasureText(texte_bouton, 24);
   DrawText(texte_bouton,
            bouton_demarrer.x +
                (bouton_demarrer.width - largeur_texte_demarrer) / 2,
-           bouton_demarrer.y + 15, 30, BLACK);
+           bouton_demarrer.y + 13, 24, BLACK);
 
-  // Indication de navigation si sélectionné
-  if (menu->option_selectionnee == 2) {
-    if (menu->partie_en_cours) {
-      DrawText("▶ Appuyez sur ENTRÉE pour reprendre", LARGEUR_ECRAN / 2 - 120,
-               430, 16, COULEUR_SURBRILL);
-    } else {
-      DrawText("▶ Appuyez sur ENTRÉE pour démarrer", LARGEUR_ECRAN / 2 - 120,
-               430, 16, COULEUR_SURBRILL);
-    }
-  }
-
-  // Si une partie est en cours, afficher l'option pour recommencer
   if (menu->partie_en_cours) {
-    Rectangle bouton_nouvelle = {LARGEUR_ECRAN / 2 - 100, 520, 200, 40};
-    Color couleur_nouvelle =
+    // Bouton nouvelle partie
+    Rectangle bouton_new = {centerLeft - 70, yPos + 60, 140, 30};
+    Color col_new =
         (menu->option_selectionnee == 3) ? COULEUR_SURBRILL : COULEUR_BOUTON;
-
-    if (CheckCollisionPointRec(position_souris, bouton_nouvelle)) {
-      couleur_nouvelle = COULEUR_SURBRILL;
-    }
-
-    DrawRectangleRec(bouton_nouvelle, couleur_nouvelle);
-    DrawRectangleLinesEx(bouton_nouvelle, 2, COULEUR_TEXTE);
-
-    int largeur_texte_nouvelle = MeasureText("NOUVELLE PARTIE", 20);
-    DrawText("NOUVELLE PARTIE",
-             bouton_nouvelle.x +
-                 (bouton_nouvelle.width - largeur_texte_nouvelle) / 2,
-             bouton_nouvelle.y + 10, 20, BLACK);
-
-    if (menu->option_selectionnee == 3) {
-      DrawText("▶ Écrase la partie en cours", LARGEUR_ECRAN / 2 - 100, 505, 14,
-               COULEUR_SURBRILL);
-    }
+    if (CheckCollisionPointRec(position_souris, bouton_new))
+      col_new = COULEUR_SURBRILL;
+    DrawRectangleRec(bouton_new, col_new);
+    DrawRectangleLinesEx(bouton_new, 2, COULEUR_TEXTE);
+    DrawText("NOUVELLE PARTIE", bouton_new.x + 10, bouton_new.y + 7, 14, BLACK);
   }
-
-  // Instructions
-  DrawText("↑ ↓ Naviguer  |  ← → Modifier  |  ENTRÉE Sélectionner",
-           LARGEUR_ECRAN / 2 - 220, 570, 16, COULEUR_TEXTE);
-  DrawText("Échap pour quitter", LARGEUR_ECRAN / 2 - 70, 590, 16,
-           COULEUR_TEXTE);
 }
 
 const char *get_difficulty_text(Difficulte niveau) {

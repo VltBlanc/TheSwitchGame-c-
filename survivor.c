@@ -1,11 +1,12 @@
-#include "include/hyperspace.h"
-#include "include/menu.h"
 #include <math.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "include/hyperspace.h"
+#include "include/menu.h"
 
 // --- Constantes ---
 #define SCREEN_WIDTH 1280
@@ -16,7 +17,7 @@
 #define MAX_ENEMIES 300
 #define MAX_BULLETS 1000
 #define MAX_BONUSES 50
-#define MAX_TRAILS 20
+#define MAX_trainee 20
 
 // --- STRUCTURES ---
 typedef struct {
@@ -77,7 +78,12 @@ typedef struct {
   int damage;
 } Bullet;
 
-typedef enum { BONUS_DAMAGE, BONUS_HEALTH, BONUS_SPEED } BonusType;
+typedef enum {
+  BONUS_DAMAGE,
+  BONUS_HEALTH,
+  BONUS_SPEED,
+  BONUS_TIR_RAPIDE
+} BonusType;
 
 typedef struct {
   bool active;
@@ -93,7 +99,7 @@ typedef struct {
   float rotation;
   Rectangle frameRec;
   float alpha;
-} Trail;
+} Trainee;
 
 // --- GLOBALS ---
 Player player;
@@ -102,10 +108,17 @@ Enemy *enemies = NULL;
 // de même pour les balles tirées et les bonus
 Bullet *bullets = NULL;
 Bonus *bonuses = NULL;
-Trail trails[MAX_TRAILS] = {0};
+// de même pour les traces (indiquant les bonus)
+// de même pour les traces (indiquant les bonus)
+Trainee *trainee = NULL;
+
+ScoreList *currentScores = NULL;
+char currentPlayerName[32] = "Unknown";
+bool scoreSaved = false;
+
 Texture2D background;
 Texture2D spaceshipTexture;
-Texture2D hunterTexture;
+Texture2D chasseurTexture;
 Texture2D tankTexture;
 
 Camera2D camera = {0};
@@ -118,7 +131,7 @@ int score = 0;
 bool gameOver = false;
 Difficulte currentDifficulty = MOYEN;
 
-// --- GAME LOGIC ---
+// Logique de jeu
 
 void InitGame(Difficulte difficulty) {
   currentDifficulty = difficulty;
@@ -145,18 +158,15 @@ void InitGame(Difficulte difficulty) {
   player.isAlive = true;
   player.rotation = 0.0f;
 
-  // Animation Init
+  // Animation
   player.currentFrame = 0;
   player.frameTimer = 0.0f;
+
   // Le sprite fait 331x1197, 3 frames verticales -> 331x399 par frame
   player.frameRec = (Rectangle){0.0f, 0.0f, 331.0f, 399.0f};
 
-  player.fireRate = 0.15f; // Cadence de tir rapide
+  player.fireRate = 1.0f; // Cadence de tir rapide
   player.shootTimer = 0.0f;
-  // Les dégâts de base sont définis au-dessus, mais on s'assure qu'ils sont au
-  // moins de 1
-  if (player.damage < 1)
-    player.damage = 1;
 
   player.bulletSpeed = 1200.0f;
   player.bulletSize = 10.0f;
@@ -178,8 +188,11 @@ void InitGame(Difficulte difficulty) {
   gameTime = 0.0f;
   spawnTimer = 0.0f;
   timeToSpawn = 2.0f;
+  spawnTimer = 0.0f;
+  timeToSpawn = 2.0f;
   score = 0;
   gameOver = false;
+  scoreSaved = false;
 
   for (int i = 0; i < MAX_ENEMIES; i++)
     enemies[i].active = false;
@@ -187,22 +200,24 @@ void InitGame(Difficulte difficulty) {
     bullets[i].active = false;
   for (int i = 0; i < MAX_BONUSES; i++)
     bonuses[i].active = false;
-  for (int i = 0; i < MAX_TRAILS; i++)
-    trails[i].active = false;
+  for (int i = 0; i < MAX_trainee; i++)
+    trainee[i].active = false;
 }
 
 void SpawnBonus() {
   int slot = -1;
-  for (int i = 0; i < MAX_BONUSES; i++) {
-    if (!bonuses[i].active) {
-      slot = i;
-      break;
-    }
+  int i = 0;
+  // on s'arrete quand on trouve un bonus inactif
+  while (i < MAX_BONUSES && bonuses[i].active) {
+    i++;
   }
+  if (i < MAX_BONUSES && !bonuses[i].active) {
+    slot = i;
+  }
+  // si aucun slot n'est disponible, on quitte la fonction (pas de bonus à
+  // apparaitre)
   if (slot == -1)
     return;
-  // on se place à l'emplacement disponible pour un slot en attendant qu'une
-  // place se libère
 
   // Position aléatoire dans les limites de la map
   float x = (float)GetRandomValue(50, MAP_WIDTH - 50);
@@ -213,28 +228,33 @@ void SpawnBonus() {
   bonuses[slot].radius = 15.0f;
 
   int typeRoll = GetRandomValue(0, 100);
-  if (typeRoll < 40) {
+  if (typeRoll < 25) {
     bonuses[slot].type = BONUS_DAMAGE;
     bonuses[slot].color = RED;
-  } else if (typeRoll < 80) {
+  } else if (typeRoll < 50) {
     bonuses[slot].type = BONUS_HEALTH;
     bonuses[slot].color = GREEN;
-  } else {
+  } else if (typeRoll < 75) {
     bonuses[slot].type = BONUS_SPEED;
     bonuses[slot].color = SKYBLUE;
+  } else {
+    bonuses[slot].type = BONUS_TIR_RAPIDE;
+    bonuses[slot].color = YELLOW;
   }
 }
 
 void SpawnEnemy() {
-  // on se place à l'emplacement disponible pour un slot en attendant qu'une
-  // place se libère
   int slot = -1;
-  for (int i = 0; i < MAX_ENEMIES; i++) {
-    if (!enemies[i].active) {
-      slot = i;
-      break;
-    }
+  int i = 0;
+  // on s'arrete quand on trouve un ennemi inactif
+  while (i < MAX_ENEMIES && enemies[i].active) {
+    i++;
   }
+  if (i < MAX_ENEMIES && !enemies[i].active) {
+    slot = i;
+  }
+  // si aucun slot n'est disponible, on quitte la fonction (pas d'ennemi à
+  // apparaitre)
   if (slot == -1)
     return;
 
@@ -276,14 +296,15 @@ void SpawnEnemy() {
   // difficultyFactor correspond au temps/ (n frames) ou n dépend de la
   // difficulté si difficultyFactor est plus grand que 2, on a un tank si
   // difficultyFactor est plus grand que 1, on a un fast si difficultyFactor est
-  // plus petit que 1, on a un normal roll est un random entre 0 et 100, pour
-  // ajouter de la variabilité si roll est inférieur à 15, on a un tank si roll
-  // est supérieur à 70, on a un fast sinon, on a un normal
+  // plus petit que 1, on a un normal
+  // roll est un random entre 0 et 100, pour ajouter de la variabilité si roll
+  // est inférieur à 15, on a un tank si roll est supérieur à 70, on a un fast
+  // sinon, on a un normal
   if (difficultyFactor > 2.0f && roll < 15) {
     enemies[slot].type = ENEMY_TANK;
     enemies[slot].radius = 35.0f;
     enemies[slot].speed = 250.0f;
-    enemies[slot].maxHealth = 10 + (int)difficultyFactor; // Scaling réduit
+    enemies[slot].maxHealth = 5 + (int)difficultyFactor; // Scaling réduit
     enemies[slot].color = DARKPURPLE;
   } else if (difficultyFactor > 1.0f && roll > 70) {
     enemies[slot].type = ENEMY_FAST;
@@ -291,8 +312,7 @@ void SpawnEnemy() {
     enemies[slot].speed = 450.0f; // Vitesse réduite (était 550)
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
-    enemies[slot].maxHealth =
-        1 + (int)(difficultyFactor * 0.2f); // Scaling très faible
+    enemies[slot].maxHealth = 1 + (int)(difficultyFactor * 0.2f);
     enemies[slot].color = ORANGE;
   } else {
     enemies[slot].type = ENEMY_NORMAL;
@@ -301,8 +321,7 @@ void SpawnEnemy() {
         280.0f + (difficultyFactor * 5.0f); // Vitesse réduite (était 380)
     if (currentDifficulty == DIFFICILE)
       enemies[slot].speed *= 1.2f;
-    enemies[slot].maxHealth =
-        2 + (int)(difficultyFactor * 0.3f); // Scaling faible
+    enemies[slot].maxHealth = 1 + (int)(difficultyFactor * 0.3f);
     enemies[slot].color = RED;
   }
 
@@ -311,8 +330,9 @@ void SpawnEnemy() {
     enemies[slot].frameRec = (Rectangle){0.0f, 0.0f, (float)tankTexture.width,
                                          (float)tankTexture.height / 2.0f};
   } else {
-    enemies[slot].frameRec = (Rectangle){0.0f, 0.0f, (float)hunterTexture.width,
-                                         (float)hunterTexture.height / 3.0f};
+    enemies[slot].frameRec =
+        (Rectangle){0.0f, 0.0f, (float)chasseurTexture.width,
+                    (float)chasseurTexture.height / 3.0f};
   }
   enemies[slot].currentFrame = 0;
   enemies[slot].frameTimer = 0.0f;
@@ -341,6 +361,11 @@ int FindNearestEnemy() {
 
 void UpdateGame(float dt) {
   if (gameOver) {
+    if (!scoreSaved && currentScores != NULL) {
+      add_score(currentScores, currentPlayerName, score);
+      save_scores(currentScores);
+      scoreSaved = true;
+    }
     if (IsKeyPressed(KEY_R))
       InitGame(currentDifficulty);
     return;
@@ -374,7 +399,7 @@ void UpdateGame(float dt) {
     player.dashCooldown -= dt;
 
   // si on appuie sur espace et que le cooldown est terminé et que le joueur
-  // bouge
+  // bouge, on lance le dash
   if (IsKeyPressed(KEY_SPACE) && player.dashCooldown <= 0 && moveLen > 0) {
     player.isDashing = true;
     player.dashTimer = player.dashDuration;
@@ -382,22 +407,22 @@ void UpdateGame(float dt) {
   }
 
   float currentSpeed = player.speed;
+  // Etat de Dash
   if (player.isDashing) {
     currentSpeed = player.dashSpeed;
     player.dashTimer -= dt;
-
-    // Spawn trail
-    static float trailSpawnTimer = 0.0f;
-    trailSpawnTimer += dt;
-    if (trailSpawnTimer >= 0.02f) { // Spawn toutes les 20ms
-      trailSpawnTimer = 0.0f;
-      for (int i = 0; i < MAX_TRAILS; i++) {
-        if (!trails[i].active) {
-          trails[i].active = true;
-          trails[i].position = player.position;
-          trails[i].rotation = player.rotation;
-          trails[i].frameRec = player.frameRec;
-          trails[i].alpha = 0.8f;
+    // effet de trainée du dash
+    static float traineeSpawnTimer = 0.0f;
+    traineeSpawnTimer += dt;
+    if (traineeSpawnTimer >= 0.02f) { // Spawn toutes les 20ms
+      traineeSpawnTimer = 0.0f;
+      for (int i = 0; i < MAX_trainee; i++) {
+        if (!trainee[i].active) {
+          trainee[i].active = true;
+          trainee[i].position = player.position;
+          trainee[i].rotation = player.rotation;
+          trainee[i].frameRec = player.frameRec;
+          trainee[i].alpha = 0.8f;
           break;
         }
       }
@@ -408,12 +433,12 @@ void UpdateGame(float dt) {
     }
   }
 
-  // Update trails
-  for (int i = 0; i < MAX_TRAILS; i++) {
-    if (trails[i].active) {
-      trails[i].alpha -= 2.0f * dt; // Fade out rapide
-      if (trails[i].alpha <= 0)
-        trails[i].active = false;
+  // Update trainee
+  for (int i = 0; i < MAX_trainee; i++) {
+    if (trainee[i].active) {
+      trainee[i].alpha -= 2.0f * dt; // Fade out rapide
+      if (trainee[i].alpha <= 0)
+        trainee[i].active = false;
     }
   }
 
@@ -573,6 +598,8 @@ void UpdateGame(float dt) {
           player.speed += 50.0f;
           if (player.speed > 800.0f)
             player.speed = 800.0f;
+        } else if (bonuses[i].type == BONUS_TIR_RAPIDE) {
+          player.fireRate = player.fireRate / 1.15;
         }
         bonuses[i].active = false;
       }
@@ -652,19 +679,19 @@ void DrawGame() {
   // Dessiner le fond
   DrawTexture(background, 0, 0, WHITE);
 
-  // Dessiner les trails (Ghost effect)
-  for (int i = 0; i < MAX_TRAILS; i++) {
-    if (trails[i].active) {
+  // Dessiner les trainees (Ghost effect)
+  for (int i = 0; i < MAX_trainee; i++) {
+    if (trainee[i].active) {
       float scale = 0.15f;
       float width = 331.0f * scale;
       float height = 399.0f * scale;
-      Rectangle destRec = {trails[i].position.x, trails[i].position.y, width,
+      Rectangle destRec = {trainee[i].position.x, trainee[i].position.y, width,
                            height};
       Vector2 origin = {width / 2.0f, height / 2.0f};
-      Color trailColor = WHITE;
-      trailColor.a = (unsigned char)(trails[i].alpha * 255);
-      DrawTexturePro(spaceshipTexture, trails[i].frameRec, destRec, origin,
-                     trails[i].rotation, trailColor);
+      Color traineeColor = WHITE;
+      traineeColor.a = (unsigned char)(trainee[i].alpha * 255);
+      DrawTexturePro(spaceshipTexture, trainee[i].frameRec, destRec, origin,
+                     trainee[i].rotation, traineeColor);
     }
   }
 
@@ -682,7 +709,7 @@ void DrawGame() {
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
       Texture2D tex =
-          (enemies[i].type == ENEMY_TANK) ? tankTexture : hunterTexture;
+          (enemies[i].type == ENEMY_TANK) ? tankTexture : chasseurTexture;
       float baseScale = (enemies[i].type == ENEMY_TANK)
                             ? 0.4f
                             : 0.6f; // Chasseurs plus gros (0.6 vs 0.4)
@@ -763,28 +790,69 @@ void DrawGame() {
   int screenW = GetScreenWidth();
   int screenH = GetScreenHeight();
 
-  DrawText(TextFormat("SCORE: %d", score), 20, 20, 20, DARKGRAY);
-  DrawText(TextFormat("TIME: %.1fs", gameTime), 20, 50, 20, DARKGRAY);
+  // Header Stats (Score & Time) - Top Center, Large, Space Blue
+  const char *scoreText = TextFormat("SCORE: %d", score);
+  const char *timeText = TextFormat("TIME: %.1fs", gameTime);
+  int scoreW = MeasureText(scoreText, 40);
+  int timeW = MeasureText(timeText, 40);
 
-  // Barre de vie en bas
+  // Draw with a slight shadow for "glow" effect
+  DrawText(scoreText, screenW / 2 - scoreW / 2 + 2, 22, 40, DARKBLUE);
+  DrawText(scoreText, screenW / 2 - scoreW / 2, 20, 40, SKYBLUE);
+
+  // Player Name Display (Top Left)
+  DrawText(TextFormat("PILOT: %s", currentPlayerName), 10, 10, 20, WHITE);
+
+  DrawText(timeText, screenW / 2 - timeW / 2 + 2, 62, 40, DARKBLUE);
+  DrawText(timeText, screenW / 2 - timeW / 2, 60, 40, SKYBLUE);
+
+  // --- COCKPIT UI ---
+  int panelHeight = 90;
+  int panelY = screenH - panelHeight;
+
+  // Background Panel
+  DrawRectangle(0, panelY, screenW, panelHeight, Fade(DARKGRAY, 0.9f));
+  DrawLine(0, panelY, screenW, panelY, LIGHTGRAY); // Top border border
+
+  int sectionWidth = screenW / 4;
+
+  // Section 1: Health (Integrity)
   float hpPct = (float)player.health / (float)player.maxHealth;
-  int barWidth = 300;
+  int barWidth = sectionWidth - 40;
   int barHeight = 20;
-  int barX = screenW / 2 - barWidth / 2;
-  int barY = screenH - 40;
+  int barX = 20;
+  int barY = panelY + 45;
 
-  DrawRectangle(barX, barY, barWidth, barHeight, RED);
+  DrawText("INTEGRITY", 20, panelY + 15, 20, LIGHTGRAY);
+  DrawRectangle(barX, barY, barWidth, barHeight, Fade(RED, 0.5f));
   DrawRectangle(barX, barY, (int)(barWidth * hpPct), barHeight, GREEN);
-  DrawRectangleLines(barX, barY, barWidth, barHeight, BLACK);
+  DrawRectangleLines(barX, barY, barWidth, barHeight, WHITE);
+  DrawText(TextFormat("%d/%d", player.health, player.maxHealth), barX + 5,
+           barY + 2, 18, WHITE);
 
-  DrawText(TextFormat("%d/%d", player.health, player.maxHealth),
-           barX + barWidth / 2 - 20, barY + 2, 20, WHITE);
+  DrawLine(sectionWidth, panelY + 10, sectionWidth, screenH - 10,
+           GRAY); // Separator
 
-  // Indicateur de dégâts à côté de la barre de vie
-  DrawText(TextFormat("DMG: %.0f", player.damage), barX + barWidth + 20, barY,
-           20, RED);
-  DrawText(TextFormat("SPD: %.0f", player.speed), barX + barWidth + 20,
-           barY + 20, 20, SKYBLUE);
+  // Section 2: Damage
+  DrawText("WEAPON", sectionWidth + 20, panelY + 15, 20, LIGHTGRAY);
+  DrawText(TextFormat("DMG: %.0f", player.damage), sectionWidth + 20,
+           panelY + 45, 30, RED);
+
+  DrawLine(sectionWidth * 2, panelY + 10, sectionWidth * 2, screenH - 10,
+           GRAY); // Separator
+
+  // Section 3: Speed
+  DrawText("ENGINE", sectionWidth * 2 + 20, panelY + 15, 20, LIGHTGRAY);
+  DrawText(TextFormat("SPD: %.0f", player.speed), sectionWidth * 2 + 20,
+           panelY + 45, 30, SKYBLUE);
+
+  DrawLine(sectionWidth * 3, panelY + 10, sectionWidth * 3, screenH - 10,
+           GRAY); // Separator
+
+  // Section 4: Fire Rate
+  DrawText("SYSTEMS", sectionWidth * 3 + 20, panelY + 15, 20, LIGHTGRAY);
+  DrawText(TextFormat("RATE: %.2f", player.fireRate), sectionWidth * 3 + 20,
+           panelY + 45, 30, YELLOW);
 
   // Controls Display
   DrawText("WASD/Arrows: Move", screenW - 200, 20, 20, DARKGRAY);
@@ -797,13 +865,13 @@ void DrawGame() {
              screenH / 2 + 10, 20, DARKGRAY);
   }
 
-  DrawFPS(10, 10);
   EndDrawing();
 }
 
 #include "include/survivor.h"
 
-void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
+void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
+                     const char *playerName, ScoreList *scores) {
   // On ajuste la fenêtre au lieu de la recréer
   SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
   SetWindowTitle("survivor");
@@ -818,12 +886,16 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
       free(bullets);
     if (bonuses)
       free(bonuses);
+    if (trainee)
+      free(trainee);
 
     enemies = (Enemy *)calloc(MAX_ENEMIES, sizeof(Enemy));
     bullets = (Bullet *)calloc(MAX_BULLETS, sizeof(Bullet));
     bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
+    trainee = (Trainee *)calloc(MAX_trainee, sizeof(Trainee));
 
-    if (enemies == NULL || bullets == NULL || bonuses == NULL) {
+    if (enemies == NULL || bullets == NULL || bonuses == NULL ||
+        trainee == NULL) {
       printf("Erreur d'allocation mémoire !\n");
       if (enemies)
         free(enemies);
@@ -831,6 +903,8 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
         free(bullets);
       if (bonuses)
         free(bonuses);
+      if (trainee)
+        free(trainee);
       // On ne ferme pas la fenêtre ici car elle appartient au main
       *game_active = false;
       return;
@@ -839,9 +913,25 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
     InitGame(difficulty);
   }
 
+  // Stocker les pointeurs globaux pour l'accès dans UpdateGame
+  // Stocker les pointeurs globaux pour l'accès dans UpdateGame
+  currentScores = scores;
+
+  // Reset name content first
+  memset(currentPlayerName, 0, sizeof(currentPlayerName));
+
+  if (playerName && strlen(playerName) > 0) {
+    strncpy(currentPlayerName, playerName, 31);
+    currentPlayerName[31] = '\0';
+  } else {
+    strcpy(currentPlayerName, "JOUEUR");
+  }
+
+  printf("RunSurvivorGame started for: '%s'\n", currentPlayerName);
+
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
-  hunterTexture = LoadTexture("assets/sprite-chasseur.png");
+  chasseurTexture = LoadTexture("assets/sprite-chasseur.png");
   tankTexture = LoadTexture("assets/sprite-tank.png");
 
   // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
@@ -896,9 +986,12 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active) {
       free(bullets);
     if (bonuses)
       free(bonuses);
+    if (trainee)
+      free(trainee);
     enemies = NULL;
     bullets = NULL;
     bonuses = NULL;
+    trainee = NULL;
   }
 
   // Ne pas fermer la fenêtre ici !

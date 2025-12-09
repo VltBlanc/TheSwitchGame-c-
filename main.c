@@ -52,7 +52,13 @@ int main(void) {
 
       // Lancer le jeu
       RunSurvivorGame(menu->niveau, menu->partie_en_cours,
-                      &menu->partie_en_cours);
+                      &menu->partie_en_cours, menu->playerName, menu->scores);
+
+      // Rafraîchir les meilleurs scores affichés dans le menu
+      if (menu->scores) {
+        menu->nombre_scores = get_high_scores(
+            menu->scores, menu->meilleurs_scores, NOMBRE_MEILLEURS_SCORES);
+      }
 
       // Restaurer la fenêtre du menu
       SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);

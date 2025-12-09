@@ -4,13 +4,17 @@
 #include "scores.h"
 #include <raylib.h>
 
-
 #define LARGEUR_ECRAN 800
 #define HAUTEUR_ECRAN 600
-#define NOMBRE_MEILLEURS_SCORES 5
+#define NOMBRE_MEILLEURS_SCORES 10
 
 // Etats du menu
-typedef enum { MENU_PRINCIPAL, MENU_DEMARRAGE, MENU_QUITTER } EtatMenu;
+typedef enum {
+  MENU_PRINCIPAL,
+  MENU_DEMARRAGE,
+  MENU_QUITTER,
+  MENU_NAME_INPUT
+} EtatMenu;
 
 // Modes de jeu
 typedef enum { UN_JOUEUR, DEUX_JOUEURS } ModeJoueur;
@@ -28,6 +32,7 @@ typedef struct {
   ScoreEntry meilleurs_scores[NOMBRE_MEILLEURS_SCORES];
   int nombre_scores;
   bool partie_en_cours;
+  char playerName[16];
 } MenuJeu;
 
 // Structure pour les boutons
