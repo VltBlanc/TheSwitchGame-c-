@@ -8,16 +8,21 @@
 
 #define Taille_Grid 10
 #define Taille_Case 60
-#define Demi_Cote_Joueur_X 16
+#define Taille_Marge_Grille 200
+
+#define Demi_Cote_Joueur_X 14
 #define Demi_Cote_Joueur_Y 19
+#define HITBOX_PIEDS_HAUTEUR 15.0f
+#define HITBOX_PIEDS_LARGEUR 20.0f
+
 #define Vitesse_Marche 200.0f
 #define CoefCourse 2.0f
 #define Distance_Case_Dash 2
 
-const int screenWidth = (Taille_Grid + 2) * Taille_Case;
-const int screenHeight = (Taille_Grid + 2) * Taille_Case;
-const int Debut_Grille_X = Taille_Case;
-const int Debut_Grille_Y = Taille_Case;
+const int screenWidth = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
+const int screenHeight = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
+const int Debut_Grille_X = Taille_Marge_Grille; 
+const int Debut_Grille_Y = Taille_Marge_Grille;
 
 // etats possibles pour chaque case
 typedef enum
@@ -51,7 +56,11 @@ const float Temps_Tomber = 0.2f;
 const float Temps_Attente = 0.1f;   // temps en secondes avant prochaine phase
 int nbrBlockQuiTombe = 8;
 bool scoreDoitAugmenter = false;
+
 Texture2D playerTexture;
+Texture2D fondTexture;
+Texture2D solTexture;
+Texture2D solFissureTexture;
 
 //---PROTOTYPES---
 //utile pour écrire les fonctions dans l'ordre qu'on veut
@@ -182,16 +191,20 @@ void VerifieMort(Joueur *Joueur)
         return;
     }
 
+    float BottomY = Joueur->position.y + Demi_Cote_Joueur_Y; 
+    float HitboxTopY = BottomY - HITBOX_PIEDS_HAUTEUR; 
+    float HitboxLeftX = Joueur->position.x - (HITBOX_PIEDS_LARGEUR / 2.0f); 
+
     Rectangle JoueurRec = {
-        Joueur->position.x - Demi_Cote_Joueur_X,  // X du coin supérieur gauche
-        Joueur->position.y - Demi_Cote_Joueur_Y,// Y du coin supérieur gauche
-        Demi_Cote_Joueur_X * 2.0f,                // Largeur (Diamètre)
-        Demi_Cote_Joueur_Y * 2.0f                 // Hauteur (Diamètre)
+        HitboxLeftX,                         // X du coin supérieur gauche (centrée)
+        HitboxTopY,                          // Y du coin supérieur gauche (haut des pieds)
+        HITBOX_PIEDS_LARGEUR,                // Largeur de la hitbox
+        HITBOX_PIEDS_HAUTEUR                 // Hauteur de la hitbox
     };
 
     // Vérification chute de la grille
-    bool horsGrilleX = (Joueur->position.x - Demi_Cote_Joueur_X) < Debut_Grille_X || (Joueur->position.x + Demi_Cote_Joueur_X) > (Debut_Grille_X + Taille_Grid * Taille_Case);
-    bool horsGrilleY = (Joueur->position.y - Demi_Cote_Joueur_Y) < Debut_Grille_Y || (Joueur->position.y + Demi_Cote_Joueur_Y) > (Debut_Grille_Y + Taille_Grid * Taille_Case);
+   bool horsGrilleX = (JoueurRec.x < Debut_Grille_X) || (JoueurRec.x + JoueurRec.width > (Debut_Grille_X + Taille_Grid * Taille_Case));
+    bool horsGrilleY = (JoueurRec.y < Debut_Grille_Y) || (JoueurRec.y + JoueurRec.height > (Debut_Grille_Y + Taille_Grid * Taille_Case));
 
     if (horsGrilleX || horsGrilleY)
     {
@@ -202,25 +215,25 @@ void VerifieMort(Joueur *Joueur)
     //converit le cercle joueur en ensemble de case qu'il touche
     // et on vérifie qu'on ne sort pas du tableau
 
-    int minGridX = (int)floor(((Joueur->position.x - Demi_Cote_Joueur_X) - Debut_Grille_X) / (float)Taille_Case);
+   int minGridX = (int)floor((JoueurRec.x - Debut_Grille_X) / (float)Taille_Case);
     if(minGridX < 0) {
         minGridX=0;
     }
 
-    int maxGridX = (int)floor(((Joueur->position.x + Demi_Cote_Joueur_X) - Debut_Grille_X) / (float)Taille_Case);
+    int maxGridX = (int)floor(((JoueurRec.x + JoueurRec.width) - Debut_Grille_X) / (float)Taille_Case);
     if(maxGridX >= Taille_Grid){
         maxGridX = Taille_Grid - 1;
-     }
+    }
 
-    int minGridY = (int)floor(((Joueur->position.y - Demi_Cote_Joueur_Y) - Debut_Grille_Y) / (float)Taille_Case);
+    int minGridY = (int)floor((JoueurRec.y - Debut_Grille_Y) / (float)Taille_Case);
     if(minGridY < 0) {
         minGridY=0;
     }
 
-    int maxGridY = (int)floor(((Joueur->position.y + Demi_Cote_Joueur_Y) - Debut_Grille_Y) / (float)Taille_Case);
+    int maxGridY = (int)floor(((JoueurRec.y + JoueurRec.height) - Debut_Grille_Y) / (float)Taille_Case);
     if(maxGridY >= Taille_Grid){
         maxGridY = Taille_Grid - 1;
-     }
+    }
 
     //vérifie collision Cercle-Rectangle
     for (int y = minGridY; y <= maxGridY; y++)
@@ -344,7 +357,8 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime)
 
 void DessinePartie()
 {
-    DrawRectangle(0, 0, screenWidth, screenHeight, DARKGRAY); //le fond
+    //DrawRectangle(0, 0, screenWidth, screenHeight, DARKGRAY); //le fond
+    DrawTextureEx(fondTexture, (Vector2){0, 0}, 0.0f, 1.0f, WHITE);//le fond
 
     for (int y = 0; y < Taille_Grid; y++)
     {
@@ -357,26 +371,35 @@ void DessinePartie()
                 Taille_Case,
                 Taille_Case};
 
-            Color blockColor;
+
             switch (grid[x][y])
             {
             case Block_Normal:
             case Block_Prochain_Cycle:
-                blockColor = GREEN;
-                break;
-            case Block_Alerte:
-                blockColor = RED;
+                DrawTexturePro(solTexture, 
+                               (Rectangle){0.0f, 0.0f, (float)solTexture.width, (float)solTexture.height},
+                               rect, 
+                               (Vector2){0, 0}, 
+                               0.0f, 
+                               WHITE);
+
                 break;
             case Block_Tomber:
-                blockColor = DARKGRAY;
-                break;
+                    continue;
+            case Block_Alerte:
+                    DrawTexturePro(solFissureTexture, 
+                               (Rectangle){0.0f, 0.0f, (float)solTexture.width, (float)solTexture.height},
+                               rect, 
+                               (Vector2){0, 0}, 
+                               0.0f, 
+                               WHITE);
+            
             default:
-                blockColor = WHITE;
+                break;
             }
 
-            DrawRectangleRec(rect, blockColor);//case
-
-            DrawRectangleLines(rect.x, rect.y, Taille_Case, Taille_Case, GRAY);//contour case
+            // 3. Dessiner le contour (pour tous les blocs visibles)
+            DrawRectangleLines(rect.x, rect.y, Taille_Case, Taille_Case, (Color){0,0,0,0});//contour case utile pour voir bug
         }
     }
 }
@@ -402,7 +425,12 @@ void DessineJoueur(Joueur Joueur)
         DrawTexturePro(playerTexture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
         // On utilise {0, 0} comme origine et 0.0f comme rotation, et WHITE pour l'opacité par défaut.
 
-        //DrawRectangleLinesEx(destRec, 2, MAGENTA);//affiche hitbox utile pur vérif bug collision
+        float BottomY = Joueur.position.y + Demi_Cote_Joueur_Y;
+        float HitboxTopY = BottomY - HITBOX_PIEDS_HAUTEUR;
+        float HitboxLeftX = Joueur.position.x - (HITBOX_PIEDS_LARGEUR / 2.0f);
+
+        // Dessinez le rectangle de collision en magenta
+        //DrawRectangleLinesEx((Rectangle){HitboxLeftX, HitboxTopY, HITBOX_PIEDS_LARGEUR, HITBOX_PIEDS_HAUTEUR}, 1, MAGENTA);
     }
 }
 
@@ -416,6 +444,10 @@ int main(void)
     SetTargetFPS(60);
 
     playerTexture = LoadTexture("assets/playerLuca.png");
+    fondTexture = LoadTexture("assets/fond.png");
+    solTexture = LoadTexture("assets/sol.png");
+    solFissureTexture = LoadTexture("assets/solFissure.png");
+
     InitGrid();
     Joueur Joueur = InitJoueur();
 
@@ -454,8 +486,8 @@ int main(void)
 
         if (!Joueur.vivant)
         {
-            DrawText("GAME OVER!", screenWidth / 2- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
-            DrawText("Appuyez sur ESPACE pour recommencer", screenWidth / 2 - MeasureText("Appuyez sur ESPACE pour recommencer", 25) / 2, screenHeight / 2, 25, RAYWHITE);
+            DrawText("GAME OVER!", (screenWidth / 2)- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
+            DrawText("Appuyez sur ESPACE pour recommencer", (screenWidth / 2) - MeasureText("Appuyez sur ESPACE pour recommencer", 25) / 2, screenHeight / 2, 25, RAYWHITE);
         }
 
         EndDrawing();
@@ -463,6 +495,9 @@ int main(void)
 
     CloseWindow();
     UnloadTexture(playerTexture);
+    UnloadTexture(fondTexture);
+    UnloadTexture(solTexture);
+    UnloadTexture(solFissureTexture);
     FreeGrid();
     return 0;
 }
