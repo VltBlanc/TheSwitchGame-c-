@@ -536,6 +536,7 @@ void UpdateGame(float dt) {
           break;
         }
       }
+      //test
       // si on a une balle de disponible
       if (bSlot != -1) {
         Vector2 dir = {enemies[targetIdx].position.x - player.position.x,
