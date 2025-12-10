@@ -13,6 +13,7 @@ bash```
 ```
 
 
+
 Prochaines étapes,
 - mini jeu et créer la logique de switch, et le chargement au lancement initial du menu
 - Créer la logique de difficulté 
