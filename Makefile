@@ -85,7 +85,19 @@ info:
 	@echo "Detected OS: $(UNAME_S)"
 	@echo "Target executable: $(TARGET)"
 	@echo "Linker flags: $(LDFLAGS)"
-	@echo "Sources: $(SRCS)"
-	@echo "Objects: $(OBJS)"
 
-.PHONY: all clean run info
+# Platform-specific installation help
+help-platform:
+	@echo "Platform-specific Raylib installation instructions:"
+	@echo ""
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		echo "macOS: brew install raylib"; \
+	elif [ "$(UNAME_S)" = "Linux" ]; then \
+		echo "Linux (Ubuntu/Debian): sudo apt install libraylib-dev"; \
+		echo "Linux (Arch): sudo pacman -S raylib"; \
+		echo "Linux (Fedora): sudo dnf install raylib-devel"; \
+	else \
+		echo "Windows: Download from https://www.raylib.com/ or use vcpkg"; \
+	fi
+
+.PHONY: all debug clean install-deps install-deps-arch check-deps run help info help-platform
