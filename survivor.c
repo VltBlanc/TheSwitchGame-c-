@@ -18,6 +18,7 @@
 #define MAX_BULLETS 1000
 #define MAX_BONUSES 50
 #define MAX_trainee 20
+#define MAX_MISSILES 10
 
 // --- STRUCTURES ---
 typedef struct {
@@ -48,6 +49,11 @@ typedef struct {
   float dashCooldown;
   float dashSpeed;
   float dashDuration;
+
+  // missile
+  float missileCooldown;
+  float missileMaxCooldown;
+  float missileCooldownTimer; // Timer actuel
 
 } Player;
 
@@ -82,7 +88,8 @@ typedef enum {
   BONUS_DAMAGE,
   BONUS_HEALTH,
   BONUS_SPEED,
-  BONUS_TIR_RAPIDE
+  BONUS_TIR_RAPIDE,
+  BONUS_MISSILE_CD
 } BonusType;
 
 typedef struct {
@@ -101,6 +108,15 @@ typedef struct {
   float alpha;
 } Trainee;
 
+typedef struct {
+  bool active;
+  Vector2 position;
+  Vector2 velocity;
+  float radius;
+  float damage;
+  float explosionRadius;
+} Missile;
+
 // --- GLOBALS ---
 Player player;
 // on stock les enemis dans un tableau
@@ -111,6 +127,7 @@ Bonus *bonuses = NULL;
 // de même pour les traces (indiquant les bonus)
 // de même pour les traces (indiquant les bonus)
 Trainee *trainee = NULL;
+Missile *missiles = NULL;
 
 ScoreList *currentScores = NULL;
 char currentPlayerName[32] = "Unknown";
@@ -178,6 +195,10 @@ void InitGame(Difficulte difficulty) {
   player.dashSpeed = 2000.0f; // Dash rapide
   player.dashDuration = 0.1f; // Courte durée
 
+  // Initialisation du missile
+  player.missileMaxCooldown = 15.0f;
+  player.missileCooldownTimer = 0.0f;
+
   // Initialisation de la caméra
   camera.target = player.position;
   camera.offset = (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f};
@@ -202,6 +223,8 @@ void InitGame(Difficulte difficulty) {
     bonuses[i].active = false;
   for (int i = 0; i < MAX_trainee; i++)
     trainee[i].active = false;
+  for (int i = 0; i < MAX_MISSILES; i++)
+    missiles[i].active = false;
 }
 
 void SpawnBonus() {
@@ -228,18 +251,21 @@ void SpawnBonus() {
   bonuses[slot].radius = 15.0f;
 
   int typeRoll = GetRandomValue(0, 100);
-  if (typeRoll < 25) {
+  if (typeRoll < 20) {
     bonuses[slot].type = BONUS_DAMAGE;
     bonuses[slot].color = RED;
-  } else if (typeRoll < 50) {
+  } else if (typeRoll < 40) {
     bonuses[slot].type = BONUS_HEALTH;
     bonuses[slot].color = GREEN;
-  } else if (typeRoll < 75) {
+  } else if (typeRoll < 60) {
     bonuses[slot].type = BONUS_SPEED;
     bonuses[slot].color = SKYBLUE;
-  } else {
+  } else if (typeRoll < 80) { //
     bonuses[slot].type = BONUS_TIR_RAPIDE;
     bonuses[slot].color = YELLOW;
+  } else {
+    bonuses[slot].type = BONUS_MISSILE_CD;
+    bonuses[slot].color = PURPLE;
   }
 }
 
@@ -515,21 +541,143 @@ void UpdateGame(float dt) {
         Vector2 dir = {enemies[targetIdx].position.x - player.position.x,
                        enemies[targetIdx].position.y - player.position.y};
         float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
-        // pour éviter une division par 0
-        if (dirLen > 0.001f) {
+        // Normalize direction
+        if (dirLen > 0) {
           dir.x /= dirLen;
           dir.y /= dirLen;
         }
-        // on prépare le tir
+
         bullets[bSlot].active = true;
         bullets[bSlot].position = player.position;
         bullets[bSlot].velocity =
             (Vector2){dir.x * player.bulletSpeed, dir.y * player.bulletSpeed};
         bullets[bSlot].radius = player.bulletSize;
-        bullets[bSlot].lifeTime = 2.0f;
-        bullets[bSlot].damage = player.damage;
 
+        bullets[bSlot].damage = player.damage;
+        bullets[bSlot].lifeTime = 2.0f; // Balle dure 2.0 secondes
         player.shootTimer = 0.0f;
+      }
+    }
+  }
+
+  // --- MISSILE ---
+  if (player.missileCooldownTimer > 0) {
+    player.missileCooldownTimer -= dt;
+  }
+
+  if (IsKeyPressed(KEY_E) && player.missileCooldownTimer <= 0) {
+    // Find a slot
+    int mSlot = -1;
+    for (int i = 0; i < MAX_MISSILES; i++) {
+      if (!missiles[i].active) {
+        mSlot = i;
+        break;
+      }
+    }
+
+    if (mSlot != -1) {
+      missiles[mSlot].active = true;
+      missiles[mSlot].position = player.position;
+      // Direction based on player rotation
+      float rad = (player.rotation - 90.0f) * DEG2RAD;
+      Vector2 dir = {cosf(rad), sinf(rad)};
+
+      missiles[mSlot].velocity =
+          (Vector2){dir.x * 600.0f, dir.y * 600.0f}; // Slower than bullets
+      missiles[mSlot].radius = 15.0f;
+      missiles[mSlot].damage = 10.0f; // High damage
+      missiles[mSlot].explosionRadius = 150.0f;
+
+      player.missileCooldownTimer = player.missileMaxCooldown;
+    }
+  }
+
+  // Update Missiles
+  for (int i = 0; i < MAX_MISSILES; i++) {
+    if (missiles[i].active) {
+      // Homing Logic
+      int targetIdx = FindNearestEnemy();
+      if (targetIdx != -1) {
+        // Simple steering towards target
+        Vector2 targetPos = enemies[targetIdx].position;
+        Vector2 desiredDir = {targetPos.x - missiles[i].position.x,
+                              targetPos.y - missiles[i].position.y};
+        float dist =
+            sqrtf(desiredDir.x * desiredDir.x + desiredDir.y * desiredDir.y);
+
+        if (dist > 0) {
+          desiredDir.x /= dist;
+          desiredDir.y /= dist;
+
+          float currentSpeed =
+              sqrtf(missiles[i].velocity.x * missiles[i].velocity.x +
+                    missiles[i].velocity.y * missiles[i].velocity.y);
+
+          // Turn rate factor (adjust for sharper/slower turns)
+          float turnRate = 4.0f * dt;
+
+          // Lerp velocity direction
+          missiles[i].velocity.x +=
+              (desiredDir.x * currentSpeed - missiles[i].velocity.x) * turnRate;
+          missiles[i].velocity.y +=
+              (desiredDir.y * currentSpeed - missiles[i].velocity.y) * turnRate;
+
+          // Maintain speed
+          float newSpeed =
+              sqrtf(missiles[i].velocity.x * missiles[i].velocity.x +
+                    missiles[i].velocity.y * missiles[i].velocity.y);
+          if (newSpeed > 0) {
+            missiles[i].velocity.x =
+                (missiles[i].velocity.x / newSpeed) * currentSpeed;
+            missiles[i].velocity.y =
+                (missiles[i].velocity.y / newSpeed) * currentSpeed;
+          }
+        }
+      }
+      missiles[i].position.x += missiles[i].velocity.x * dt;
+      missiles[i].position.y += missiles[i].velocity.y * dt;
+
+      bool exploded = false;
+
+      // Check bounds
+      if (missiles[i].position.x < 0 || missiles[i].position.x > MAP_WIDTH ||
+          missiles[i].position.y < 0 || missiles[i].position.y > MAP_HEIGHT) {
+        exploded = true; // Explode on wall hit
+      }
+
+      // Check collision with enemies (Direct hit)
+      if (!exploded) {
+        for (int e = 0; e < MAX_ENEMIES; e++) {
+          if (enemies[e].active) {
+            if (CheckCollisionCircles(missiles[i].position, missiles[i].radius,
+                                      enemies[e].position, enemies[e].radius)) {
+              exploded = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (exploded) {
+        missiles[i].active = false;
+
+        // AOE Damage
+        for (int e = 0; e < MAX_ENEMIES; e++) {
+          if (enemies[e].active) {
+            float dx = missiles[i].position.x - enemies[e].position.x;
+            float dy = missiles[i].position.y - enemies[e].position.y;
+            float distSq = dx * dx + dy * dy;
+
+            if (distSq <=
+                missiles[i].explosionRadius * missiles[i].explosionRadius) {
+              enemies[e].health -= (int)missiles[i].damage;
+              if (enemies[e].health <= 0) {
+                enemies[e].active = false;
+                score += 15; // More points
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -580,7 +728,7 @@ void UpdateGame(float dt) {
 
   // --- BONUSES ---
   bonusSpawnTimer += dt;
-  if (bonusSpawnTimer >= 7.5f) {
+  if (bonusSpawnTimer >= 5.0f) {
     SpawnBonus();
     bonusSpawnTimer = 0.0f;
   }
@@ -600,6 +748,10 @@ void UpdateGame(float dt) {
             player.speed = 800.0f;
         } else if (bonuses[i].type == BONUS_TIR_RAPIDE) {
           player.fireRate = player.fireRate / 1.15;
+        } else if (bonuses[i].type == BONUS_MISSILE_CD) {
+          player.missileMaxCooldown -= 1.0f; // Reduce max cooldown by 1s
+          if (player.missileMaxCooldown < 5.0f)
+            player.missileMaxCooldown = 5.0f; // Cap at 5s
         }
         bonuses[i].active = false;
       }
@@ -732,6 +884,15 @@ void DrawGame() {
     }
   }
 
+  // Dessiner les missiles
+  for (int i = 0; i < MAX_MISSILES; i++) {
+    if (missiles[i].active) {
+      DrawCircleV(missiles[i].position, missiles[i].radius, ORANGE);
+      DrawCircleLines(missiles[i].position.x, missiles[i].position.y,
+                      missiles[i].radius, RED);
+    }
+  }
+
   // Dessiner les bonus et indicateurs
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
@@ -851,8 +1012,41 @@ void DrawGame() {
 
   // Section 4: Fire Rate
   DrawText("SYSTEMS", sectionWidth * 3 + 20, panelY + 15, 20, LIGHTGRAY);
-  DrawText(TextFormat("RATE: %.2f", player.fireRate), sectionWidth * 3 + 20,
-           panelY + 45, 30, YELLOW);
+  DrawText(TextFormat("Fire Rate: %.2f", player.fireRate),
+           sectionWidth * 3 + 20, panelY + 45, 30, YELLOW);
+
+  // Missile Cooldown UI
+  int missileBarWidth = 200;
+  int missileBarHeight = 10;
+  int missileBarX = screenW / 2 - missileBarWidth / 2;
+  int missileBarY = screenH - panelHeight - 30; // Above panel
+
+  DrawText("MISSILE (E)", missileBarX, missileBarY - 20, 20, ORANGE);
+  DrawRectangle(missileBarX, missileBarY, missileBarWidth, missileBarHeight,
+                DARKGRAY);
+
+  float cooldownPct = 0.0f;
+  if (player.missileMaxCooldown > 0) {
+    cooldownPct =
+        1.0f - (player.missileCooldownTimer / player.missileMaxCooldown);
+  }
+  if (cooldownPct < 0)
+    cooldownPct = 0;
+  if (cooldownPct > 1)
+    cooldownPct = 1;
+
+  DrawRectangle(missileBarX, missileBarY, (int)(missileBarWidth * cooldownPct),
+                missileBarHeight, ORANGE);
+  DrawRectangleLines(missileBarX, missileBarY, missileBarWidth,
+                     missileBarHeight, WHITE);
+
+  if (player.missileCooldownTimer <= 0) {
+    DrawText("READY", missileBarX + missileBarWidth + 10, missileBarY - 5, 20,
+             GREEN);
+  } else {
+    DrawText(TextFormat("%.1fs", player.missileCooldownTimer),
+             missileBarX + missileBarWidth + 10, missileBarY - 5, 20, WHITE);
+  }
 
   // Controls Display
   DrawText("WASD/Arrows: Move", screenW - 200, 20, 20, DARKGRAY);
@@ -893,9 +1087,10 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     bullets = (Bullet *)calloc(MAX_BULLETS, sizeof(Bullet));
     bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
     trainee = (Trainee *)calloc(MAX_trainee, sizeof(Trainee));
+    missiles = (Missile *)calloc(MAX_MISSILES, sizeof(Missile));
 
     if (enemies == NULL || bullets == NULL || bonuses == NULL ||
-        trainee == NULL) {
+        trainee == NULL || missiles == NULL) {
       printf("Erreur d'allocation mémoire !\n");
       if (enemies)
         free(enemies);
@@ -905,6 +1100,8 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
         free(bonuses);
       if (trainee)
         free(trainee);
+      if (missiles)
+        free(missiles);
       // On ne ferme pas la fenêtre ici car elle appartient au main
       *game_active = false;
       return;
@@ -988,10 +1185,13 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       free(bonuses);
     if (trainee)
       free(trainee);
+    if (missiles)
+      free(missiles);
     enemies = NULL;
     bullets = NULL;
     bonuses = NULL;
     trainee = NULL;
+    missiles = NULL;
   }
 
   // Ne pas fermer la fenêtre ici !
