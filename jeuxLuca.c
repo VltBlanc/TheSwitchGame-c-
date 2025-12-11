@@ -12,12 +12,12 @@
 
 #define Demi_Cote_Joueur_X 14
 #define Demi_Cote_Joueur_Y 19
-#define HITBOX_PIEDS_HAUTEUR 15.0f
-#define HITBOX_PIEDS_LARGEUR 20.0f
+#define HITBOX_PIEDS_HAUTEUR 8.0f
+#define HITBOX_PIEDS_LARGEUR 19.0f
 
 #define Vitesse_Marche 200.0f
 #define CoefCourse 2.0f
-#define Distance_Case_Dash 2
+#define Distance_Case_Dash 1
 
 const int screenWidth = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
 const int screenHeight = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
@@ -44,7 +44,6 @@ typedef struct Joueur
 {
     Vector2 position;
     bool vivant;
-    int score;
     Vector2 dernierMouvement;
 } Joueur;
 
@@ -52,10 +51,10 @@ Phase phaseActuelle = Phase_Attente;
 Block **grid = NULL; //initialisation du tableau a Null
 float timer = 0.0f;
 const float Temps_Alerte = 0.6f; // temps en secondes pour l'avertissement
-const float Temps_Tomber = 0.2f; 
-const float Temps_Attente = 0.1f;   // temps en secondes avant prochaine phase
+const float Temps_Tomber = 0.3f; 
+const float Temps_Attente = 0.2f;   // temps en secondes avant prochaine phase
 int nbrBlockQuiTombe = 8;
-bool scoreDoitAugmenter = false;
+bool nbrBlockDoitAugmenter = true; //mis a true pour faire un premier cycle sans augmenter le nombre de block
 
 Texture2D playerTexture;
 Texture2D fondTexture;
@@ -129,8 +128,7 @@ Joueur InitJoueur()
     Joueur.position.x = screenWidth / 2;
     Joueur.position.y = screenHeight / 2;
     Joueur.vivant = true;
-    Joueur.score = 0;
-    Joueur.dernierMouvement = (Vector2){0.0f, 0.0f}; //utile pour le dash et savoir où regarde le joueur
+    Joueur.dernierMouvement = (Vector2){0.0f, 0.0f}; //utile pour le dash
     return Joueur;
 }
 
@@ -191,19 +189,21 @@ void VerifieMort(Joueur *Joueur)
         return;
     }
 
-    float BottomY = Joueur->position.y + Demi_Cote_Joueur_Y; 
-    float HitboxTopY = BottomY - HITBOX_PIEDS_HAUTEUR; 
-    float HitboxLeftX = Joueur->position.x - (HITBOX_PIEDS_LARGEUR / 2.0f); 
+    //Hitbox autour des pieds
+    float HitboxBas = Joueur->position.y + Demi_Cote_Joueur_Y; 
+    float HitboxHaut = HitboxBas - HITBOX_PIEDS_HAUTEUR;
+    float HitboxGauche = Joueur->position.x - (HITBOX_PIEDS_LARGEUR / 2.0f); 
 
+    // rectangle = (poisition x haut gauche,poisition y haut gauche,longueur,largeur)
     Rectangle JoueurRec = {
-        HitboxLeftX,                         // X du coin supérieur gauche (centrée)
-        HitboxTopY,                          // Y du coin supérieur gauche (haut des pieds)
-        HITBOX_PIEDS_LARGEUR,                // Largeur de la hitbox
-        HITBOX_PIEDS_HAUTEUR                 // Hauteur de la hitbox
+        HitboxGauche,                         
+        HitboxHaut,                          
+        HITBOX_PIEDS_LARGEUR,                
+        HITBOX_PIEDS_HAUTEUR                 
     };
 
     // Vérification chute de la grille
-   bool horsGrilleX = (JoueurRec.x < Debut_Grille_X) || (JoueurRec.x + JoueurRec.width > (Debut_Grille_X + Taille_Grid * Taille_Case));
+    bool horsGrilleX = (JoueurRec.x < Debut_Grille_X) || (JoueurRec.x + JoueurRec.width > (Debut_Grille_X + Taille_Grid * Taille_Case));
     bool horsGrilleY = (JoueurRec.y < Debut_Grille_Y) || (JoueurRec.y + JoueurRec.height > (Debut_Grille_Y + Taille_Grid * Taille_Case));
 
     if (horsGrilleX || horsGrilleY)
@@ -212,7 +212,7 @@ void VerifieMort(Joueur *Joueur)
         return;
     }
 
-    //converit le cercle joueur en ensemble de case qu'il touche
+    //converit la hitbox joueur en l'ensemble des cases qu'il touche
     // et on vérifie qu'on ne sort pas du tableau
 
    int minGridX = (int)floor((JoueurRec.x - Debut_Grille_X) / (float)Taille_Case);
@@ -235,7 +235,7 @@ void VerifieMort(Joueur *Joueur)
         maxGridY = Taille_Grid - 1;
     }
 
-    //vérifie collision Cercle-Rectangle
+    //vérifie collision hitbox-Rectangle
     for (int y = minGridY; y <= maxGridY; y++)
     {
         for (int x = minGridX; x <= maxGridX; x++)
@@ -244,7 +244,6 @@ void VerifieMort(Joueur *Joueur)
             if (grid[x][y] == Block_Tomber)
             {
 
-                // rectangle = (poisition x haut gauche,poisition y haut gauche,longueur,largeur)
                 Rectangle Case = {
                     Debut_Grille_X + x * Taille_Case,
                     Debut_Grille_Y + y * Taille_Case,
@@ -270,20 +269,19 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime)
 
     timer += deltaTime;
 
-    // avertissement (début phase rouge)
+    // début phase alerte
     if (phaseActuelle == Phase_Attente && timer >= Temps_Attente)
     {
         phaseActuelle = Phase_Alerte;
         timer = 0.0f;
 
-        if (!scoreDoitAugmenter)
+        if (!nbrBlockDoitAugmenter)
         {
-            if (nbrBlockQuiTombe <= (Taille_Grid * Taille_Grid) / 2)//le nombre de block évolue avec le score et ne peut pas dépasser la moitié des cases
+            if (nbrBlockQuiTombe <= (Taille_Grid * Taille_Grid) / 2)//le nombre de block ne peut pas dépasser la moitié des cases
             {
-                nbrBlockQuiTombe = 8 + (Joueur->score);
+                nbrBlockQuiTombe += 1;
             }
-            scoreDoitAugmenter = true;
-            Joueur->score++;
+            nbrBlockDoitAugmenter = true;
         }
 
         for (int y = 0; y < Taille_Grid; y++)
@@ -302,7 +300,7 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime)
         }
     }
 
-    // chute block
+    // début chute block
     else if (phaseActuelle == Phase_Alerte && timer >= Temps_Alerte)
     {
 
@@ -321,18 +319,16 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime)
         }
     }
 
-    // nouveau cycle
+    // début nouveau cycle
     else if (phaseActuelle == Phase_Tomber && timer >= Temps_Tomber)
     {
-        phaseActuelle = Phase_Attente;
-        timer = 0.0f; 
-        scoreDoitAugmenter = false;
+        nbrBlockDoitAugmenter = false;
 
         for (int y = 0; y < Taille_Grid; y++)
         {
             for (int x = 0; x < Taille_Grid; x++)
             {
-                if (grid[x][y] == Block_Prochain_Cycle || grid[x][y] == Block_Alerte)
+                if (grid[x][y] == Block_Prochain_Cycle || grid[x][y] == Block_Alerte || grid[x][y] == Block_Tomber )
                 {
                     grid[x][y] = Block_Normal;
                 }
@@ -352,20 +348,29 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime)
                 cpt++;
             }
         }
+        phaseActuelle = Phase_Attente; 
+        timer = 0.0f;//on lance le timer en décalé donc il ne correspond pas exactement au temps voulu mais on est sur que tous les blocks sont choisi
     }
 }
 
 void DessinePartie()
 {
-    //DrawRectangle(0, 0, screenWidth, screenHeight, DARKGRAY); //le fond
-    DrawTextureEx(fondTexture, (Vector2){0, 0}, 0.0f, 1.0f, WHITE);//le fond
+    //le fond
+    Rectangle fondSource = { 0.0f, 0.0f, (float)fondTexture.width, (float)fondTexture.height }; 
+    Rectangle fondDest = { 0.0f, 0.0f, (float)screenWidth, (float)screenHeight };               
+    DrawTexturePro(fondTexture, 
+                   fondSource,//on peut rogner l'image si on veut
+                   fondDest, 
+                   (Vector2){0,0},//point autour duquel la rotation se fait 
+                   0.0f, 
+                   WHITE);
 
     for (int y = 0; y < Taille_Grid; y++)
     {
         for (int x = 0; x < Taille_Grid; x++)
         {
 
-            Rectangle rect = {
+            Rectangle Case = {
                 Debut_Grille_X + x * Taille_Case,
                 Debut_Grille_Y + y * Taille_Case,
                 Taille_Case,
@@ -378,28 +383,27 @@ void DessinePartie()
             case Block_Prochain_Cycle:
                 DrawTexturePro(solTexture, 
                                (Rectangle){0.0f, 0.0f, (float)solTexture.width, (float)solTexture.height},
-                               rect, 
-                               (Vector2){0, 0}, 
+                               Case, 
+                               (Vector2){0,0},
                                0.0f, 
                                WHITE);
 
                 break;
             case Block_Tomber:
-                    continue;
+                    break;;
             case Block_Alerte:
                     DrawTexturePro(solFissureTexture, 
                                (Rectangle){0.0f, 0.0f, (float)solTexture.width, (float)solTexture.height},
-                               rect, 
-                               (Vector2){0, 0}, 
+                               Case, 
+                               (Vector2){0,0}, 
                                0.0f, 
                                WHITE);
             
-            default:
+            default://normalement sert a rien 
                 break;
             }
 
-            // 3. Dessiner le contour (pour tous les blocs visibles)
-            DrawRectangleLines(rect.x, rect.y, Taille_Case, Taille_Case, (Color){0,0,0,0});//contour case utile pour voir bug
+            DrawRectangleLines(Case.x, Case.y, Taille_Case, Taille_Case, (Color){0,0,0,0});//contour case utile pour voir bug
         }
     }
 }
@@ -408,29 +412,26 @@ void DessineJoueur(Joueur Joueur)
 {
     if (Joueur.vivant)
     {
-        // 1. Définition du rectangle source (l'image entière)
         Rectangle sourceRec = { 0.0f, 0.0f, (float)playerTexture.width, (float)playerTexture.height };
 
-        // 2. Définition du rectangle de destination (taille et position à l'écran)
-        // La largeur et la hauteur du dessin seront 2 * Demi_Cote_Joueur.
-        // La position (X, Y) est le coin supérieur gauche du dessin.
+        //on centre l'image sur joueur.position
         Rectangle destRec = {
-            Joueur.position.x - Demi_Cote_Joueur_X,  // X du coin supérieur gauche (centre - rayon)
-            Joueur.position.y - Demi_Cote_Joueur_Y,  // Y du coin supérieur gauche (centre - rayon)
-            Demi_Cote_Joueur_X * 2.0f,               // Largeur du dessin (Diamètre)
-            Demi_Cote_Joueur_Y * 2.0f                // Hauteur du dessin (Diamètre)
+            Joueur.position.x - Demi_Cote_Joueur_X,  
+            Joueur.position.y - Demi_Cote_Joueur_Y,  
+            Demi_Cote_Joueur_X * 2.0f,               
+            Demi_Cote_Joueur_Y * 2.0f                
         };
         
-        // 3. Dessin de la texture redimensionnée
-        DrawTexturePro(playerTexture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
-        // On utilise {0, 0} comme origine et 0.0f comme rotation, et WHITE pour l'opacité par défaut.
+        DrawTexturePro(playerTexture, sourceRec, destRec,(Vector2){0,0}, 0.0f, WHITE);
 
-        float BottomY = Joueur.position.y + Demi_Cote_Joueur_Y;
-        float HitboxTopY = BottomY - HITBOX_PIEDS_HAUTEUR;
-        float HitboxLeftX = Joueur.position.x - (HITBOX_PIEDS_LARGEUR / 2.0f);
-
+        /*//---SERT JUSTE A VERIF SI BESOIN BUG HITBOX---
+        //Hitbox autour des pieds
+        float HitboxBas = Joueur.position.y + Demi_Cote_Joueur_Y; 
+        float HitboxHaut = HitboxBas - HITBOX_PIEDS_HAUTEUR; 
+        float HitboxGauche = Joueur.position.x - (HITBOX_PIEDS_LARGEUR / 2.0f); 
         // Dessinez le rectangle de collision en magenta
-        //DrawRectangleLinesEx((Rectangle){HitboxLeftX, HitboxTopY, HITBOX_PIEDS_LARGEUR, HITBOX_PIEDS_HAUTEUR}, 1, MAGENTA);
+        DrawRectangleLinesEx((Rectangle){HitboxGauche, HitboxHaut, HITBOX_PIEDS_LARGEUR, HITBOX_PIEDS_HAUTEUR}, 1, MAGENTA);
+        */
     }
 }
 
@@ -450,7 +451,6 @@ int main(void)
 
     InitGrid();
     Joueur Joueur = InitJoueur();
-
 
     while (!WindowShouldClose())
     {
@@ -472,7 +472,7 @@ int main(void)
                 nbrBlockQuiTombe = 8;
                 timer = 0.0f;
                 phaseActuelle=Phase_Attente;
-                scoreDoitAugmenter = false;
+                nbrBlockDoitAugmenter = true;
                 
             }
         }
@@ -494,6 +494,7 @@ int main(void)
     }
 
     CloseWindow();
+
     UnloadTexture(playerTexture);
     UnloadTexture(fondTexture);
     UnloadTexture(solTexture);
