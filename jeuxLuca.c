@@ -17,7 +17,7 @@
 
 #define Vitesse_Marche 200.0f
 #define CoefCourse 2.0f
-#define Distance_Case_Dash 1
+#define Distance_Case_Dash 1.0f
 
 const int screenWidth = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
 const int screenHeight = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
@@ -55,6 +55,8 @@ const float Temps_Tomber = 0.3f;
 const float Temps_Attente = 0.2f;   // temps en secondes avant prochaine phase
 int nbrBlockQuiTombe = 8;
 bool nbrBlockDoitAugmenter = true; //mis a true pour faire un premier cycle sans augmenter le nombre de block
+bool jeuEnPause = false;
+
 
 Texture2D playerTexture;
 Texture2D fondTexture;
@@ -73,6 +75,7 @@ void VerifieMort(Joueur *Joueur);
 void UpdateGridPhase(Joueur *Joueur, float deltaTime);
 void DessinePartie();
 void DessineJoueur(Joueur Joueur);
+void JeuLuca();
 
 //---FONCTIONS---
 void InitGrid() {
@@ -435,10 +438,7 @@ void DessineJoueur(Joueur Joueur)
     }
 }
 
-// --- Boucle principale ---
-
-int main(void)
-{
+void JeuLuca(){
     srand((unsigned int)time(NULL)); //graine choisi aléatoirement pour éviter répétition du même motif
 
     InitWindow(screenWidth, screenHeight, "Jeux Luca");
@@ -455,13 +455,21 @@ int main(void)
     while (!WindowShouldClose())
     {
 
+        if (IsKeyPressed(KEY_P)) 
+        {
+            jeuEnPause = !jeuEnPause; // Alterne entre vrai et faux
+        }
+
         float deltaTime = GetFrameTime();
 
         if (Joueur.vivant)
         {
-            UpdateJoueurMouvement(&Joueur, deltaTime);
-            UpdateGridPhase(&Joueur, deltaTime);
-            VerifieMort(&Joueur);
+            if (!jeuEnPause){
+                UpdateJoueurMouvement(&Joueur, deltaTime);
+                UpdateGridPhase(&Joueur, deltaTime);
+                VerifieMort(&Joueur);
+            }
+            
         }
         else
         {
@@ -484,6 +492,14 @@ int main(void)
 
         DessineJoueur(Joueur);
 
+        if (jeuEnPause && Joueur.vivant) 
+            {
+                // Overlay de pause
+                DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.5f)); // Fond sombre transparent
+                DrawText("PAUSE", (screenWidth / 2) - MeasureText("PAUSE", 40) / 2, screenHeight / 2 - 20, 40, RAYWHITE);
+                DrawText("Appuyez sur P pour reprendre", (screenWidth / 2) - MeasureText("Appuyez sur P pour reprendre", 20) / 2, screenHeight / 2 + 30, 20, LIGHTGRAY);
+            }
+            
         if (!Joueur.vivant)
         {
             DrawText("GAME OVER!", (screenWidth / 2)- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
@@ -500,5 +516,12 @@ int main(void)
     UnloadTexture(solTexture);
     UnloadTexture(solFissureTexture);
     FreeGrid();
+}
+
+// --- Boucle principale ---
+
+int main(void)
+{
+    JeuLuca();
     return 0;
 }
