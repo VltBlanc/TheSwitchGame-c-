@@ -70,3 +70,4 @@ void Dessineretoile(void) {
         DrawLineEx(etoilesPosEcranPrecedente[i], etoilesPosEcran[i], epaisseur, couleur);
     }
 }
+

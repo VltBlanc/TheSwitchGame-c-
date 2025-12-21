@@ -142,7 +142,7 @@ void ActualiseJoueur(void) {
 void ApparitionAsteroide(void) {
     static float minuterie = 0.0f;
     
-    // Calcul de la difficulté 
+    // Calcul de la difficulté
     float tauxApparition = TAUX_APPARITION_BASE;
     for (int i = 0; i < niveauDifficulte; i++) {
         tauxApparition *= MULTIPLIER_DIFFICULTE;
@@ -151,10 +151,25 @@ void ApparitionAsteroide(void) {
 
     minuterie += GetFrameTime();
 
-    // Si le délai est écoulé, on cherche un emplacement libre dans le tableau 
     if (minuterie >= tauxApparition) {
         minuterie = 0.0f;
-        
+
+        // --- SÉCURITÉ : VÉRIFICATION DE LA DENSITÉ (Passage garanti) ---
+        int obstaclesSurMemeLigne = 0;
+        float margeZ = 5.0f; 
+
+        for (int i = 0; i < MAX_OBSTACLES; i++) {
+            if (tableauObstacles[i].actif) {
+                if (fabsf(tableauObstacles[i].z_distance - Z_INIT_ASTEROIDE) < margeZ) {
+                    obstaclesSurMemeLigne++;
+                }
+            }
+        }
+
+        // Si 5 positions sur 6 sont occupées, on bloque l'apparition du 6ème
+        if (obstaclesSurMemeLigne >= (NB_VOIES_X * NB_VOIES_Y) - 1) return; 
+
+        // --- APPARITION DE L'OBSTACLE ---
         for (int i = 0; i < MAX_OBSTACLES; i++) {
             if (!tableauObstacles[i].actif) {
                 tableauObstacles[i].z_distance = Z_INIT_ASTEROIDE; 
@@ -163,16 +178,14 @@ void ApparitionAsteroide(void) {
                 tableauObstacles[i].actif = true;
                 tableauObstacles[i].rayon = RAYON_ASTEROIDE; 
 
-                // Attribution d'une nuance de gris de façon aléatoire
-                int choixCouleur = rand() % 8;
-                if (choixCouleur == 0)      tableauObstacles[i].couleur = (Color){ 220, 220, 230, 255 };
-                else if (choixCouleur == 1) tableauObstacles[i].couleur = (Color){ 200, 190, 170, 255 };
-                else if (choixCouleur == 2) tableauObstacles[i].couleur = (Color){ 180, 200, 220, 255 };
-                else if (choixCouleur == 3) tableauObstacles[i].couleur = (Color){ 210, 190, 160, 255 };
-                else if (choixCouleur == 4) tableauObstacles[i].couleur = (Color){ 230, 210, 180, 255 };
-                else if (choixCouleur == 5) tableauObstacles[i].couleur = (Color){ 190, 210, 190, 255 };
-                else if (choixCouleur == 6) tableauObstacles[i].couleur = (Color){ 170, 180, 200, 255 };
-                else                        tableauObstacles[i].couleur = (Color){ 240, 230, 200, 255 };
+                // Couleurs claires uniquement pour fond noir
+                int choixCouleur = rand() % 4;
+                switch(choixCouleur) {
+                    case 0: tableauObstacles[i].couleur = WHITE;     break; // Blanc pur
+                    case 1: tableauObstacles[i].couleur = LIGHTGRAY; break; // Gris très clair
+                    case 2: tableauObstacles[i].couleur = RAYWHITE;  break; // Blanc cassé brillant
+                    case 3: tableauObstacles[i].couleur = SKYBLUE;   break; // Bleu ciel lumineux
+                }
 
                 return; 
             }
