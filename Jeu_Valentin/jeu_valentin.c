@@ -154,7 +154,7 @@ void ApparitionAsteroide(void) {
     if (minuterie >= tauxApparition) {
         minuterie = 0.0f;
 
-        // --- SÉCURITÉ : VÉRIFICATION DE LA DENSITÉ (Passage garanti) ---
+        
         int obstaclesSurMemeLigne = 0;
         float margeZ = 5.0f; 
 
@@ -169,7 +169,7 @@ void ApparitionAsteroide(void) {
         // Si 5 positions sur 6 sont occupées, on bloque l'apparition du 6ème
         if (obstaclesSurMemeLigne >= (NB_VOIES_X * NB_VOIES_Y) - 1) return; 
 
-        // --- APPARITION DE L'OBSTACLE ---
+        // Apparition de l'obstacle
         for (int i = 0; i < MAX_OBSTACLES; i++) {
             if (!tableauObstacles[i].actif) {
                 tableauObstacles[i].z_distance = Z_INIT_ASTEROIDE; 
@@ -178,13 +178,13 @@ void ApparitionAsteroide(void) {
                 tableauObstacles[i].actif = true;
                 tableauObstacles[i].rayon = RAYON_ASTEROIDE; 
 
-                // Couleurs claires uniquement pour fond noir
+                //couleur des astéroides
                 int choixCouleur = rand() % 4;
                 switch(choixCouleur) {
-                    case 0: tableauObstacles[i].couleur = WHITE;     break; // Blanc pur
-                    case 1: tableauObstacles[i].couleur = LIGHTGRAY; break; // Gris très clair
-                    case 2: tableauObstacles[i].couleur = RAYWHITE;  break; // Blanc cassé brillant
-                    case 3: tableauObstacles[i].couleur = SKYBLUE;   break; // Bleu ciel lumineux
+                    case 0: tableauObstacles[i].couleur = WHITE;     break; 
+                    case 1: tableauObstacles[i].couleur = LIGHTGRAY; break; 
+                    case 2: tableauObstacles[i].couleur = RAYWHITE;  break; 
+                    case 3: tableauObstacles[i].couleur = SKYBLUE;   break; 
                 }
 
                 return; 
@@ -321,10 +321,10 @@ int main(void) {
     InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Vaisseau 3D - Esquive d'Astéroïdes");
     
     // Chargement des ressources visuelles 
-    vaisseauModel = LoadModel("/Users/vb/Desktop/projetC_doc/projet-c/Jeu_Valentin/Lo_poly_Spaceship_01_by_Liz_Reddington.obj");
+    vaisseauModel = LoadModel("Jeu_Valentin/Spaceship.obj");
     modelCharge = (vaisseauModel.meshCount > 0);
 
-    asteroidModel = LoadModel("/Users/vb/Desktop/projetC_doc/projet-c/Jeu_Valentin/Asteroid.obj");
+    asteroidModel = LoadModel("Jeu_Valentin/Asteroid.obj");
     asteroidModelCharge = (asteroidModel.meshCount > 0);
     
     InitGame(); 
