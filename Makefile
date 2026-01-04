@@ -42,19 +42,9 @@ else
     endif
 endif
 
-# Common commands (assuming unix-like shell available via MinGW/Git Bash)
-RM_CMD = rm -rf
-MKDIR_CMD = mkdir -p
-
-# Directories
-BUILD_DIR = build
-SRC_DIR = .
-
-# Sources (wildcard for all .c files in current directory, excluding test_stdio.c)
-SRCS = $(filter-out $(SRC_DIR)/test_stdio.c, $(wildcard $(SRC_DIR)/*.c))
-# Objects in build directory
-OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-
+# Source files
+SOURCES = main.c menu.c scores.c
+OBJECTS = $(SOURCES:.c=.o)
 TARGET = the_switch_game$(EXE_EXT)
 
 # Default target
