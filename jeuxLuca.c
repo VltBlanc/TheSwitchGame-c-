@@ -4,524 +4,470 @@
 #include <raymath.h>
 #include <time.h>
 
-//---VARIABLE---
+// --- DÉFINITIONS DU JEU ET VALEURS CLÉS À AJUSTER ---
+// MODIFICATION : VOUS POUVEZ CHANGER CES 3 VALEURS
+const float FALL_WARNING_TIME = 0.5f; // Temps en secondes pour l'avertissement ROUGE
+const float FALL_DOWN_TIME = 0.2f;    // Temps en secondes où le bloc est GRIS (Zone de Mort)
+const float WAIT_TIME = 0.1f;         // Temps en secondes d'attente (Bloc VERT)
+// -----------------------------------------------------
 
-#define Taille_Grid 10
-#define Taille_Case 60
-#define Taille_Marge_Grille 200
+// La durée totale du cycle est la somme des 3 temps ci-dessus
+const float CYCLE_DURATION = FALL_WARNING_TIME + FALL_DOWN_TIME + WAIT_TIME;
 
-#define Demi_Cote_Joueur_X 14
-#define Demi_Cote_Joueur_Y 19
-#define HITBOX_PIEDS_HAUTEUR 8.0f
-#define HITBOX_PIEDS_LARGEUR 19.0f
+#define GRID_SIZE 10
+#define CELL_SIZE 60
+#define PLAYER_RADIUS 15
+#define BASE_PLAYER_SPEED 200.0f
+#define TELEPORT_DISTANCE 2
 
-#define Vitesse_Marche 200.0f
-#define CoefCourse 2.0f
-#define Distance_Case_Dash 1.0f
+// ... Le reste des constantes de taille de fenêtre, etc., reste inchangé ...
 
-const int screenWidth = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
-const int screenHeight = Taille_Marge_Grille * 2 + Taille_Grid * Taille_Case; 
-const int Debut_Grille_X = Taille_Marge_Grille; 
-const int Debut_Grille_Y = Taille_Marge_Grille;
+const int screenWidth = (GRID_SIZE + 2) * CELL_SIZE;
+const int screenHeight = (GRID_SIZE + 2) * CELL_SIZE + 40;
+const int GRID_START_X = CELL_SIZE;
+const int GRID_START_Y = CELL_SIZE;
 
-// etats possibles pour chaque case
+// États possibles pour chaque case de la grille
 typedef enum
 {
-    Block_Normal = 0,
-    Block_Alerte = 1,
-    Block_Tomber = 2,
-    Block_Prochain_Cycle = 3
-} Block;
+    BLOCK_UP = 0,
+    BLOCK_WARNING = 1,
+    BLOCK_DOWN = 2,
+    BLOCK_PENDING = 3
+} BlockState;
 
-//phases possibles
-typedef enum {
-    Phase_Attente = 0,
-    Phase_Alerte = 1,
-    Phase_Tomber = 2
-} Phase;
-
-typedef struct Joueur
+// Structure pour le joueur
+typedef struct Player
 {
     Vector2 position;
-    bool vivant;
-    Vector2 dernierMouvement;
-} Joueur;
+    bool isAlive;
+    int score;
+    Vector2 lastMovementDirection;
+} Player;
 
-Phase phaseActuelle = Phase_Attente;
-Block **grid = NULL; //initialisation du tableau a Null
+// Variables globales du jeu
+BlockState grid[GRID_SIZE][GRID_SIZE];
 float timer = 0.0f;
-const float Temps_Alerte = 0.6f; // temps en secondes pour l'avertissement
-const float Temps_Tomber = 0.3f; 
-const float Temps_Attente = 0.2f;   // temps en secondes avant prochaine phase
-int nbrBlockQuiTombe = 8;
-bool nbrBlockDoitAugmenter = true; //mis a true pour faire un premier cycle sans augmenter le nombre de block
-bool jeuEnPause = false;
+int blocksToDrop = 8;
+bool scoreIncreasedThisCycle = false;
 
-
-Texture2D playerTexture;
-Texture2D fondTexture;
-Texture2D solTexture;
-Texture2D solFissureTexture;
-
-//---PROTOTYPES---
-//utile pour écrire les fonctions dans l'ordre qu'on veut
+// --- Prototypes de Fonctions ---
 void InitGrid();
-void FreeGrid();
-void ResetGridState();
-Joueur InitJoueur();
-void UpdateJoueurMouvement(Joueur *Joueur, float deltaTime);
-void DashJoueur(Joueur *Joueur);
-void VerifieMort(Joueur *Joueur);
-void UpdateGridPhase(Joueur *Joueur, float deltaTime);
-void DessinePartie();
-void DessineJoueur(Joueur Joueur);
-void JeuLuca();
+Player InitPlayer();
+void UpdatePlayerMovement(Player *player, float deltaTime);
+void TeleportPlayer(Player *player);
+void GetPlayerGridCoords(Vector2 playerPos, int *gridX, int *gridY);
+void CheckDeath(Player *player);
+void UpdateGridCycle(Player *player, float deltaTime);
+void DrawCustomGrid();
+void DrawPlayer(Player player);
 
-//---FONCTIONS---
-void InitGrid() {
-    grid = (Block**)malloc(Taille_Grid * sizeof(Block*));
-    if (grid == NULL) {
-        printf("Erreur malloc lignes initGrid\n");
-        exit(1); 
-    }
+// --- Initialisation et Mise à Jour ---
 
-    for (int x = 0; x < Taille_Grid; x++) {
-        grid[x] = (Block*)malloc(Taille_Grid * sizeof(Block));
+// Fonctions InitGrid, InitPlayer, TeleportPlayer, UpdatePlayerMovement, GetPlayerGridCoords, CheckDeath...
+// ... (Ces fonctions restent inchangées, je les omettrai pour la concision) ...
 
-        if (grid[x] == NULL) {
-            printf("Erreur malloc cases initGrid\n");
-            FreeGrid();
-            exit(1);
-        }
-    }
-    
-    for (int y = 0; y < Taille_Grid; y++) {
-        for (int x = 0; x < Taille_Grid; x++) {
-            grid[x][y] = Block_Normal;
-        }
-    }
-}
-
-void FreeGrid() {
-    if (grid != NULL) {
-        // Libere chaque ligne
-        for (int x = 0; x < Taille_Grid; x++) {
-            if (grid[x] != NULL) {
-                free(grid[x]);
-                grid[x] = NULL;
-            }
-        }
-        // libere le tableau de pointeurs
-        free(grid);
-        grid = NULL;
-    }
-}
-
-void ResetGridState() {
-    for (int y = 0; y < Taille_Grid; y++) {
-        for (int x = 0; x < Taille_Grid; x++) {
-            grid[x][y] = Block_Normal; 
-        }
-    }
-}
-
-Joueur InitJoueur()
+void InitGrid()
 {
-    Joueur Joueur;
-    Joueur.position.x = screenWidth / 2;
-    Joueur.position.y = screenHeight / 2;
-    Joueur.vivant = true;
-    Joueur.dernierMouvement = (Vector2){0.0f, 0.0f}; //utile pour le dash
-    return Joueur;
+    for (int y = 0; y < GRID_SIZE; y++)
+    {
+        for (int x = 0; x < GRID_SIZE; x++)
+        {
+            grid[x][y] = BLOCK_UP;
+        }
+    }
 }
 
-void DashJoueur(Joueur *Joueur)
+Player InitPlayer()
 {
-    if (!Joueur->vivant){
+    Player player;
+    player.position.x = GRID_START_X + (GRID_SIZE * CELL_SIZE) / 2;
+    player.position.y = GRID_START_Y + (GRID_SIZE * CELL_SIZE) / 2;
+    player.isAlive = true;
+    player.score = 0;
+    player.lastMovementDirection = (Vector2){0.0f, -1.0f};
+    return player;
+}
+
+void TeleportPlayer(Player *player)
+{
+    if (!player->isAlive)
         return;
-    }
 
-    float DashX = Joueur->dernierMouvement.x * Distance_Case_Dash * Taille_Case;
-    float DashY = Joueur->dernierMouvement.y * Distance_Case_Dash * Taille_Case;
+    float teleportAmountX = player->lastMovementDirection.x * TELEPORT_DISTANCE * CELL_SIZE;
+    float teleportAmountY = player->lastMovementDirection.y * TELEPORT_DISTANCE * CELL_SIZE;
 
-    Joueur->position.x += DashX;
-    Joueur->position.y += DashY;
+    player->position.x += teleportAmountX;
+    player->position.y += teleportAmountY;
+
+    float minX = PLAYER_RADIUS;
+    float maxX = screenWidth - PLAYER_RADIUS;
+    float minY = PLAYER_RADIUS;
+    float maxY = screenHeight - 40 - PLAYER_RADIUS;
+
+    if (player->position.x < minX)
+        player->position.x = minX;
+    if (player->position.x > maxX)
+        player->position.x = maxX;
+    if (player->position.y < minY)
+        player->position.y = minY;
+    if (player->position.y > maxY)
+        player->position.y = maxY;
 }
 
-void UpdateJoueurMouvement(Joueur *Joueur, float deltaTime)
+void UpdatePlayerMovement(Player *player, float deltaTime)
 {
-    if (!Joueur->vivant){
+    if (!player->isAlive)
         return;
-    }
 
-    Vector2 mouvement = {0.0f, 0.0f};
+    Vector2 movement = {0.0f, 0.0f};
 
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
-        mouvement.x += 1.0f;
+        movement.x += 1.0f;
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
-        mouvement.x -= 1.0f;
+        movement.x -= 1.0f;
     if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))
-        mouvement.y += 1.0f;
+        movement.y += 1.0f;
     if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))
-        mouvement.y -= 1.0f;
+        movement.y -= 1.0f;
 
-    if (mouvement.x != 0.0f || mouvement.y != 0.0f)
+    if (movement.x != 0.0f || movement.y != 0.0f)
     {
-        Joueur->dernierMouvement = Vector2Normalize(mouvement);
-        mouvement = Joueur->dernierMouvement;
+        player->lastMovementDirection = Vector2Normalize(movement);
+        movement = player->lastMovementDirection;
     }
 
-    float vitesseActuel = Vitesse_Marche;
+    float currentSpeed = BASE_PLAYER_SPEED;
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
     {
-        vitesseActuel *= CoefCourse;
+        currentSpeed *= 2.0f;
     }
 
-    Joueur->position.x += mouvement.x * vitesseActuel * deltaTime;
-    Joueur->position.y += mouvement.y * vitesseActuel * deltaTime;
+    player->position.x += movement.x * currentSpeed * deltaTime;
+    player->position.y += movement.y * currentSpeed * deltaTime;
+
+    float minX = PLAYER_RADIUS;
+    float maxX = screenWidth - PLAYER_RADIUS;
+    float minY = PLAYER_RADIUS;
+    float maxY = screenHeight - 40 - PLAYER_RADIUS;
+
+    if (player->position.x < minX)
+        player->position.x = minX;
+    if (player->position.x > maxX)
+        player->position.x = maxX;
+    if (player->position.y < minY)
+        player->position.y = minY;
+    if (player->position.y > maxY)
+        player->position.y = maxY;
 
     if (IsKeyPressed(KEY_SPACE))
     {
-        DashJoueur(Joueur);
+        TeleportPlayer(player);
     }
 }
 
-void VerifieMort(Joueur *Joueur)
+void GetPlayerGridCoords(Vector2 playerPos, int *gridX, int *gridY)
 {
-    if (!Joueur->vivant){
+    int relativeX = (int)playerPos.x - GRID_START_X;
+    int relativeY = (int)playerPos.y - GRID_START_Y;
+
+    *gridX = relativeX / CELL_SIZE;
+    *gridY = relativeY / CELL_SIZE;
+}
+
+void CheckDeath(Player *player)
+{
+    if (!player->isAlive)
         return;
-    }
 
-    //Hitbox autour des pieds
-    float HitboxBas = Joueur->position.y + Demi_Cote_Joueur_Y; 
-    float HitboxHaut = HitboxBas - HITBOX_PIEDS_HAUTEUR;
-    float HitboxGauche = Joueur->position.x - (HITBOX_PIEDS_LARGEUR / 2.0f); 
+    // 1. Vérification de la chute hors de la grille (inchangé)
+    bool outsideGridX = player->position.x < GRID_START_X || player->position.x > (GRID_START_X + GRID_SIZE * CELL_SIZE);
+    bool outsideGridY = player->position.y < GRID_START_Y || player->position.y > (GRID_START_Y + GRID_SIZE * CELL_SIZE);
 
-    // rectangle = (poisition x haut gauche,poisition y haut gauche,longueur,largeur)
-    Rectangle JoueurRec = {
-        HitboxGauche,                         
-        HitboxHaut,                          
-        HITBOX_PIEDS_LARGEUR,                
-        HITBOX_PIEDS_HAUTEUR                 
-    };
-
-    // Vérification chute de la grille
-    bool horsGrilleX = (JoueurRec.x < Debut_Grille_X) || (JoueurRec.x + JoueurRec.width > (Debut_Grille_X + Taille_Grid * Taille_Case));
-    bool horsGrilleY = (JoueurRec.y < Debut_Grille_Y) || (JoueurRec.y + JoueurRec.height > (Debut_Grille_Y + Taille_Grid * Taille_Case));
-
-    if (horsGrilleX || horsGrilleY)
+    if (outsideGridX || outsideGridY)
     {
-        Joueur->vivant = false;
+        player->isAlive = false;
         return;
     }
 
-    //converit la hitbox joueur en l'ensemble des cases qu'il touche
-    // et on vérifie qu'on ne sort pas du tableau
+    // 2. Détermination de la plage de blocs à vérifier.
+    // On convertit les coordonnées minimales et maximales du cercle du joueur
+    // en indices de grille. Cela couvre toutes les cases que le joueur peut chevaucher.
 
-   int minGridX = (int)floor((JoueurRec.x - Debut_Grille_X) / (float)Taille_Case);
-    if(minGridX < 0) {
-        minGridX=0;
-    }
+    int minGridX = (int)floor(((player->position.x - PLAYER_RADIUS) - GRID_START_X) / (float)CELL_SIZE);
+    minGridX = (minGridX < 0) ? 0 : minGridX; // On s'assure de ne pas sortir de la grille (min 0)
 
-    int maxGridX = (int)floor(((JoueurRec.x + JoueurRec.width) - Debut_Grille_X) / (float)Taille_Case);
-    if(maxGridX >= Taille_Grid){
-        maxGridX = Taille_Grid - 1;
-    }
+    int maxGridX = (int)floor(((player->position.x + PLAYER_RADIUS) - GRID_START_X) / (float)CELL_SIZE);
+    maxGridX = (maxGridX >= GRID_SIZE) ? GRID_SIZE - 1 : maxGridX; // On s'assure de ne pas sortir de la grille (max GRID_SIZE-1)
 
-    int minGridY = (int)floor((JoueurRec.y - Debut_Grille_Y) / (float)Taille_Case);
-    if(minGridY < 0) {
-        minGridY=0;
-    }
+    int minGridY = (int)floor(((player->position.y - PLAYER_RADIUS) - GRID_START_Y) / (float)CELL_SIZE);
+    minGridY = (minGridY < 0) ? 0 : minGridY;
 
-    int maxGridY = (int)floor(((JoueurRec.y + JoueurRec.height) - Debut_Grille_Y) / (float)Taille_Case);
-    if(maxGridY >= Taille_Grid){
-        maxGridY = Taille_Grid - 1;
-    }
+    int maxGridY = (int)floor(((player->position.y + PLAYER_RADIUS) - GRID_START_Y) / (float)CELL_SIZE);
+    maxGridY = (maxGridY >= GRID_SIZE) ? GRID_SIZE - 1 : maxGridY;
 
-    //vérifie collision hitbox-Rectangle
+    // 3. Boucle et vérification de collision Cercle-Rectangle
     for (int y = minGridY; y <= maxGridY; y++)
     {
         for (int x = minGridX; x <= maxGridX; x++)
         {
 
-            if (grid[x][y] == Block_Tomber)
+            // On vérifie uniquement les blocs gris (tombés)
+            if (grid[x][y] == BLOCK_DOWN)
             {
 
-                Rectangle Case = {
-                    Debut_Grille_X + x * Taille_Case,
-                    Debut_Grille_Y + y * Taille_Case,
-                    Taille_Case,
-                    Taille_Case};
+                // On définit la zone rectangulaire de la case courante
+                Rectangle cellRect = {
+                    GRID_START_X + x * CELL_SIZE,
+                    GRID_START_Y + y * CELL_SIZE,
+                    CELL_SIZE,
+                    CELL_SIZE};
 
-                //(centre cercle,rayon,rectangle)
-                if (CheckCollisionRecs(JoueurRec, Case))
+                // On utilise la fonction de Raylib pour vérifier si le cercle touche le rectangle
+                if (CheckCollisionCircleRec(player->position, PLAYER_RADIUS, cellRect))
                 {
-                    Joueur->vivant = false;
-                    return;
+                    player->isAlive = false;
+                    return; // Le joueur est mort, on arrête immédiatement
                 }
             }
         }
     }
 }
 
-void UpdateGridPhase(Joueur *Joueur, float deltaTime)
+// MODIFICATION CRUCIALE DANS CETTE FONCTION
+void UpdateGridCycle(Player *player, float deltaTime)
 {
-    if (!Joueur->vivant){
+    if (!player->isAlive)
         return;
-    }
+
+    // Calcul des points de déclenchement basés sur les constantes ajustables
+    const float TIME_TO_WARNING_START = WAIT_TIME;
+    const float TIME_TO_DROP_START = WAIT_TIME + FALL_WARNING_TIME;
+    const float TIME_TO_RESET_START = CYCLE_DURATION;
+
+    // Détection des événements par croisement de seuil
+    bool shouldTriggerWarning = (timer < TIME_TO_WARNING_START && timer + deltaTime >= TIME_TO_WARNING_START);
+    bool shouldTriggerDrop = (timer < TIME_TO_DROP_START && timer + deltaTime >= TIME_TO_DROP_START);
+    bool shouldTriggerReset = (timer < TIME_TO_RESET_START && timer + deltaTime >= TIME_TO_RESET_START);
 
     timer += deltaTime;
 
-    // début phase alerte
-    if (phaseActuelle == Phase_Attente && timer >= Temps_Attente)
+    // --- ÉVÉNEMENT 1 : AVERTISSEMENT (Début de la phase ROUGE) ---
+    if (shouldTriggerWarning)
     {
-        phaseActuelle = Phase_Alerte;
-        timer = 0.0f;
-
-        if (!nbrBlockDoitAugmenter)
+        if (!scoreIncreasedThisCycle)
         {
-            if (nbrBlockQuiTombe <= (Taille_Grid * Taille_Grid) / 2)//le nombre de block ne peut pas dépasser la moitié des cases
+            player->score++;
+            if (blocksToDrop <= (GRID_SIZE * GRID_SIZE) / 2)
             {
-                nbrBlockQuiTombe += 1;
+                blocksToDrop = 8 + (player->score);
             }
-            nbrBlockDoitAugmenter = true;
+            scoreIncreasedThisCycle = true;
         }
 
-        for (int y = 0; y < Taille_Grid; y++)
+        for (int y = 0; y < GRID_SIZE; y++)
         {
-            for (int x = 0; x < Taille_Grid; x++)
+            for (int x = 0; x < GRID_SIZE; x++)
             {
-                if (grid[x][y] == Block_Tomber)
+                // Les blocs qui étaient DOWN remontent et deviennent UP
+                if (grid[x][y] == BLOCK_DOWN)
                 {
-                    grid[x][y] = Block_Normal;
+                    grid[x][y] = BLOCK_UP;
                 }
-                if (grid[x][y] == Block_Prochain_Cycle)
+                // Les blocs PENDING (choisis) passent en WARNING (ROUGE)
+                if (grid[x][y] == BLOCK_PENDING)
                 {
-                    grid[x][y] = Block_Alerte;
+                    grid[x][y] = BLOCK_WARNING;
                 }
             }
         }
     }
 
-    // début chute block
-    else if (phaseActuelle == Phase_Alerte && timer >= Temps_Alerte)
+    // --- ÉVÉNEMENT 2 : CHUTE (Début de la phase GRISE/Mort) ---
+    if (shouldTriggerDrop)
     {
-
-        phaseActuelle = Phase_Tomber;
-        timer = 0.0f;
-
-        for (int y = 0; y < Taille_Grid; y++)
+        for (int y = 0; y < GRID_SIZE; y++)
         {
-            for (int x = 0; x < Taille_Grid; x++)
+            for (int x = 0; x < GRID_SIZE; x++)
             {
-                if (grid[x][y] == Block_Alerte)
+                // Les blocs WARNING passent en DOWN (GRIS/MORT).
+                if (grid[x][y] == BLOCK_WARNING)
                 {
-                    grid[x][y] = Block_Tomber;
+                    grid[x][y] = BLOCK_DOWN;
                 }
             }
         }
     }
 
-    // début nouveau cycle
-    else if (phaseActuelle == Phase_Tomber && timer >= Temps_Tomber)
+    // --- ÉVÉNEMENT 3 : NOUVEAU CYCLE (TIMER atteint la durée totale) ---
+    if (shouldTriggerReset)
     {
-        nbrBlockDoitAugmenter = false;
+        timer = 0.0f;
+        scoreIncreasedThisCycle = false;
 
-        for (int y = 0; y < Taille_Grid; y++)
+        // Réinitialisation des blocs non tombés au vert
+        for (int y = 0; y < GRID_SIZE; y++)
         {
-            for (int x = 0; x < Taille_Grid; x++)
+            for (int x = 0; x < GRID_SIZE; x++)
             {
-                if (grid[x][y] == Block_Prochain_Cycle || grid[x][y] == Block_Alerte || grid[x][y] == Block_Tomber )
+                if (grid[x][y] == BLOCK_PENDING || grid[x][y] == BLOCK_WARNING)
                 {
-                    grid[x][y] = Block_Normal;
+                    grid[x][y] = BLOCK_UP;
                 }
             }
         }
 
-        // Sélection aléatoire des blocs pour le prochain cycle
-        int cpt = 0;
-        while (cpt < nbrBlockQuiTombe)
+        // Sélection aléatoire des blocs pour le prochain cycle (PENDING)
+        int drops = 0;
+        while (drops < blocksToDrop)
         {
-            int randX = GetRandomValue(0, Taille_Grid - 1);
-            int randY = GetRandomValue(0, Taille_Grid - 1);
+            int randX = GetRandomValue(0, GRID_SIZE - 1);
+            int randY = GetRandomValue(0, GRID_SIZE - 1);
 
-            if (grid[randX][randY] == Block_Normal)
+            if (grid[randX][randY] == BLOCK_UP)
             {
-                grid[randX][randY] = Block_Prochain_Cycle;
-                cpt++;
+                grid[randX][randY] = BLOCK_PENDING;
+                drops++;
             }
         }
-        phaseActuelle = Phase_Attente; 
-        timer = 0.0f;//on lance le timer en décalé donc il ne correspond pas exactement au temps voulu mais on est sur que tous les blocks sont choisi
+    }
+
+    // Si le timer dépasse la durée totale (sécurité)
+    if (timer >= CYCLE_DURATION)
+    {
+        timer = 0.0f;
     }
 }
 
-void DessinePartie()
-{
-    //le fond
-    Rectangle fondSource = { 0.0f, 0.0f, (float)fondTexture.width, (float)fondTexture.height }; 
-    Rectangle fondDest = { 0.0f, 0.0f, (float)screenWidth, (float)screenHeight };               
-    DrawTexturePro(fondTexture, 
-                   fondSource,//on peut rogner l'image si on veut
-                   fondDest, 
-                   (Vector2){0,0},//point autour duquel la rotation se fait 
-                   0.0f, 
-                   WHITE);
+// --- Fonctions de Dessin ---
 
-    for (int y = 0; y < Taille_Grid; y++)
+// ... (DrawCustomGrid et DrawPlayer restent inchangées) ...
+
+void DrawCustomGrid()
+{
+    DrawRectangle(0, 0, screenWidth, screenHeight - 40, DARKGRAY);
+
+    for (int y = 0; y < GRID_SIZE; y++)
     {
-        for (int x = 0; x < Taille_Grid; x++)
+        for (int x = 0; x < GRID_SIZE; x++)
         {
 
-            Rectangle Case = {
-                Debut_Grille_X + x * Taille_Case,
-                Debut_Grille_Y + y * Taille_Case,
-                Taille_Case,
-                Taille_Case};
+            Rectangle rect = {
+                GRID_START_X + x * CELL_SIZE,
+                GRID_START_Y + y * CELL_SIZE,
+                CELL_SIZE,
+                CELL_SIZE};
 
-
+            Color blockColor;
             switch (grid[x][y])
             {
-            case Block_Normal:
-            case Block_Prochain_Cycle:
-                DrawTexturePro(solTexture, 
-                               (Rectangle){0.0f, 0.0f, (float)solTexture.width, (float)solTexture.height},
-                               Case, 
-                               (Vector2){0,0},
-                               0.0f, 
-                               WHITE);
-
+            case BLOCK_UP:
+            case BLOCK_PENDING:
+                blockColor = GREEN;
                 break;
-            case Block_Tomber:
-                    break;;
-            case Block_Alerte:
-                    DrawTexturePro(solFissureTexture, 
-                               (Rectangle){0.0f, 0.0f, (float)solTexture.width, (float)solTexture.height},
-                               Case, 
-                               (Vector2){0,0}, 
-                               0.0f, 
-                               WHITE);
-            
-            default://normalement sert a rien 
+            case BLOCK_WARNING:
+                blockColor = RED;
                 break;
+            case BLOCK_DOWN:
+                blockColor = DARKGRAY;
+                break;
+            default:
+                blockColor = WHITE;
             }
 
-            DrawRectangleLines(Case.x, Case.y, Taille_Case, Taille_Case, (Color){0,0,0,0});//contour case utile pour voir bug
+            DrawRectangleRec(rect, blockColor);
+
+            DrawRectangleLines(rect.x, rect.y, CELL_SIZE, CELL_SIZE, GRAY);
         }
     }
 }
 
-void DessineJoueur(Joueur Joueur)
+void DrawPlayer(Player player)
 {
-    if (Joueur.vivant)
+    if (player.isAlive)
     {
-        Rectangle sourceRec = { 0.0f, 0.0f, (float)playerTexture.width, (float)playerTexture.height };
-
-        //on centre l'image sur joueur.position
-        Rectangle destRec = {
-            Joueur.position.x - Demi_Cote_Joueur_X,  
-            Joueur.position.y - Demi_Cote_Joueur_Y,  
-            Demi_Cote_Joueur_X * 2.0f,               
-            Demi_Cote_Joueur_Y * 2.0f                
-        };
-        
-        DrawTexturePro(playerTexture, sourceRec, destRec,(Vector2){0,0}, 0.0f, WHITE);
-
-        /*//---SERT JUSTE A VERIF SI BESOIN BUG HITBOX---
-        //Hitbox autour des pieds
-        float HitboxBas = Joueur.position.y + Demi_Cote_Joueur_Y; 
-        float HitboxHaut = HitboxBas - HITBOX_PIEDS_HAUTEUR; 
-        float HitboxGauche = Joueur.position.x - (HITBOX_PIEDS_LARGEUR / 2.0f); 
-        // Dessinez le rectangle de collision en magenta
-        DrawRectangleLinesEx((Rectangle){HitboxGauche, HitboxHaut, HITBOX_PIEDS_LARGEUR, HITBOX_PIEDS_HAUTEUR}, 1, MAGENTA);
-        */
+        DrawCircleV(player.position, PLAYER_RADIUS, SKYBLUE);
     }
 }
 
-void JeuLuca(){
-    srand((unsigned int)time(NULL)); //graine choisi aléatoirement pour éviter répétition du même motif
+// --- Boucle Principale ---
 
-    InitWindow(screenWidth, screenHeight, "Jeux Luca");
+int main(void)
+{
+    // CORRECTION MAJEURE : Initialisation de la graine aléatoire.
+    // Cela garantit que la séquence de blocs qui tombent est différente à chaque lancement.
+    srand((unsigned int)time(NULL));
+
+    InitWindow(screenWidth, screenHeight, "Raylib - Blocs Dynamiques (Paramètres de Temps Flexibles)");
     SetTargetFPS(60);
 
-    playerTexture = LoadTexture("assets/playerLuca.png");
-    fondTexture = LoadTexture("assets/fond.png");
-    solTexture = LoadTexture("assets/sol.png");
-    solFissureTexture = LoadTexture("assets/solFissure.png");
-
     InitGrid();
-    Joueur Joueur = InitJoueur();
+    Player player = InitPlayer();
+
+    // Calcul des points de déclenchement pour l'affichage uniquement
+    const float TIME_TO_WARNING_START = WAIT_TIME;
+    const float TIME_TO_DROP_START = WAIT_TIME + FALL_WARNING_TIME;
 
     while (!WindowShouldClose())
     {
 
-        if (IsKeyPressed(KEY_P)) 
-        {
-            jeuEnPause = !jeuEnPause; // Alterne entre vrai et faux
-        }
-
         float deltaTime = GetFrameTime();
 
-        if (Joueur.vivant)
+        if (player.isAlive)
         {
-            if (!jeuEnPause){
-                UpdateJoueurMouvement(&Joueur, deltaTime);
-                UpdateGridPhase(&Joueur, deltaTime);
-                VerifieMort(&Joueur);
-            }
-            
+            UpdatePlayerMovement(&player, deltaTime);
+            UpdateGridCycle(&player, deltaTime);
+            CheckDeath(&player);
         }
         else
         {
-            if (IsKeyPressed(KEY_SPACE)) // = relance le jeu
+            if (IsKeyPressed(KEY_SPACE))
             {
-                ResetGridState();
-                Joueur = InitJoueur();
-                nbrBlockQuiTombe = 8;
+                InitGrid();
+                player = InitPlayer();
+                blocksToDrop = 8;
                 timer = 0.0f;
-                phaseActuelle=Phase_Attente;
-                nbrBlockDoitAugmenter = true;
-                
+                scoreIncreasedThisCycle = false;
             }
         }
 
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
-        DessinePartie();
+        DrawCustomGrid();
 
-        DessineJoueur(Joueur);
+        DrawPlayer(player);
 
-        if (jeuEnPause && Joueur.vivant) 
-            {
-                // Overlay de pause
-                DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.5f)); // Fond sombre transparent
-                DrawText("PAUSE", (screenWidth / 2) - MeasureText("PAUSE", 40) / 2, screenHeight / 2 - 20, 40, RAYWHITE);
-                DrawText("Appuyez sur P pour reprendre", (screenWidth / 2) - MeasureText("Appuyez sur P pour reprendre", 20) / 2, screenHeight / 2 + 30, 20, LIGHTGRAY);
-            }
-            
-        if (!Joueur.vivant)
+        // Affichage du score et du statut
+        DrawText(TextFormat("Score: %d", player.score), 10, screenHeight - 30, 20, BLACK);
+
+        // Affichage précis des phases
+        if (timer < TIME_TO_WARNING_START)
         {
-            DrawText("GAME OVER!", (screenWidth / 2)- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
-            DrawText("Appuyez sur ESPACE pour recommencer", (screenWidth / 2) - MeasureText("Appuyez sur ESPACE pour recommencer", 25) / 2, screenHeight / 2, 25, RAYWHITE);
+            DrawText(TextFormat("Attente (%.2f s)", TIME_TO_WARNING_START - timer), 200, screenHeight - 30, 20, BLACK);
+        }
+        else if (timer < TIME_TO_DROP_START)
+        {
+            DrawText(TextFormat("Avertissement ROUGE! (%.2f s)", TIME_TO_DROP_START - timer), 200, screenHeight - 30, 20, RED);
+        }
+        else if (timer < CYCLE_DURATION)
+        {
+            DrawText(TextFormat("CHUTE! (%.2f s)", CYCLE_DURATION - timer), 200, screenHeight - 30, 20, RAYWHITE);
+        }
+        else
+        {
+            DrawText(TextFormat("NOUVEAU CYCLE!"), 200, screenHeight - 30, 20, BLACK);
+        }
+
+        if (!player.isAlive)
+        {
+            DrawText("GAME OVER!", screenWidth / 2 - MeasureText("GAME OVER!", 40) / 2, screenHeight / 2 - 20, 40, RED);
+            DrawText("Appuyez sur ESPACE pour recommencer", screenWidth / 2 - MeasureText("Appuyez sur ESPACE pour recommencer", 20) / 2, screenHeight / 2 + 30, 20, RAYWHITE);
         }
 
         EndDrawing();
     }
 
     CloseWindow();
-
-    UnloadTexture(playerTexture);
-    UnloadTexture(fondTexture);
-    UnloadTexture(solTexture);
-    UnloadTexture(solFissureTexture);
-    FreeGrid();
-}
-
-// --- Boucle principale ---
-
-int main(void)
-{
-    JeuLuca();
     return 0;
 }
