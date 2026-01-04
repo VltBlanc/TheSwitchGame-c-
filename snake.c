@@ -3,6 +3,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+// Niveaux de difficulté
+typedef enum {
+    FACILE,
+    MOYEN,
+    DIFFICILE
+} Difficulte;
+
 // Taille de la grille (plus petite pour elements plus gros)
 #define LARGEUR_GRILLE 15
 #define HAUTEUR_GRILLE 15
@@ -42,8 +49,93 @@ double carburant; // temps restant avant panne seche (5 secondes max)
 #define CARBURANT_MAX 5.0
 
 // Obstacles (trous noirs qui apparaissent)
-Position murs[100];
+Position murs[15];  // Maximum pour le mode difficile
 int nombre_murs;
+
+// Difficulté du jeu
+Difficulte difficulte_actuelle;
+
+// --- NOUVEAU: Systemes visuels ---
+// Etoiles pour le fond
+typedef struct {
+  float x, y;
+  float speed;
+  float brightness;
+} Star;
+
+#define MAX_STARS 100
+Star stars[MAX_STARS];
+
+// Particules
+typedef struct {
+  Vector2 position;
+  Vector2 velocity;
+  Color color;
+  float life;  // 1.0 a 0.0
+  float decay; // Vitesse de disparition
+  float size;
+  bool active;
+} Particle;
+
+#define MAX_PARTICLES 200
+Particle particles[MAX_PARTICLES];
+
+// Screen Shake
+float shake_intensity = 0.0f;
+
+// --- Fin Nouveaux Systemes ---
+
+// Fonction pour obtenir le nombre maximum de trous noirs selon la difficulté
+int getMaxBlackHoles() {
+    switch (difficulte_actuelle) {
+        case FACILE: return 5;
+        case MOYEN: return 10;
+        case DIFFICILE: return 30;
+        default: return 10;
+    }
+}
+
+// Fonction pour afficher le menu de difficulté
+void AfficherMenuDifficulte() {
+    BeginDrawing();
+    ClearBackground((Color){10, 10, 30, 255});
+
+    // Dessiner les étoiles
+    for (int i = 0; i < MAX_STARS; i++) {
+        Color starColor = {255, 255, 255, (unsigned char)(stars[i].brightness * 255)};
+        DrawPixel(stars[i].x, stars[i].y, starColor);
+    }
+
+    // Titre
+    DrawText("SNAKE GAME", LARGEUR_GRILLE * TAILLE_CASE / 2 - 100, 100, 40, WHITE);
+    DrawText("Select Difficulty", LARGEUR_GRILLE * TAILLE_CASE / 2 - 130, 160, 30, WHITE);
+
+    // Options de difficulté
+    DrawText("1. EASY (5 black holes)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 220, 20, WHITE);
+    DrawText("2. MEDIUM (10 black holes)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 260, 20, WHITE);
+    DrawText("3. HARD (10 holes at start)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 300, 20, WHITE);
+
+    DrawText("Press 1, 2, or 3 to start", LARGEUR_GRILLE * TAILLE_CASE / 2 - 130, 360, 18, LIGHTGRAY);
+
+    EndDrawing();
+}
+
+// Fonction pour gerer la sélection de difficulté
+bool GererSelectionDifficulte() {
+    if (IsKeyPressed(KEY_ONE)) {
+        difficulte_actuelle = FACILE;
+        return true;
+    }
+    if (IsKeyPressed(KEY_TWO)) {
+        difficulte_actuelle = MOYEN;
+        return true;
+    }
+    if (IsKeyPressed(KEY_THREE)) {
+        difficulte_actuelle = DIFFICILE;
+        return true;
+    }
+    return false;
+}
 
 // Fonction pour generer une pomme a une position aleatoire
 // Fonction pour generer une pomme a une position aleatoire
@@ -75,6 +167,65 @@ void GenererPomme() {
   }
 }
 
+// Initialiser les etoiles
+void InitStars() {
+  for (int i = 0; i < MAX_STARS; i++) {
+    stars[i].x = GetRandomValue(0, LARGEUR_GRILLE * TAILLE_CASE);
+    stars[i].y = GetRandomValue(0, HAUTEUR_GRILLE * TAILLE_CASE);
+    stars[i].speed = (float)GetRandomValue(1, 5) / 10.0f;
+    stars[i].brightness = (float)GetRandomValue(100, 255) / 255.0f;
+  }
+}
+
+// Mettre a jour les etoiles
+void UpdateStars() {
+  for (int i = 0; i < MAX_STARS; i++) {
+    stars[i].y += stars[i].speed;
+    if (stars[i].y > HAUTEUR_GRILLE * TAILLE_CASE) {
+      stars[i].y = 0;
+      stars[i].x = GetRandomValue(0, LARGEUR_GRILLE * TAILLE_CASE);
+    }
+  }
+}
+
+// Initialiser les particules
+void InitParticles() {
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    particles[i].active = false;
+  }
+}
+
+// Ajouter une particule
+void AddParticle(Vector2 pos, Vector2 vel, Color col, float size, float decay) {
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (!particles[i].active) {
+      particles[i].active = true;
+      particles[i].position = pos;
+      particles[i].velocity = vel;
+      particles[i].color = col;
+      particles[i].life = 1.0f;
+      particles[i].size = size;
+      particles[i].decay = decay;
+      break;
+    }
+  }
+}
+
+// Mettre a jour les particules
+void UpdateParticles() {
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (particles[i].active) {
+      particles[i].position.x += particles[i].velocity.x;
+      particles[i].position.y += particles[i].velocity.y;
+      particles[i].life -= particles[i].decay;
+
+      if (particles[i].life <= 0) {
+        particles[i].active = false;
+      }
+    }
+  }
+}
+
 // Fonction pour initialiser le jeu
 void InitialiserJeu() {
   longueur_serpent = 3;
@@ -88,6 +239,10 @@ void InitialiserJeu() {
   carburant = CARBURANT_MAX; // Reservoir plein au depart
   file_tete = 0;
   file_queue = 0;
+  shake_intensity = 0.0f;
+
+  InitStars();
+  InitParticles();
 
   // Initialiser toutes les positions pour eviter le bug de trainee
   for (int i = 0; i < 225; i++) {
@@ -95,10 +250,51 @@ void InitialiserJeu() {
     serpent[i].y = -1;
   }
 
-  // Initialiser les murs
-  for (int i = 0; i < 100; i++) {
+  // Initialiser les murs (utiliser le maximum pour le mode difficile)
+  for (int i = 0; i < 15; i++) {
     murs[i].x = -1;
     murs[i].y = -1;
+  }
+
+  // Pour le mode difficile, placer 10 trous noirs dès le départ
+  if (difficulte_actuelle == DIFFICILE) {
+    nombre_murs = 10;
+    for (int i = 0; i < 10; i++) {
+      bool position_valide = false;
+      int tentatives = 0;
+
+      while (!position_valide && tentatives < 200) {
+        int nx = GetRandomValue(0, LARGEUR_GRILLE - 1);
+        int ny = GetRandomValue(0, HAUTEUR_GRILLE - 1);
+        position_valide = true;
+
+        // Verifier que ce n'est pas sur le serpent
+        for (int j = 0; j < longueur_serpent; j++) {
+          if (serpent[j].x == nx && serpent[j].y == ny) {
+            position_valide = false;
+            break;
+          }
+        }
+
+        // Verifier que ce n'est pas sur la pomme
+        if (pomme.x == nx && pomme.y == ny)
+          position_valide = false;
+
+        // Verifier que ce n'est pas sur un mur existant
+        for (int j = 0; j < i; j++) {
+          if (murs[j].x == nx && murs[j].y == ny) {
+            position_valide = false;
+            break;
+          }
+        }
+
+        if (position_valide) {
+          murs[i].x = nx;
+          murs[i].y = ny;
+        }
+        tentatives++;
+      }
+    }
   }
 
   // Placer le serpent au centre
@@ -114,8 +310,14 @@ void InitialiserJeu() {
 
 // Fonction pour ajouter un mur aleatoire
 void AjouterMur() {
-  if (nombre_murs >= 100)
-    return;
+  int max_holes = getMaxBlackHoles();
+  if (nombre_murs >= max_holes) {
+    // FIFO: Remove oldest black hole by shifting all holes forward
+    for (int i = 0; i < max_holes - 1; i++) {
+      murs[i] = murs[i + 1];
+    }
+    nombre_murs = max_holes - 1;
+  }
 
   bool position_valide = false;
   int tentatives = 0;
@@ -198,6 +400,24 @@ void DeplacerSerpent() {
     file_tete = (file_tete + 1) % TAILLE_FILE;
   }
 
+  // Particules de trainee (exhaust)
+  Vector2 tailPos = {(float)serpent[0].x * TAILLE_CASE + TAILLE_CASE / 2,
+                     (float)serpent[0].y * TAILLE_CASE + TAILLE_CASE / 2};
+  // Decaler legerement selon la direction pour que ca sorte de l'arriere
+  if (direction == HAUT)
+    tailPos.y += 10;
+  else if (direction == BAS)
+    tailPos.y -= 10;
+  else if (direction == GAUCHE)
+    tailPos.x += 10;
+  else if (direction == DROITE)
+    tailPos.x -= 10;
+
+  AddParticle(tailPos,
+              (Vector2){(float)GetRandomValue(-10, 10) / 10.0f,
+                        (float)GetRandomValue(-10, 10) / 10.0f},
+              (Color){0, 200, 255, 200}, 4.0f, 0.05f);
+
   // Deplacer le corps
   for (int i = longueur_serpent - 1; i > 0; i--) {
     serpent[i] = serpent[i - 1];
@@ -218,17 +438,28 @@ void DeplacerSerpent() {
   if (serpent[0].x < 0 || serpent[0].x >= LARGEUR_GRILLE || serpent[0].y < 0 ||
       serpent[0].y >= HAUTEUR_GRILLE) {
     jeu_termine = true;
+    shake_intensity = 10.0f;
+    // Explosion
+    for (int k = 0; k < 20; k++) {
+      AddParticle((Vector2){(float)serpent[0].x * TAILLE_CASE,
+                            (float)serpent[0].y * TAILLE_CASE},
+                  (Vector2){(float)GetRandomValue(-50, 50) / 10.0f,
+                            (float)GetRandomValue(-50, 50) / 10.0f},
+                  ORANGE, 8.0f, 0.02f);
+    }
   }
 
   // Verifier collision avec le corps
   if (VerifierCollisionCorps()) {
     jeu_termine = true;
+    shake_intensity = 10.0f;
   }
 
   // Verifier collision avec les obstacles
   for (int i = 0; i < nombre_murs; i++) {
     if (serpent[0].x == murs[i].x && serpent[0].y == murs[i].y) {
       jeu_termine = true;
+      shake_intensity = 10.0f;
       break;
     }
   }
@@ -238,11 +469,21 @@ void DeplacerSerpent() {
     longueur_serpent++;
     score += 10;
     carburant = CARBURANT_MAX; // Reservoir plein!
+
+    // Particules de collecte
+    for (int k = 0; k < 10; k++) {
+      AddParticle((Vector2){(float)pomme.x * TAILLE_CASE + TAILLE_CASE / 2,
+                            (float)pomme.y * TAILLE_CASE + TAILLE_CASE / 2},
+                  (Vector2){(float)GetRandomValue(-30, 30) / 10.0f,
+                            (float)GetRandomValue(-30, 30) / 10.0f},
+                  YELLOW, 5.0f, 0.03f);
+    }
+
     GenererPomme();
     AjouterMur(); // Ajouter un trou noir pour rendre le jeu plus difficile
 
-    // Augmenter la vitesse progressivement
-    if (vitesse_jeu > 0.05) {
+    // Augmenter la vitesse progressivement (jusqu'à 100 points)
+    if (vitesse_jeu > 0.05 && score < 100) {
       vitesse_jeu -= 0.005;
     }
   }
@@ -366,14 +607,42 @@ void DessinerJeu() {
   BeginDrawing();
   ClearBackground((Color){10, 10, 30, 255});
 
-  // Dessiner la grille
+  // Camera Shake
+  Camera2D camera = {0};
+  camera.zoom = 1.0f;
+  if (shake_intensity > 0) {
+    camera.offset.x = (float)GetRandomValue(-shake_intensity, shake_intensity);
+    camera.offset.y = (float)GetRandomValue(-shake_intensity, shake_intensity);
+    shake_intensity -= 0.5f;
+    if (shake_intensity < 0)
+      shake_intensity = 0;
+  }
+
+  BeginMode2D(camera);
+
+  // Dessiner les etoiles (Arriere-plan)
+  for (int i = 0; i < MAX_STARS; i++) {
+    Color starColor = {255, 255, 255,
+                       (unsigned char)(stars[i].brightness * 255)};
+    DrawPixel(stars[i].x, stars[i].y, starColor);
+  }
+
+  // Dessiner la grille (plus subtile)
   for (int i = 0; i <= LARGEUR_GRILLE; i++) {
     DrawLine(i * TAILLE_CASE, 0, i * TAILLE_CASE, HAUTEUR_GRILLE * TAILLE_CASE,
-             (Color){30, 30, 60, 255});
+             (Color){30, 30, 60, 100});
   }
   for (int i = 0; i <= HAUTEUR_GRILLE; i++) {
     DrawLine(0, i * TAILLE_CASE, LARGEUR_GRILLE * TAILLE_CASE, i * TAILLE_CASE,
-             (Color){30, 30, 60, 255});
+             (Color){30, 30, 60, 100});
+  }
+
+  // Dessiner les particules (derriere les objets)
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (particles[i].active) {
+      DrawCircleV(particles[i].position, particles[i].size,
+                  Fade(particles[i].color, particles[i].life));
+    }
   }
 
   // Dessiner les trous noirs
@@ -444,6 +713,9 @@ void DessinerJeu() {
   DrawRectangle(jer_x - 8, jer_y - 2, 16, 3, (Color){255, 200, 0, 255});
   DrawRectangle(jer_x - 8, jer_y + 4, 16, 3, (Color){255, 200, 0, 255});
 
+  EndMode2D(); // Fin de la camera (shake)
+
+  // UI (ne bouge pas avec le shake)
   // Barre de carburant en bas
   int barre_largeur = LARGEUR_GRILLE * TAILLE_CASE - 120;
   int barre_x = 110;
@@ -464,22 +736,34 @@ void DessinerJeu() {
   // Label
   DrawText("FUEL:", 60, barre_y, 16, WHITE);
 
-  // Afficher le score
+  // Afficher le score et la difficulté
   DrawText(TextFormat("Score: %d", score), 10, HAUTEUR_GRILLE * TAILLE_CASE + 2,
            14, WHITE);
+
+  const char* diff_text = (difficulte_actuelle == FACILE) ? "EASY" :
+                          (difficulte_actuelle == MOYEN) ? "MEDIUM" : "HARD";
+  Color diff_color = (difficulte_actuelle == FACILE) ? GREEN :
+                     (difficulte_actuelle == MOYEN) ? YELLOW : RED;
+  DrawText(TextFormat("%s (%d holes)", diff_text, getMaxBlackHoles()),
+           150, HAUTEUR_GRILLE * TAILLE_CASE + 2, 14, diff_color);
 
   // Afficher message de fin si le jeu est termine
   if (jeu_termine) {
     DrawRectangle(0, 0, LARGEUR_GRILLE * TAILLE_CASE,
-                  HAUTEUR_GRILLE * TAILLE_CASE, Fade(BLACK, 0.7f));
+                  HAUTEUR_GRILLE * TAILLE_CASE, Fade(BLACK, 0.85f));
+
+    // Texte pulsant
+    float pulse = (sinf((float)GetTime() * 5.0f) + 1.0f) * 0.5f; // 0 a 1
+    Color pulseColor = ColorAlpha(RED, 0.5f + pulse * 0.5f);
+
     DrawText("GAME OVER!", LARGEUR_GRILLE * TAILLE_CASE / 2 - 80,
-             HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40, RED);
+             HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40, pulseColor);
     DrawText(TextFormat("Score final: %d", score),
              LARGEUR_GRILLE * TAILLE_CASE / 2 - 90,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 10, 20, WHITE);
     DrawText("Appuyez sur ESPACE pour rejouer",
              LARGEUR_GRILLE * TAILLE_CASE / 2 - 150,
-             HAUTEUR_GRILLE * TAILLE_CASE / 2 + 40, 20, WHITE);
+             HAUTEUR_GRILLE * TAILLE_CASE / 2 + 40, 20, LIGHTGRAY);
   }
 
   EndDrawing();
@@ -495,10 +779,29 @@ int main(void) {
   // Initialiser le generateur de nombres aleatoires
   srand(time(NULL));
 
+  // Initialiser les étoiles pour le menu
+  InitStars();
+
+  // Menu de sélection de difficulté
+  bool difficulte_choisie = false;
+  while (!WindowShouldClose() && !difficulte_choisie) {
+    UpdateStars();
+    AfficherMenuDifficulte();
+    difficulte_choisie = GererSelectionDifficulte();
+  }
+
+  if (WindowShouldClose()) {
+    CloseWindow();
+    return 0;
+  }
+
   InitialiserJeu();
 
   // Boucle principale du jeu
   while (!WindowShouldClose()) {
+    UpdateStars();
+    UpdateParticles();
+
     if (!jeu_termine) {
       GererEntrees();
 
