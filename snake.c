@@ -2,13 +2,8 @@
 #include <raylib.h>
 #include <stdlib.h>
 #include <time.h>
-
-// Niveaux de difficulté
-typedef enum {
-    FACILE,
-    MOYEN,
-    DIFFICILE
-} Difficulte;
+#include "include/menu.h"
+#include "include/scores.h"
 
 // Taille de la grille (plus petite pour elements plus gros)
 #define LARGEUR_GRILLE 15
@@ -93,48 +88,6 @@ int getMaxBlackHoles() {
         case DIFFICILE: return 30;
         default: return 10;
     }
-}
-
-// Fonction pour afficher le menu de difficulté
-void AfficherMenuDifficulte() {
-    BeginDrawing();
-    ClearBackground((Color){10, 10, 30, 255});
-
-    // Dessiner les étoiles
-    for (int i = 0; i < MAX_STARS; i++) {
-        Color starColor = {255, 255, 255, (unsigned char)(stars[i].brightness * 255)};
-        DrawPixel(stars[i].x, stars[i].y, starColor);
-    }
-
-    // Titre
-    DrawText("SNAKE GAME", LARGEUR_GRILLE * TAILLE_CASE / 2 - 100, 100, 40, WHITE);
-    DrawText("Select Difficulty", LARGEUR_GRILLE * TAILLE_CASE / 2 - 130, 160, 30, WHITE);
-
-    // Options de difficulté
-    DrawText("1. EASY (5 black holes)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 220, 20, WHITE);
-    DrawText("2. MEDIUM (10 black holes)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 260, 20, WHITE);
-    DrawText("3. HARD (10 holes at start)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 300, 20, WHITE);
-
-    DrawText("Press 1, 2, or 3 to start", LARGEUR_GRILLE * TAILLE_CASE / 2 - 130, 360, 18, LIGHTGRAY);
-
-    EndDrawing();
-}
-
-// Fonction pour gerer la sélection de difficulté
-bool GererSelectionDifficulte() {
-    if (IsKeyPressed(KEY_ONE)) {
-        difficulte_actuelle = FACILE;
-        return true;
-    }
-    if (IsKeyPressed(KEY_TWO)) {
-        difficulte_actuelle = MOYEN;
-        return true;
-    }
-    if (IsKeyPressed(KEY_THREE)) {
-        difficulte_actuelle = DIFFICILE;
-        return true;
-    }
-    return false;
 }
 
 // Fonction pour generer une pomme a une position aleatoire
@@ -761,44 +714,46 @@ void DessinerJeu() {
     DrawText(TextFormat("Score final: %d", score),
              LARGEUR_GRILLE * TAILLE_CASE / 2 - 90,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 10, 20, WHITE);
-    DrawText("Appuyez sur ESPACE pour rejouer",
-             LARGEUR_GRILLE * TAILLE_CASE / 2 - 150,
+    DrawText("Press ESC to return to menu",
+             LARGEUR_GRILLE * TAILLE_CASE / 2 - 140,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 40, 20, LIGHTGRAY);
   }
 
   EndDrawing();
 }
 
-int main(void) {
-  // Initialiser la fenetre
-  InitWindow(LARGEUR_GRILLE * TAILLE_CASE, HAUTEUR_GRILLE * TAILLE_CASE + 50,
-             "Snake Game");
-
+void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
+                   const char *playerName, ScoreList *scores) {
+  // Configurer la fenetre (pas de InitWindow, la fenetre appartient au main)
+  SetWindowSize(LARGEUR_GRILLE * TAILLE_CASE, HAUTEUR_GRILLE * TAILLE_CASE + 50);
+  SetWindowTitle("Snake");
   SetTargetFPS(60);
 
+  // Utiliser la difficulte passee par le menu
+  difficulte_actuelle = difficulty;
+
   // Initialiser le generateur de nombres aleatoires
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
 
-  // Initialiser les étoiles pour le menu
+  // Initialiser les étoiles et les particules (toujours necessaire)
   InitStars();
+  InitParticles();
 
-  // Menu de sélection de difficulté
-  bool difficulte_choisie = false;
-  while (!WindowShouldClose() && !difficulte_choisie) {
-    UpdateStars();
-    AfficherMenuDifficulte();
-    difficulte_choisie = GererSelectionDifficulte();
+  // Initialiser SEULEMENT si on ne reprend pas une partie
+  if (!resume) {
+    InitialiserJeu();
   }
 
-  if (WindowShouldClose()) {
-    CloseWindow();
-    return 0;
-  }
-
-  InitialiserJeu();
+  *game_active = true;
 
   // Boucle principale du jeu
   while (!WindowShouldClose()) {
+    // ESC retourne au menu
+    if (IsKeyPressed(KEY_ESCAPE)) {
+      *game_active = false;
+      break;
+    }
+
     UpdateStars();
     UpdateParticles();
 
@@ -818,15 +773,18 @@ int main(void) {
         temps_derniere_maj = 0;
       }
     } else {
-      // Rejouer si on appuie sur espace
-      if (IsKeyPressed(KEY_SPACE)) {
-        InitialiserJeu();
+      // Game over - sauvegarder le score
+      add_score(scores, playerName, score);
+      *game_active = false;
+
+      // Attendre ESC pour quitter l'ecran game over
+      if (IsKeyPressed(KEY_ESCAPE)) {
+        break;
       }
     }
 
     DessinerJeu();
   }
 
-  CloseWindow();
-  return 0;
+  // NE PAS appeler CloseWindow() - le main possede la fenetre
 }
