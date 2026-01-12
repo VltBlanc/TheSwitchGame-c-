@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <raymath.h>
 #include <time.h>
+#include "include/menu.h"
+#include "include/scores.h"
+
 
 //---VARIABLE---
 
@@ -53,7 +56,8 @@ float timer = 0.0f;
 const float Temps_Alerte = 0.6f; // temps en secondes pour l'avertissement
 const float Temps_Tomber = 0.3f; 
 const float Temps_Attente = 0.2f;   // temps en secondes avant prochaine phase
-int nbrBlockQuiTombe = 8;
+int nbrBlockQuiTombe=8;
+int score=0;
 bool nbrBlockDoitAugmenter = true; //mis a true pour faire un premier cycle sans augmenter le nombre de block
 bool jeuEnPause = false;
 
@@ -62,6 +66,8 @@ Texture2D playerTexture;
 Texture2D fondTexture;
 Texture2D solTexture;
 Texture2D solFissureTexture;
+
+Joueur joueur;
 
 //---PROTOTYPES---
 //utile pour écrire les fonctions dans l'ordre qu'on veut
@@ -75,6 +81,7 @@ void VerifieMort(Joueur *Joueur);
 void UpdateGridPhase(Joueur *Joueur, float deltaTime);
 void DessinePartie();
 void DessineJoueur(Joueur Joueur);
+void InitDifficulte(Difficulte version);
 void JeuLuca();
 
 //---FONCTIONS---
@@ -352,6 +359,7 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime)
             }
         }
         phaseActuelle = Phase_Attente; 
+        score+=1;
         timer = 0.0f;//on lance le timer en décalé donc il ne correspond pas exactement au temps voulu mais on est sur que tous les blocks sont choisi
     }
 }
@@ -438,79 +446,19 @@ void DessineJoueur(Joueur Joueur)
     }
 }
 
-void JeuLuca(){
-    srand((unsigned int)time(NULL)); //graine choisi aléatoirement pour éviter répétition du même motif
-
-    InitWindow(screenWidth, screenHeight, "Jeux Luca");
-    SetTargetFPS(60);
-
-    playerTexture = LoadTexture("assets/playerLuca.png");
-    fondTexture = LoadTexture("assets/fond.png");
-    solTexture = LoadTexture("assets/sol.png");
-    solFissureTexture = LoadTexture("assets/solFissure.png");
-
-    InitGrid();
-    Joueur Joueur = InitJoueur();
-
-    while (!WindowShouldClose())
-    {
-
-        if (IsKeyPressed(KEY_P)) 
-        {
-            jeuEnPause = !jeuEnPause; // Alterne entre vrai et faux
-        }
-
-        float deltaTime = GetFrameTime();
-
-        if (Joueur.vivant)
-        {
-            if (!jeuEnPause){
-                UpdateJoueurMouvement(&Joueur, deltaTime);
-                UpdateGridPhase(&Joueur, deltaTime);
-                VerifieMort(&Joueur);
-            }
-            
-        }
-        else
-        {
-            if (IsKeyPressed(KEY_SPACE)) // = relance le jeu
-            {
-                ResetGridState();
-                Joueur = InitJoueur();
-                nbrBlockQuiTombe = 8;
-                timer = 0.0f;
-                phaseActuelle=Phase_Attente;
-                nbrBlockDoitAugmenter = true;
-                
-            }
-        }
-
-        BeginDrawing();
-
-        ClearBackground(RAYWHITE);
-        DessinePartie();
-
-        DessineJoueur(Joueur);
-
-        if (jeuEnPause && Joueur.vivant) 
-            {
-                // Overlay de pause
-                DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.5f)); // Fond sombre transparent
-                DrawText("PAUSE", (screenWidth / 2) - MeasureText("PAUSE", 40) / 2, screenHeight / 2 - 20, 40, RAYWHITE);
-                DrawText("Appuyez sur P pour reprendre", (screenWidth / 2) - MeasureText("Appuyez sur P pour reprendre", 20) / 2, screenHeight / 2 + 30, 20, LIGHTGRAY);
-            }
-            
-        if (!Joueur.vivant)
-        {
-            DrawText("GAME OVER!", (screenWidth / 2)- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
-            DrawText("Appuyez sur ESPACE pour recommencer", (screenWidth / 2) - MeasureText("Appuyez sur ESPACE pour recommencer", 25) / 2, screenHeight / 2, 25, RAYWHITE);
-        }
-
-        EndDrawing();
+void InitDifficulte(Difficulte version){
+    if (version == FACILE){
+        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/12;
     }
+    if (version == MOYEN){
+        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/6;
+    }
+    if (version == DIFFICILE){
+        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/3;
+    }
+}
 
-    CloseWindow();
-
+void GameOverLuca(){
     UnloadTexture(playerTexture);
     UnloadTexture(fondTexture);
     UnloadTexture(solTexture);
@@ -518,10 +466,80 @@ void JeuLuca(){
     FreeGrid();
 }
 
-// --- Boucle principale ---
+void runLuca(Difficulte version,bool resume,bool *gameActive/*, const char *playername,ScoreList *scorel*/){
+    if (resume==false){
+        srand((unsigned int)time(NULL)); //graine choisi aléatoirement pour éviter répétition du même motif
 
-int main(void)
-{
-    JeuLuca();
-    return 0;
+        InitWindow(screenWidth, screenHeight, "Jeux Luca");
+        SetTargetFPS(60);
+
+        playerTexture = LoadTexture("assets/playerLuca.png");
+        fondTexture = LoadTexture("assets/fond.png");
+        solTexture = LoadTexture("assets/sol.png");
+        solFissureTexture = LoadTexture("assets/solFissure.png");
+
+        InitGrid();
+        joueur = InitJoueur();
+        InitDifficulte(version);
+    }
+    
+
+    while (!WindowShouldClose())
+    {
+
+        float deltaTime = GetFrameTime();
+
+        if (joueur.vivant)
+        {
+            if (gameActive){
+                UpdateJoueurMouvement(&joueur, deltaTime);
+                UpdateGridPhase(&joueur, deltaTime);
+                VerifieMort(&joueur);
+            }
+            
+        }
+        //add_score(scorel, playername,score);
+        //restart jeu
+        /*else
+        {
+            if (IsKeyPressed(KEY_SPACE)) // = relance le jeu
+            {
+                ResetGridState();
+                joueur = InitJoueur();
+                InitDifficulte(version);
+                timer = 0.0f;
+                phaseActuelle=Phase_Attente;
+                nbrBlockDoitAugmenter = true;
+                
+            }
+        }*/
+
+        BeginDrawing();
+
+        ClearBackground(RAYWHITE);
+        DessinePartie();
+
+        DessineJoueur(joueur);
+        
+        //ecran de pause et de mort
+        /*if (jeuEnPause && joueur.vivant) 
+            {
+                // Overlay de pause
+                DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.5f)); // Fond sombre transparent
+                DrawText("PAUSE", (screenWidth / 2) - MeasureText("PAUSE", 40) / 2, screenHeight / 2 - 20, 40, RAYWHITE);
+                DrawText("Appuyez sur P pour reprendre", (screenWidth / 2) - MeasureText("Appuyez sur P pour reprendre", 20) / 2, screenHeight / 2 + 30, 20, LIGHTGRAY);
+            }
+            
+        if (!joueur.vivant)
+        {
+            DrawText("GAME OVER!", (screenWidth / 2)- MeasureText("GAME OVER!", 60)/2, screenHeight / 3, 60, RED);
+            DrawText("Appuyez sur ESPACE pour recommencer", (screenWidth / 2) - MeasureText("Appuyez sur ESPACE pour recommencer", 25) / 2, screenHeight / 2, 25, RAYWHITE);
+        }*/
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+
+    GameOverLuca();
 }
