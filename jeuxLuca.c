@@ -82,7 +82,8 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime);
 void DessinePartie();
 void DessineJoueur(Joueur Joueur);
 void InitDifficulte(Difficulte version);
-void JeuLuca();
+int GameOverLuca();
+void runLuca(Difficulte version,bool resume,bool *gameActive);
 
 //---FONCTIONS---
 void InitGrid() {
@@ -458,15 +459,17 @@ void InitDifficulte(Difficulte version){
     }
 }
 
-void GameOverLuca(){
+int GameOverLuca(){
     UnloadTexture(playerTexture);
     UnloadTexture(fondTexture);
     UnloadTexture(solTexture);
     UnloadTexture(solFissureTexture);
     FreeGrid();
+
+    return score;
 }
 
-void runLuca(Difficulte version,bool resume,bool *gameActive/*, const char *playername,ScoreList *scorel*/){
+void runLuca(Difficulte version,bool resume,bool *gameActive){
     if (resume==false){
         srand((unsigned int)time(NULL)); //graine choisi aléatoirement pour éviter répétition du même motif
 
@@ -498,7 +501,6 @@ void runLuca(Difficulte version,bool resume,bool *gameActive/*, const char *play
             }
             
         }
-        //add_score(scorel, playername,score);
         //restart jeu
         /*else
         {
@@ -508,6 +510,7 @@ void runLuca(Difficulte version,bool resume,bool *gameActive/*, const char *play
                 joueur = InitJoueur();
                 InitDifficulte(version);
                 timer = 0.0f;
+                score=0;
                 phaseActuelle=Phase_Attente;
                 nbrBlockDoitAugmenter = true;
                 
