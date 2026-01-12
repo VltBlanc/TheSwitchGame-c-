@@ -546,3 +546,9 @@ void runLuca(Difficulte version,bool resume,bool *gameActive){
 
     GameOverLuca();
 }
+
+/*int main(){
+    bool active=true;
+    runLuca(DIFFICILE,false,&active);
+    return 1;
+}*/
