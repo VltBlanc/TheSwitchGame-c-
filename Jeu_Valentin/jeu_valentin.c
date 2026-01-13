@@ -267,12 +267,8 @@ static void VerifieCollisions(void) {
 
 // Gère le cycle du jeu (Pause, MiseÀjour, Game Over)
 static void ActualiseJeu(void) {
-  if (IsKeyPressed(KEY_P) || IsKeyPressed(KEY_SPACE)) {
-    if (!jeuFini)
-      jeuEnPause = !jeuEnPause;
-  }
 
-  if (!jeuFini && !jeuEnPause) {
+  if (!jeuFini) {
     tempsSurvie += GetFrameTime();
 
     // Progression de la difficulté par paliers de temps ! (trouver un

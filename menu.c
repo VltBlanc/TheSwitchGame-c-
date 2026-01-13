@@ -117,27 +117,17 @@ void update_menu(MenuJeu *menu) {
     }
 
     // Flèches gauche/droite
+    // Flèches gauche/droite (Removed Mode Toggle)
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
-      if (menu->option_selectionnee == 0) { // Mode
-        if (menu->mode == UN_JOUEUR)
-          menu->mode = DEUX_JOUEURS;
-        else
-          menu->mode = UN_JOUEUR;
-      } else if (menu->option_selectionnee == 1) { // Difficulté
+      if (menu->option_selectionnee == 1) { // Difficulté
         menu->niveau = (menu->niveau - 1 + 3) % 3;
       }
     }
     if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
-      if (menu->option_selectionnee == 0) { // Mode
-        if (menu->mode == UN_JOUEUR)
-          menu->mode = DEUX_JOUEURS;
-        else
-          menu->mode = UN_JOUEUR;
-      } else if (menu->option_selectionnee == 1) { // Difficulté
+      if (menu->option_selectionnee == 1) { // Difficulté
         menu->niveau = (menu->niveau + 1) % 3;
       }
     }
-
   }
 
   // --- Gestion Souris ---
@@ -323,26 +313,15 @@ void draw_player_selection(const MenuJeu *menu) {
   }
 
   // Bouton 1 joueur
-  Rectangle bouton_1j = {centerLeft - 105, yPos + 40, 100, 30};
+  Rectangle bouton_1j = {centerLeft - 50, yPos + 40, 100, 30};
   Color couleur_1j =
-      (menu->mode == UN_JOUEUR) ? COULEUR_SURBRILL : COULEUR_BOUTON;
+      COULEUR_SURBRILL; // Toujours sélectionné visuellement ou juste statique
   DrawRectangleRec(bouton_1j, couleur_1j);
   DrawRectangleLinesEx(bouton_1j, 2, COULEUR_TEXTE);
   DrawText("1 JOUEUR",
            bouton_1j.x + (bouton_1j.width - MeasureText("1 JOUEUR", 10)) / 2 -
                15,
            bouton_1j.y + 8, 16, BLACK);
-
-  // Bouton 2 joueurs
-  Rectangle bouton_2j = {centerLeft + 5, yPos + 40, 100, 30};
-  Color couleur_2j =
-      (menu->mode == DEUX_JOUEURS) ? COULEUR_SURBRILL : COULEUR_BOUTON;
-  DrawRectangleRec(bouton_2j, couleur_2j);
-  DrawRectangleLinesEx(bouton_2j, 2, COULEUR_TEXTE);
-  DrawText("2 JOUEURS",
-           bouton_2j.x + (bouton_2j.width - MeasureText("2 JOUEURS", 10)) / 2 -
-               15,
-           bouton_2j.y + 8, 16, BLACK);
 }
 
 void draw_difficulty_selection(const MenuJeu *menu) {

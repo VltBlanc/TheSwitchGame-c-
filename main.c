@@ -1,3 +1,4 @@
+
 #include "include/luca.h"
 #include "include/menu.h"
 #include "include/snake.h"
@@ -128,9 +129,12 @@ int main(void) {
         printf("=== Passage au jeu suivant: %s ===\n",
                game_names[current_game]);
       }
+
+      printf("Retour au menu principal...\n");
+      menu->etat = MENU_PRINCIPAL;
       if (!menu->partie_en_cours) {
         printf("Retour au menu principal...\n");
-        menu->etat = MENU_PRINCIPAL;  
+        menu->etat = MENU_PRINCIPAL;
       }
       // Rafraîchir les meilleurs scores affichés dans le menu
       if (menu->scores) {

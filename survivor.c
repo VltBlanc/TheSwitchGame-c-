@@ -1113,9 +1113,7 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
 
     // Si on appuie sur Echap ou n'importe quelle touche en game over, on sort
     if (IsKeyPressed(KEY_ESCAPE)) {
-      if (gameOver) {
-        *game_active = false;
-      }
+      *game_active = false; // Toujours signaler qu'on veut quitter
       // Attendre que la touche soit relâchée pour éviter de fermer le menu
       while (IsKeyDown(KEY_ESCAPE)) {
         BeginDrawing();
