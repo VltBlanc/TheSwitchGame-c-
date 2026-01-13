@@ -117,8 +117,17 @@ void update_menu(MenuJeu *menu) {
     }
 
     // Flèches gauche/droite
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT) ||
-        IsKeyPressed(KEY_D) || IsKeyPressed(KEY_A)) {
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
+      if (menu->option_selectionnee == 0) { // Mode
+        if (menu->mode == UN_JOUEUR)
+          menu->mode = DEUX_JOUEURS;
+        else
+          menu->mode = UN_JOUEUR;
+      } else if (menu->option_selectionnee == 1) { // Difficulté
+        menu->niveau = (menu->niveau - 1 + 3) % 3;
+      }
+    }
+    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
       if (menu->option_selectionnee == 0) { // Mode
         if (menu->mode == UN_JOUEUR)
           menu->mode = DEUX_JOUEURS;
@@ -128,6 +137,7 @@ void update_menu(MenuJeu *menu) {
         menu->niveau = (menu->niveau + 1) % 3;
       }
     }
+
   }
 
   // --- Gestion Souris ---
