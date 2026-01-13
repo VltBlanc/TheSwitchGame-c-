@@ -1,4 +1,4 @@
-#include "textures.h"
+#include "include/textures.h"
 #include <stdio.h>
 
 // --- GLOBAL TEXTURES DEFINITION ---

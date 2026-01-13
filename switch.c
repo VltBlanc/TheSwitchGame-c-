@@ -16,11 +16,11 @@ int switchMeca(Difficulte version)
 
     // Initialisation globale (ou spécifique au premier jeu)
     bool gameActive = false;
-    runLuca(version, false, &gameActive);
-    RunValentinGame(version, false, &gameActive);
+    bool estMort=false;
+    runLuca(version, false, &gameActive,&estMort);
+    RunValentinGame(version, false, &gameActive,&estMort);
     gameActive=true;
 
-    bool estMort=false;
 
     while (!WindowShouldClose() && !estMort)
     {
@@ -45,16 +45,16 @@ int switchMeca(Difficulte version)
         {
         case JEU1:
             gameActive=true;
-            runLuca(version, true, &gameActive);
+            runLuca(version, true, &gameActive,&estMort);
             gameActive=false;
-            RunValentinGame(version, true, &gameActive);
+            RunValentinGame(version, true, &gameActive,&estMort);
             //2autre jeu
             break;
         case JEU2:
             gameActive=true;
-            RunValentinGame(version, true, &gameActive);
+            RunValentinGame(version, true, &gameActive,&estMort);
             gameActive=false;
-            RunLuca(version, true, &gameActive);
+            runLuca(version, true, &gameActive,&estMort);
             //2autre jeu
             break;
         /*case JEU3:

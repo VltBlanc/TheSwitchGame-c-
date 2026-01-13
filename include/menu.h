@@ -3,6 +3,7 @@
 
 #include "raylib.h"
 #include "scores.h"
+#include <string.h> // Nécessaire pour strcpy, strlen, etc.
 
 #define LARGEUR_ECRAN 800
 #define HAUTEUR_ECRAN 600
@@ -11,6 +12,7 @@
 // Etats du menu
 typedef enum {
     MENU_PRINCIPAL,
+    MENU_NAME_INPUT,   // <--- AJOUTÉ
     MENU_DEMARRAGE,
     MENU_QUITTER
 } EtatMenu;
@@ -34,20 +36,14 @@ typedef struct {
     ModeJoueur mode;
     Difficulte niveau;
     int option_selectionnee;
+    char playerName[16];      // <--- AJOUTÉ
+    bool partie_en_cours;     // <--- AJOUTÉ
     ScoreList* scores;
     ScoreEntry meilleurs_scores[NOMBRE_MEILLEURS_SCORES];
     int nombre_scores;
 } MenuJeu;
 
-// Structure pour les boutons
-typedef struct {
-    Rectangle rect;
-    const char* texte;
-    bool survole;
-    bool selectionne;
-} Bouton;
-
-// Prototypes pour les fonctions
+// Prototypes (on garde les tiens)
 MenuJeu* init_menu(void);
 void free_menu(MenuJeu* menu);
 void update_menu(MenuJeu* menu);
@@ -56,10 +52,6 @@ void draw_high_scores(const MenuJeu* menu);
 void draw_player_selection(const MenuJeu* menu);
 void draw_difficulty_selection(const MenuJeu* menu);
 void draw_start_button(const MenuJeu* menu);
-void update_button_hover(Bouton* bouton);
-void draw_button(const Bouton* bouton, Color couleur_normale, Color couleur_survol);
 const char* get_difficulty_text(Difficulte difficulte);
-float get_difficulty_percentage(Difficulte difficulte);
-Color get_difficulty_color(Difficulte difficulte);
 
-#endif // MENU_H
+#endif
