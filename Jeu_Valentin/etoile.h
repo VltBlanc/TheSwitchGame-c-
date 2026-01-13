@@ -6,14 +6,15 @@
 
 #define NB_ETOILES 420 
 
-extern Vector3 etoiles[NB_ETOILES]; 
-extern Vector2 etoilesPosEcran[NB_ETOILES]; 
+// On déclare que ce sont des pointeurs (pour correspondre au .c)
+extern Vector3 *etoiles; 
+extern Vector2 *etoilesPosEcran; 
 extern float vitesseStarfield; 
 
 // --- Prototypes des fonctions ---
 void Initialiseretoile(int largeur, int hauteur);
 void Actualiseretoile(float tempsSurvie, int niveauDifficulte);
 void Dessineretoile(void);
-void LibererEtoile();
+void LibererEtoile(void);
 
 #endif
