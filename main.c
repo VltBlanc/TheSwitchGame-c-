@@ -1,5 +1,5 @@
 #include "include/menu.h"
-#include "include/survivor.h"
+#include "include/switch.h"
 #include <raylib.h>
 #include <stdio.h>
 
@@ -50,9 +50,8 @@ int main(void) {
       printf("Paramètres: %d joueur(s), difficulté %s\n", menu->mode + 1,
              get_difficulty_text(menu->niveau));
 
-      // Lancer le jeu
-      RunSurvivorGame(menu->niveau, menu->partie_en_cours,
-                      &menu->partie_en_cours, menu->playerName, menu->scores);
+      // Lancer le jeu (faut ajouter le score jsp comment il fait)
+      switchMeca(menu->niveau);//renvoie le score
 
       // Rafraîchir les meilleurs scores affichés dans le menu
       if (menu->scores) {

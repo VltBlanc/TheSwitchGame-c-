@@ -48,7 +48,7 @@ void VerifieCollisions(void);
 void ActualiseJeu(void); 
 void DessinerJeu(void); 
 
-void RunValentinGame(Difficulte niveau, bool resume, bool *game_active);
+void RunValentinGame(Difficulte niveau, bool resume, bool *game_active,bool *mort);
 int GameOverValentin();
 
 //Variables globales 
@@ -208,7 +208,7 @@ int GameOverValentin() {
     return scoreFinal;
 }
 
-void RunValentinGame(Difficulte niveau, bool resume, bool *game_active) {
+void RunValentinGame(Difficulte niveau, bool resume, bool *game_active,bool *mort) {
     // Chargement des modèles si pas encore fait
     if (!modelCharge) {
         vaisseauModel = LoadModel("Jeu_Valentin/Spaceship.obj");
@@ -226,28 +226,30 @@ void RunValentinGame(Difficulte niveau, bool resume, bool *game_active) {
         else if (niveau == DIFFICILE) niveauDifficulte = 5;
     }
 
-    *game_active = true;
+    //*game_active = true;
     bool scoreEnregistre = false;
 
-    while (!WindowShouldClose()) {
-        
-        if (IsKeyPressed(KEY_ESCAPE)) break; 
+    //while (!WindowShouldClose()) {
+    if (*game_active){
+         
 
         if (!jeuFini && !jeuEnPause) {
             ActualiseJeu(); 
             
             // Si le jeu vient de passer en 'fini' après l'actualisation
             if (jeuFini) {
-                GameOverValentin();
+                *mort=jeuFini;
+                //GameOverValentin();
             }
-        } else if (jeuFini) {
+        }
+        /* else if (jeuFini) {
             // Permet de relancer une partie directement sans repasser par le menu
             if (IsKeyPressed(KEY_ENTER)) {
                 InitGame();
                 *game_active = true;
             }
-        }
+        }*/
 
         DessinerJeu();  
     }
-}
+ }

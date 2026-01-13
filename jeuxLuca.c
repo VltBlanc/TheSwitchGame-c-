@@ -83,7 +83,7 @@ void DessinePartie();
 void DessineJoueur(Joueur Joueur);
 void InitDifficulte(Difficulte version);
 int GameOverLuca();
-void runLuca(Difficulte version,bool resume,bool *gameActive);
+void runLuca(Difficulte version,bool resume,bool *gameActive,bool *mort);
 
 //---FONCTIONS---
 void InitGrid() {
@@ -469,7 +469,7 @@ int GameOverLuca(){
     return score;
 }
 
-void runLuca(Difficulte version,bool resume,bool *gameActive){
+void runLuca(Difficulte version,bool resume,bool *gameActive,bool *mort){
     if (resume==false){
         srand((unsigned int)time(NULL)); //graine choisi aléatoirement pour éviter répétition du même motif
 
@@ -487,24 +487,22 @@ void runLuca(Difficulte version,bool resume,bool *gameActive){
     }
     
 
-    while (!WindowShouldClose())
-    {
-
+    //while (!WindowShouldClose())
+    //{
+    if (*gameActive){
         float deltaTime = GetFrameTime();
 
         if (joueur.vivant)
         {
-            if (gameActive){
                 UpdateJoueurMouvement(&joueur, deltaTime);
                 UpdateGridPhase(&joueur, deltaTime);
                 VerifieMort(&joueur);
-            }
             
         }
-        //restart jeu
-        /*else
+        else
         {
-            if (IsKeyPressed(KEY_SPACE)) // = relance le jeu
+            *mort=joueur.vivant;
+            /*if (IsKeyPressed(KEY_SPACE)) // = relance le jeu
             {
                 ResetGridState();
                 joueur = InitJoueur();
@@ -514,8 +512,8 @@ void runLuca(Difficulte version,bool resume,bool *gameActive){
                 phaseActuelle=Phase_Attente;
                 nbrBlockDoitAugmenter = true;
                 
-            }
-        }*/
+            }*/
+        }
 
         BeginDrawing();
 
@@ -542,9 +540,9 @@ void runLuca(Difficulte version,bool resume,bool *gameActive){
         EndDrawing();
     }
 
-    CloseWindow();
+    //CloseWindow();
 
-    GameOverLuca();
+    //GameOverLuca();
 }
 
 /*int main(){
