@@ -333,8 +333,7 @@ void UpdateGame(float dt) {
       save_scores(currentScores);
       scoreSaved = true;
     }
-    if (IsKeyPressed(KEY_R))
-      InitGame(currentDifficulty);
+    // N'importe quelle touche met fin au jeu (géré dans RunSurvivorGame)
     return;
   }
 
@@ -1001,7 +1000,7 @@ void DrawGame() {
 
   if (gameOver) {
     DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
-    DrawText("Appuyez sur R pour recommencer", screenW / 2 - 100,
+    DrawText("Appuyez sur une touche pour revenir au menu", screenW / 2 - 180,
              screenH / 2 + 10, 20, DARKGRAY);
   }
 
@@ -1013,9 +1012,10 @@ void DrawGame() {
 // ============================================================================
 
 void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
-                     const char *playerName, ScoreList *scores) {
-  // On ajuste la fenêtre au lieu de la recréer
-  SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+                     const char *playerName, ScoreList *scores,
+                     float timeout_seconds) {
+  // On ajuste la fenêtre à la taille standard
+  SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);
   SetWindowTitle("survivor");
   SetTargetFPS(60);
 
@@ -1057,9 +1057,6 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     }
 
     InitGame(difficulty);
-  // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
-  // partie)
-    PlayHyperspaceEffect(1.0f, spaceshipTexture);
   }
 
   // Stocker les pointeurs globaux pour l'accès dans UpdateGame
@@ -1075,13 +1072,32 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
 
   printf("RunSurvivorGame started for: '%s'\n", currentPlayerName);
 
+  // Charger les textures AVANT l'effet hyperspace
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
   chasseurTexture = LoadTexture("assets/sprite-chasseur.png");
   tankTexture = LoadTexture("assets/sprite-tank.png");
 
+  // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
+  // partie)
+  if (!resume) {
+    PlayHyperspaceEffect(1.0f, spaceshipTexture);
+  }
+
+  // Activer le jeu après l'effet hyperspace
+  *game_active = true;
+  float elapsed_time = 0.0f; // Timer pour le timeout
+
   while (!WindowShouldClose()) {
-    // Si on appuie sur Echap, on sort de la boucle (retour menu)
+    float dt = GetFrameTime();
+    elapsed_time += dt;
+
+    // Vérifier timeout (si > 0)
+    if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
+      break; // Sortir automatiquement après le timeout
+    }
+
+    // Si on appuie sur Echap ou n'importe quelle touche en game over, on sort
     if (IsKeyPressed(KEY_ESCAPE)) {
       if (gameOver) {
         *game_active = false;
@@ -1094,13 +1110,23 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       break;
     }
 
-    float dt = GetFrameTime();
+    // En game over, n'importe quelle touche retourne au menu
+    if (gameOver) {
+      int key = GetKeyPressed();
+      if (key != 0) {
+        *game_active = false;
+        break;
+      }
+    }
 
     // Si le jeu est actif, on met à jour la logique
     // Si game_active est false, le jeu est en pause (frozen)
     if (*game_active) {
       UpdateGame(dt);
     }
+
+    // Dessiner le jeu à chaque frame
+    DrawGame();
   }
 
   // Si la fenêtre est fermée par la croix, on ne sauvegarde pas forcément

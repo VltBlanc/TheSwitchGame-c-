@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-
 // ============================================================================
 // CONSTANTES
 // ============================================================================
@@ -160,7 +159,9 @@ void DrawGame(void);
 // FONCTION PUBLIQUE - Point d'entrée du jeu
 // ============================================================================
 
+// timeout_seconds: 0 = pas de limite, >0 = durée max en secondes
 void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
-                     const char *playerName, ScoreList *scores);
+                     const char *playerName, ScoreList *scores,
+                     float timeout_seconds);
 
 #endif // SURVIVOR_H

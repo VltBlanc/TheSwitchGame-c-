@@ -29,6 +29,7 @@ MenuJeu *init_menu(void) {
   menu->niveau = MOYEN;
   menu->option_selectionnee = 0;
   menu->partie_en_cours = false;
+  menu->jeu_selectionne = GAME_SURVIVOR; // Jeu par défaut
 
   printf("Menu initialisé avec succès!\n");
 

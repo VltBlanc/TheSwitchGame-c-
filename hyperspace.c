@@ -1,6 +1,7 @@
 #include "include/hyperspace.h"
-#include <raymath.h>
 #include <math.h> // For powf
+#include <raymath.h>
+
 
 #define STAR_COUNT 420
 
@@ -32,6 +33,10 @@ void PlayHyperspaceEffect(float duration, Texture2D shipTexture) {
   // Main loop for the effect
   while (!WindowShouldClose() && timer < duration) {
     float dt = GetFrameTime();
+    // Fallback si GetFrameTime retourne 0 (peut arriver avec llvmpipe/software
+    // rendering)
+    if (dt <= 0.0f)
+      dt = 1.0f / 60.0f;
     timer += dt;
 
     // Update

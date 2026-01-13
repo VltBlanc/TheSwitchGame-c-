@@ -1,7 +1,12 @@
+#include "include/luca.h"
 #include "include/menu.h"
+#include "include/snake.h"
 #include "include/survivor.h"
+#include "include/valentin.h"
 #include <raylib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 int main(void) {
   printf("Démarrage du jeu...\n");
@@ -50,9 +55,48 @@ int main(void) {
       printf("Paramètres: %d joueur(s), difficulté %s\n", menu->mode + 1,
              get_difficulty_text(menu->niveau));
 
-      // Lancer le jeu
-      RunSurvivorGame(menu->niveau, menu->partie_en_cours,
-                      &menu->partie_en_cours, menu->playerName, menu->scores);
+      // Boucle de rotation des jeux (délai aléatoire entre 4-10 secondes)
+      srand((unsigned int)time(NULL)); // Initialiser le générateur aléatoire
+      GameSelection current_game =
+          (GameSelection)(rand() % 4); // Jeu de départ aléatoire
+      bool should_continue = true;
+
+      while (should_continue && !WindowShouldClose()) {
+        // Délai aléatoire entre 4 et 10 secondes
+        float game_duration = 4.0f + (float)(rand() % 7); // 4 à 10 secondes
+        printf("Lancement du jeu %d pour %.0f secondes...\n", current_game,
+               game_duration);
+
+        // Lancer le jeu actuel avec timeout
+        switch (current_game) {
+        case GAME_SURVIVOR:
+          RunSurvivorGame(menu->niveau, false, &menu->partie_en_cours,
+                          menu->playerName, menu->scores, game_duration);
+          break;
+        case GAME_SNAKE:
+          RunSnakeGame(menu->niveau, false, &menu->partie_en_cours,
+                       menu->playerName, menu->scores, game_duration);
+          break;
+        case GAME_LUCA:
+          RunLucaGame(menu->niveau, false, &menu->partie_en_cours,
+                      menu->playerName, menu->scores, game_duration);
+          break;
+        case GAME_VALENTIN:
+          RunValentinGame(menu->niveau, false, &menu->partie_en_cours,
+                          menu->playerName, menu->scores, game_duration);
+          break;
+        }
+
+        // Vérifier si on doit quitter (joueur mort ou ESC pressé)
+        if (!menu->partie_en_cours || WindowShouldClose()) {
+          should_continue = false;
+          break;
+        }
+
+        // Passer au jeu suivant
+        current_game = (GameSelection)((current_game + 1) % 4);
+        printf("Passage au jeu suivant: %d\n", current_game);
+      }
 
       // Rafraîchir les meilleurs scores affichés dans le menu
       if (menu->scores) {
