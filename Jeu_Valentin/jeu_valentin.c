@@ -117,19 +117,19 @@ static int LimiteEspace(int valeur, int min, int max) {
 static void ActualiseJoueur(void) {
   bool isMoving = false;
   // Gestion des entrées clavier pour changer de voie
-  if (IsKeyPressed(KEY_LEFT)) {
+  if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
     voieJoueurX--;
     isMoving = true;
   }
-  if (IsKeyPressed(KEY_RIGHT)) {
+  if (IsKeyPressed(KEY_RIGHT)||IsKeyPressed(KEY_D)) {
     voieJoueurX++;
     isMoving = true;
   }
-  if (IsKeyPressed(KEY_DOWN)) {
+  if (IsKeyPressed(KEY_DOWN)||IsKeyPressed(KEY_S)) {
     voieJoueurY--;
     isMoving = true;
   }
-  if (IsKeyPressed(KEY_UP)) {
+  if (IsKeyPressed(KEY_UP)||IsKeyPressed(KEY_W)) {
     voieJoueurY++;
     isMoving = true;
   }
