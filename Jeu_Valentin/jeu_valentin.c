@@ -427,12 +427,12 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
     elapsed_time += dt;
 
     // Accumuler le temps dans le temps global (si disponible)
-    if (total_time != NULL) {
+    if (total_time != NULL && !jeuFini) {
       *total_time += dt;
     }
 
     // Vérifier timeout (si > 0)
-    if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
+    if (!jeuFini && timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
       break; // Sortir automatiquement après le timeout
     }
 

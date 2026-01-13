@@ -459,12 +459,13 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
     elapsed_time += deltaTime;
 
     // Accumuler le temps dans le temps global (si disponible)
-    if (total_time != NULL) {
+    if (total_time != NULL && Joueur.vivant) {
       *total_time += deltaTime;
     }
 
     // Vérifier timeout (si > 0)
-    if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
+    if (Joueur.vivant && timeout_seconds > 0 &&
+        elapsed_time >= timeout_seconds) {
       break; // Sortir automatiquement après le timeout
     }
 
@@ -570,16 +571,16 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
   // Il est set à false seulement si ESC est pressé ou si le joueur meurt
 }
 
-void InitDifficulte(Difficulte version){
-    if (version == FACILE){
-        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/12;
-    }
-    if (version == MOYEN){
-        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/6;
-    }
-    if (version == DIFFICILE){
-        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/3;
-    }
+void InitDifficulte(Difficulte version) {
+  if (version == FACILE) {
+    nbrBlockQuiTombe = (Taille_Grid * Taille_Grid) / 12;
+  }
+  if (version == MOYEN) {
+    nbrBlockQuiTombe = (Taille_Grid * Taille_Grid) / 6;
+  }
+  if (version == DIFFICILE) {
+    nbrBlockQuiTombe = (Taille_Grid * Taille_Grid) / 3;
+  }
 }
 
 // Fonction wrapper avec signature standard

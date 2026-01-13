@@ -60,9 +60,9 @@ void update_menu(MenuJeu *menu) {
   // Navigation avec les flèches haut/bas
   if (menu->etat == MENU_PRINCIPAL) {
     int max_options = menu->partie_en_cours ? 4 : 3;
-    if (IsKeyPressed(KEY_DOWN)) {
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
       menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
-    } else if (IsKeyPressed(KEY_UP)) {
+    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
       menu->option_selectionnee =
           (menu->option_selectionnee - 1 + max_options) % max_options;
     }
@@ -117,7 +117,8 @@ void update_menu(MenuJeu *menu) {
     }
 
     // Flèches gauche/droite
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) {
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT) ||
+        IsKeyPressed(KEY_D) || IsKeyPressed(KEY_A)) {
       if (menu->option_selectionnee == 0) { // Mode
         if (menu->mode == UN_JOUEUR)
           menu->mode = DEUX_JOUEURS;

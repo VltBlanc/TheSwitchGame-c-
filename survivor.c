@@ -1107,7 +1107,7 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     elapsed_time += dt;
 
     // Vérifier timeout (si > 0)
-    if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
+    if (!gameOver && timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
       break; // Sortir automatiquement après le timeout
     }
 

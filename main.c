@@ -65,8 +65,8 @@ int main(void) {
       float total_game_time = 0.0f;
       // Tracker pour savoir si chaque jeu a déjà été initialisé
       bool game_started[4] = {false, false, false, false};
-
-      while (should_continue && !WindowShouldClose()) {
+      menu->partie_en_cours = true;
+      while (menu->partie_en_cours && !WindowShouldClose()) {
         // Délai aléatoire entre 4 et 10 secondes
         float game_duration = 4.0f + (float)(rand() % 7); // 4 à 10 secondes
 
@@ -128,7 +128,10 @@ int main(void) {
         printf("=== Passage au jeu suivant: %s ===\n",
                game_names[current_game]);
       }
-
+      if (!menu->partie_en_cours) {
+        printf("Retour au menu principal...\n");
+        menu->etat = MENU_PRINCIPAL;  
+      }
       // Rafraîchir les meilleurs scores affichés dans le menu
       if (menu->scores) {
         menu->nombre_scores = get_high_scores(
