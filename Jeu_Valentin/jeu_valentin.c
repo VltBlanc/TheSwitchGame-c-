@@ -411,7 +411,17 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
         BeginDrawing();
         EndDrawing();
       }
+      *game_active = false; // Signaler que le joueur veut quitter
       break;
+    }
+
+    // Si le joueur est mort, permettre de quitter
+    if (jeuFini) {
+      int key = GetKeyPressed();
+      if (key != 0) {
+        *game_active = false;
+        break;
+      }
     }
 
     ActualiseJeu();
@@ -425,5 +435,6 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
   if (asteroidModelCharge)
     UnloadModel(asteroidModel);
 
-  *game_active = false;
+  // Note: game_active n'est pas mis à false ici pour permettre la rotation
+  // Il est set à false seulement si ESC est pressé ou si le joueur meurt
 }

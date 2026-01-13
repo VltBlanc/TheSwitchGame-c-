@@ -1087,6 +1087,7 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
   // Activer le jeu après l'effet hyperspace
   *game_active = true;
   float elapsed_time = 0.0f; // Timer pour le timeout
+  printf("jeu survivor lancé\n");
 
   while (!WindowShouldClose()) {
     float dt = GetFrameTime();

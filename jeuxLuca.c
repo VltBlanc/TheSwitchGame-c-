@@ -451,13 +451,13 @@ void JeuLuca(bool *game_active, float timeout_seconds) {
     }
 
     // Retour au menu avec Escape
-    // Retour au menu avec Escape
     if (IsKeyPressed(KEY_ESCAPE)) {
       // Attendre que la touche soit relâchée
       while (IsKeyDown(KEY_ESCAPE)) {
         BeginDrawing();
         EndDrawing();
       }
+      *game_active = false; // Signaler que le joueur veut quitter
       break;
     }
 
@@ -532,7 +532,8 @@ void JeuLuca(bool *game_active, float timeout_seconds) {
   UnloadTexture(solFissureTexture);
   FreeGrid();
 
-  *game_active = false;
+  // Note: game_active n'est pas mis à false ici pour permettre la rotation
+  // Il est set à false seulement si ESC est pressé ou si le joueur meurt
 }
 
 // Fonction wrapper avec signature standard

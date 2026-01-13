@@ -789,7 +789,12 @@ void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
 
     // ESC retourne au menu
     if (IsKeyPressed(KEY_ESCAPE)) {
-      *game_active = false;
+      *game_active = false; // Signaler que le joueur veut quitter
+      // Attendre que la touche soit relâchée
+      while (IsKeyDown(KEY_ESCAPE)) {
+        BeginDrawing();
+        EndDrawing();
+      }
       break;
     }
 

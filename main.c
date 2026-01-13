@@ -64,38 +64,60 @@ int main(void) {
       while (should_continue && !WindowShouldClose()) {
         // Délai aléatoire entre 4 et 10 secondes
         float game_duration = 4.0f + (float)(rand() % 7); // 4 à 10 secondes
-        printf("Lancement du jeu %d pour %.0f secondes...\n", current_game,
-               game_duration);
+
+        const char *game_names[] = {"SURVIVOR", "SNAKE", "LUCA", "VALENTIN"};
+        printf("\n=== ROTATION: Lancement de %s pour %.0f secondes ===\n",
+               game_names[current_game], game_duration);
+        printf("Avant lancement: partie_en_cours = %s\n",
+               menu->partie_en_cours ? "true" : "false");
 
         // Lancer le jeu actuel avec timeout
         switch (current_game) {
         case GAME_SURVIVOR:
+          printf(">>> Entrée dans RunSurvivorGame\n");
           RunSurvivorGame(menu->niveau, false, &menu->partie_en_cours,
                           menu->playerName, menu->scores, game_duration);
+          printf("<<< Sortie de RunSurvivorGame\n");
           break;
         case GAME_SNAKE:
+          printf(">>> Entrée dans RunSnakeGame\n");
           RunSnakeGame(menu->niveau, false, &menu->partie_en_cours,
                        menu->playerName, menu->scores, game_duration);
+          printf("<<< Sortie de RunSnakeGame\n");
           break;
         case GAME_LUCA:
+          printf(">>> Entrée dans RunLucaGame\n");
           RunLucaGame(menu->niveau, false, &menu->partie_en_cours,
                       menu->playerName, menu->scores, game_duration);
+          printf("<<< Sortie de RunLucaGame\n");
           break;
         case GAME_VALENTIN:
+          printf(">>> Entrée dans RunValentinGame\n");
           RunValentinGame(menu->niveau, false, &menu->partie_en_cours,
                           menu->playerName, menu->scores, game_duration);
+          printf("<<< Sortie de RunValentinGame\n");
           break;
         }
 
+        printf("Après jeu: partie_en_cours = %s\n",
+               menu->partie_en_cours ? "true" : "false");
+        printf("WindowShouldClose = %s\n",
+               WindowShouldClose() ? "true" : "false");
+
         // Vérifier si on doit quitter (joueur mort ou ESC pressé)
         if (!menu->partie_en_cours || WindowShouldClose()) {
+          printf("!!! ARRÊT DE LA ROTATION: partie_en_cours=%s, "
+                 "WindowShouldClose=%s\n",
+                 menu->partie_en_cours ? "true" : "false",
+                 WindowShouldClose() ? "true" : "false");
           should_continue = false;
           break;
         }
 
         // Passer au jeu suivant
         current_game = (GameSelection)((current_game + 1) % 4);
-        printf("Passage au jeu suivant: %d\n", current_game);
+        printf("=== Passage au jeu suivant: %s ===\n",
+               game_names[current_game]);
       }
 
       // Rafraîchir les meilleurs scores affichés dans le menu
