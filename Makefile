@@ -91,6 +91,7 @@ info:
 	@echo "Target executable: $(TARGET)"
 	@echo "Linker flags: $(LDFLAGS)"
 
+
 # Platform-specific installation help
 help-platform:
 	@echo "Platform-specific Raylib installation instructions:"

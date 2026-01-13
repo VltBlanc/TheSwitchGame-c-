@@ -121,15 +121,15 @@ static void ActualiseJoueur(void) {
     voieJoueurX--;
     isMoving = true;
   }
-  if (IsKeyPressed(KEY_RIGHT)||IsKeyPressed(KEY_D)) {
+  if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
     voieJoueurX++;
     isMoving = true;
   }
-  if (IsKeyPressed(KEY_DOWN)||IsKeyPressed(KEY_S)) {
+  if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
     voieJoueurY--;
     isMoving = true;
   }
-  if (IsKeyPressed(KEY_UP)||IsKeyPressed(KEY_W)) {
+  if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
     voieJoueurY++;
     isMoving = true;
   }
@@ -324,7 +324,7 @@ static void DessinerJeu(void) {
 
   // Rendu du vaisseau
   if (modelCharge) {
-    float echelleVaisseau = 0.004f;
+    float echelleVaisseau = 0.02f;
     DrawModelEx(
         vaisseauModel, positionJoueur, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
         (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, WHITE);
@@ -395,10 +395,22 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
   // Créer la render texture pour le rendu centré
   renderTarget = LoadRenderTexture(LARGEUR_JEU, HAUTEUR_JEU);
 
-  // Note: Modèles OBJ désactivés car problèmes de compatibilité avec le loader
-  // Le jeu utilise DrawCube() et DrawSphere() comme fallbacks
-  modelCharge = false;
-  asteroidModelCharge = false;
+  // Chargement des modèles 3D
+  vaisseauModel = LoadModel("Jeu_Valentin/Spaceship.obj");
+  if (vaisseauModel.meshCount > 0) {
+    modelCharge = true;
+  } else {
+    TraceLog(LOG_WARNING, "Impossible de charger le modele du vaisseau !");
+    modelCharge = false;
+  }
+
+  asteroidModel = LoadModel("Jeu_Valentin/Asteroid.obj");
+  if (asteroidModel.meshCount > 0) {
+    asteroidModelCharge = true;
+  } else {
+    TraceLog(LOG_WARNING, "Impossible de charger le modele de l'asteroide !");
+    asteroidModelCharge = false;
+  }
 
   // Resume: ne pas réinitialiser si on reprend une partie
   if (!resume || !hasGameState) {
