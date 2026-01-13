@@ -324,7 +324,7 @@ static void DessinerJeu(void) {
 
   // Rendu du vaisseau
   if (modelCharge) {
-    float echelleVaisseau = 0.02f;
+    float echelleVaisseau = 0.005f;
     DrawModelEx(
         vaisseauModel, positionJoueur, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
         (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, WHITE);
