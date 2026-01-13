@@ -570,6 +570,18 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
   // Il est set à false seulement si ESC est pressé ou si le joueur meurt
 }
 
+void InitDifficulte(Difficulte version){
+    if (version == FACILE){
+        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/12;
+    }
+    if (version == MOYEN){
+        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/6;
+    }
+    if (version == DIFFICILE){
+        nbrBlockQuiTombe = (Taille_Grid*Taille_Grid)/3;
+    }
+}
+
 // Fonction wrapper avec signature standard
 void RunLucaGame(Difficulte difficulty, bool resume, bool *game_active,
                  const char *playerName, ScoreList *scores,
@@ -578,5 +590,6 @@ void RunLucaGame(Difficulte difficulty, bool resume, bool *game_active,
   (void)playerName;
   (void)scores;
 
+  InitDifficulte(difficulty);
   JeuLuca(game_active, timeout_seconds, resume, total_time);
 }
