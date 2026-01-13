@@ -284,8 +284,7 @@ static void ActualiseJeu(void) {
     VerifieCollisions();
     Actualiseretoile(tempsSurvie, niveauDifficulte);
   } else if (jeuFini) {
-    if (IsKeyPressed(KEY_ENTER))
-      InitGame();
+    // La gestion du restart est faite dans la boucle principale maintenant
   }
 }
 
@@ -350,9 +349,9 @@ static void DessinerJeu(void) {
     DrawRectangle(0, 0, LARGEUR_JEU, HAUTEUR_JEU, (Color){0, 0, 0, 200});
     DrawText("GAME OVER", LARGEUR_JEU / 2 - MeasureText("GAME OVER", 40) / 2,
              HAUTEUR_JEU / 2 - 50, 40, RED);
-    DrawText("Appuyez sur ENTREE pour recommencer",
+    DrawText("R: Rejouer | ESPACE: Quitter",
              LARGEUR_JEU / 2 -
-                 MeasureText("Appuyez sur ENTREE pour recommencer", 20) / 2,
+                 MeasureText("R: Rejouer | ESPACE: Quitter", 20) / 2,
              HAUTEUR_JEU / 2 + 40, 20, WHITE);
   }
 
@@ -443,10 +442,11 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
       break;
     }
 
-    // Si le joueur est mort, permettre de quitter
+    // Si le jeu est fini, gestion R (Rejouer) / ESPACE (Quitter)
     if (jeuFini) {
-      int key = GetKeyPressed();
-      if (key != 0) {
+      if (IsKeyPressed(KEY_R)) {
+        InitGame();
+      } else if (IsKeyPressed(KEY_SPACE)) {
         *game_active = false;
         break;
       }

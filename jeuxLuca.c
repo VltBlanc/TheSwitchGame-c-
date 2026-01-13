@@ -492,9 +492,14 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
       }
 
     } else {
-      // Joueur mort - n'importe quelle touche retourne au menu
-      int key = GetKeyPressed();
-      if (key != 0) {
+      // Joueur mort
+      // Gestion R (Rejouer) / ESPACE (Quitter)
+      if (IsKeyPressed(KEY_R)) {
+        ResetGridState();
+        Joueur = InitJoueur();
+        // On s'assure que le jeu reprend
+        // hasGameState est déjà true
+      } else if (IsKeyPressed(KEY_SPACE)) {
         *game_active = false;
         break;
       }
@@ -524,12 +529,10 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
       DrawText("GAME OVER!",
                (screenWidth / 2) - MeasureText("GAME OVER!", 60) / 2,
                screenHeight / 3, 60, RED);
-      DrawText(
-          "Appuyez sur une touche pour revenir au menu",
-          (screenWidth / 2) -
-              MeasureText("Appuyez sur une touche pour revenir au menu", 20) /
-                  2,
-          screenHeight / 2, 20, RAYWHITE);
+      DrawText("R: Rejouer | ESPACE: Quitter",
+               (screenWidth / 2) -
+                   MeasureText("R: Rejouer | ESPACE: Quitter", 20) / 2,
+               screenHeight / 2, 20, RAYWHITE);
     }
 
     EndTextureMode();

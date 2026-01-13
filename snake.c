@@ -736,8 +736,8 @@ static void DessinerJeu() {
     DrawText(TextFormat("Score final: %d", score),
              LARGEUR_GRILLE * TAILLE_CASE / 2 - 90,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 10, 20, WHITE);
-    DrawText("Press ESC to return to menu",
-             LARGEUR_GRILLE * TAILLE_CASE / 2 - 140,
+    DrawText("Press R to Restart or SPACE to Quit",
+             LARGEUR_GRILLE * TAILLE_CASE / 2 - 160,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 40, 20, LIGHTGRAY);
   }
 
@@ -837,12 +837,17 @@ void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
         temps_derniere_maj = 0;
       }
     } else {
-      // Game over - sauvegarder le score (Géré par main.c maintenant)
-      // add_score(scores, playerName, score);
+      // Game over
+      // Sauvegarder le score est géré par main.c lors de la fin de
+      // rotation/quitter
 
-      // N'importe quelle touche retourne au menu
-      int key = GetKeyPressed();
-      if (key != 0) {
+      // Gestion R (Rejouer) / ESPACE (Quitter)
+      if (IsKeyPressed(KEY_R)) {
+        InitialiserJeu();
+        score = 0; // Reset score visual too if needed, though Init does it
+        jeu_termine = false;
+        // On ne change pas game_active
+      } else if (IsKeyPressed(KEY_SPACE)) {
         *game_active = false;
         break;
       }

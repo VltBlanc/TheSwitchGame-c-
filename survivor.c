@@ -661,9 +661,11 @@ void UpdateGame(float dt) {
 
   // --- APPARITION ---
   // Le taux d'apparition augmente rapidement
+  // Le taux d'apparition augmente rapidement
   // Utilise le temps GLOBAL pour que la difficulté augmente même en rotation
-  float difficultyTime =
-      (globalTotalTime != NULL) ? *globalTotalTime : gameTime;
+  // MODIFICATION: On utilise gameTime (local) pour le spawn rate pour éviter
+  // que le jeu ne devienne impossible après une rotation
+  float difficultyTime = gameTime;
   // Base 0.8s, diminue de 0.05s toutes les 10s, min 0.1s
   float currentSpawnRate = 0.8f - (difficultyTime / 10.0f) * 0.05f;
   if (currentSpawnRate < 0.1f)
@@ -1010,7 +1012,7 @@ void DrawGame() {
 
   if (gameOver) {
     DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
-    DrawText("Appuyez sur une touche pour revenir au menu", screenW / 2 - 180,
+    DrawText("R: Rejouer | ESPACE: Quitter", screenW / 2 - 180,
              screenH / 2 + 10, 20, DARKGRAY);
   }
 
@@ -1122,10 +1124,15 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       break;
     }
 
-    // En game over, n'importe quelle touche retourne au menu
+    // En game over, gestion des choix (R = Rejouer, ESPACE = Quitter)
     if (gameOver) {
-      int key = GetKeyPressed();
-      if (key != 0) {
+      if (IsKeyPressed(KEY_R)) {
+        // Rejouer
+        InitGame(difficulty);
+        // On remet game_active à true pour être sûr
+        *game_active = true;
+      } else if (IsKeyPressed(KEY_SPACE)) {
+        // Quitter
         *game_active = false;
         break;
       }
