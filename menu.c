@@ -270,9 +270,9 @@ void draw_high_scores(const MenuJeu *menu) {
   if (menu->nombre_scores > 0) {
     for (int i = 0; i < menu->nombre_scores; i++) {
       char texte_score[64];
-      sprintf(texte_score, "%d. %s - %d", i + 1,
+      sprintf(texte_score, "%d. %s - %.2fs", i + 1,
               menu->meilleurs_scores[i].playername,
-              menu->meilleurs_scores[i].score);
+              menu->meilleurs_scores[i].time);
 
       // Hitbox pour le clic (visualisation implicite)
       int scoreY = 180 + i * 30;

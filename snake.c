@@ -56,7 +56,11 @@ Position murs[15]; // Maximum pour le mode difficile
 int nombre_murs;
 
 // Difficulté du jeu
+// Difficulté du jeu
 Difficulte difficulte_actuelle;
+
+// Temps global pour affichage
+static float *snakeGlobalTime = NULL;
 
 // --- NOUVEAU: Systemes visuels ---
 // Etoiles pour le fond
@@ -745,12 +749,22 @@ static void DessinerJeu() {
   DrawTextureRec(snakeRenderTarget.texture,
                  (Rectangle){0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU},
                  (Vector2){OFFSET_X, OFFSET_Y}, WHITE);
+
+  // Afficher le temps global sur le côté (dans la zone noire)
+  if (snakeGlobalTime != NULL) {
+    DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
+    DrawText(TextFormat("%.1fs", *snakeGlobalTime), 20, HAUTEUR_FENETRE / 2 + 5,
+             30, WHITE);
+  }
+
   EndDrawing();
 }
 
 void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
                   const char *playerName, ScoreList *scores,
-                  float timeout_seconds) {
+                  float timeout_seconds, float *total_time) {
+  snakeGlobalTime = total_time;
+
   // Configurer la fenetre (pas de InitWindow, la fenetre appartient au main)
   SetWindowSize(LARGEUR_FENETRE, HAUTEUR_FENETRE);
   SetWindowTitle("Snake");
@@ -781,6 +795,11 @@ void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
   while (!WindowShouldClose()) {
     float dt = GetFrameTime();
     elapsed_time += dt;
+
+    // Accumuler le temps dans le temps global (si disponible)
+    if (total_time != NULL) {
+      *total_time += dt;
+    }
 
     // Vérifier timeout (si > 0)
     if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
@@ -817,8 +836,8 @@ void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
         temps_derniere_maj = 0;
       }
     } else {
-      // Game over - sauvegarder le score
-      add_score(scores, playerName, score);
+      // Game over - sauvegarder le score (Géré par main.c maintenant)
+      // add_score(scores, playerName, score);
 
       // N'importe quelle touche retourne au menu
       int key = GetKeyPressed();

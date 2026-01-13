@@ -6,14 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #define MAX_SCORES 100
 #define MAX_NAME_LENGTH 32
 #define SCORES_FILE "scores.csv"
 
 typedef struct {
   char playername[MAX_NAME_LENGTH];
-  int score;
+  float time;
 } ScoreEntry;
 
 typedef struct {
@@ -28,6 +27,6 @@ void sort_scores(ScoreList *scores);
 int get_high_scores(ScoreList *scores, ScoreEntry *top_scores, int max_count);
 void print_scores(ScoreList *scores);
 bool save_scores(ScoreList *scores);
-void add_score(ScoreList *scores, const char *name, int score);
+void add_score(ScoreList *scores, const char *name, float time);
 
 #endif // SCORES_H

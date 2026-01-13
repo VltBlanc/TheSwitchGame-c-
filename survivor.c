@@ -68,6 +68,7 @@ static Texture2D tankTexture;
 static Camera2D camera = {0};
 
 static float gameTime = 0.0f;
+static float *globalTotalTime = NULL; // Pointeur vers le temps global
 static float spawnTimer = 0.0f;
 static float bonusSpawnTimer = 0.0f;
 static float timeToSpawn = 1.0f;
@@ -328,16 +329,20 @@ int FindNearestEnemy() {
 
 void UpdateGame(float dt) {
   if (gameOver) {
-    if (!scoreSaved && currentScores != NULL) {
-      add_score(currentScores, currentPlayerName, score);
-      save_scores(currentScores);
-      scoreSaved = true;
-    }
+    // Le score est maintenant géré par le menu principal à la fin de la
+    // rotation N'importe quelle touche met fin au jeu (géré dans
+    // RunSurvivorGame)
+    return;
     // N'importe quelle touche met fin au jeu (géré dans RunSurvivorGame)
     return;
   }
 
   gameTime += dt;
+
+  // Accumuler le temps dans le temps global (si disponible)
+  if (globalTotalTime != NULL) {
+    *globalTotalTime += dt;
+  }
 
   // --- MOUVEMENT DU JOUEUR ---
   Vector2 move = {0};
@@ -656,8 +661,11 @@ void UpdateGame(float dt) {
 
   // --- APPARITION ---
   // Le taux d'apparition augmente rapidement
+  // Utilise le temps GLOBAL pour que la difficulté augmente même en rotation
+  float difficultyTime =
+      (globalTotalTime != NULL) ? *globalTotalTime : gameTime;
   // Base 0.8s, diminue de 0.05s toutes les 10s, min 0.1s
-  float currentSpawnRate = 0.8f - (gameTime / 10.0f) * 0.05f;
+  float currentSpawnRate = 0.8f - (difficultyTime / 10.0f) * 0.05f;
   if (currentSpawnRate < 0.1f)
     currentSpawnRate = 0.1f;
 
@@ -898,7 +906,9 @@ void DrawGame() {
 
   // Header Stats (Score & Time) - Top Center, Large, Space Blue
   const char *scoreText = TextFormat("SCORE: %d", score);
-  const char *timeText = TextFormat("TIME: %.1fs", gameTime);
+  // Afficher le temps global si disponible
+  float displayTime = (globalTotalTime != NULL) ? *globalTotalTime : gameTime;
+  const char *timeText = TextFormat("TIME: %.1fs", displayTime);
   int scoreW = MeasureText(scoreText, 40);
   int timeW = MeasureText(timeText, 40);
 
@@ -1013,7 +1023,10 @@ void DrawGame() {
 
 void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
                      const char *playerName, ScoreList *scores,
-                     float timeout_seconds) {
+                     float timeout_seconds, float *total_time) {
+  // Stocker le pointeur vers le temps global
+  globalTotalTime = total_time;
+
   // On ajuste la fenêtre à la taille standard
   SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);
   SetWindowTitle("survivor");
@@ -1079,8 +1092,8 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
   tankTexture = LoadTexture("assets/sprite-tank.png");
 
   // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
-  // partie)
-  if (!resume) {
+  // partie et pas en mode rotation)
+  if (!resume && timeout_seconds <= 0) {
     PlayHyperspaceEffect(1.0f, spaceshipTexture);
   }
 

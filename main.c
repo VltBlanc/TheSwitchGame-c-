@@ -61,6 +61,11 @@ int main(void) {
           (GameSelection)(rand() % 4); // Jeu de départ aléatoire
       bool should_continue = true;
 
+      // Temps global partagé entre tous les jeux
+      float total_game_time = 0.0f;
+      // Tracker pour savoir si chaque jeu a déjà été initialisé
+      bool game_started[4] = {false, false, false, false};
+
       while (should_continue && !WindowShouldClose()) {
         // Délai aléatoire entre 4 et 10 secondes
         float game_duration = 4.0f + (float)(rand() % 7); // 4 à 10 secondes
@@ -68,48 +73,52 @@ int main(void) {
         const char *game_names[] = {"SURVIVOR", "SNAKE", "LUCA", "VALENTIN"};
         printf("\n=== ROTATION: Lancement de %s pour %.0f secondes ===\n",
                game_names[current_game], game_duration);
-        printf("Avant lancement: partie_en_cours = %s\n",
-               menu->partie_en_cours ? "true" : "false");
+        printf("Temps global: %.1f secondes | Resume: %s\n", total_game_time,
+               game_started[current_game] ? "OUI" : "NON");
 
         // Lancer le jeu actuel avec timeout
+        // resume = true si le jeu a déjà été lancé (pour préserver l'état)
+        bool resume = game_started[current_game];
+
         switch (current_game) {
         case GAME_SURVIVOR:
-          printf(">>> Entrée dans RunSurvivorGame\n");
-          RunSurvivorGame(menu->niveau, false, &menu->partie_en_cours,
-                          menu->playerName, menu->scores, game_duration);
-          printf("<<< Sortie de RunSurvivorGame\n");
+          RunSurvivorGame(menu->niveau, resume, &menu->partie_en_cours,
+                          menu->playerName, menu->scores, game_duration,
+                          &total_game_time);
           break;
         case GAME_SNAKE:
-          printf(">>> Entrée dans RunSnakeGame\n");
-          RunSnakeGame(menu->niveau, false, &menu->partie_en_cours,
-                       menu->playerName, menu->scores, game_duration);
-          printf("<<< Sortie de RunSnakeGame\n");
+          RunSnakeGame(menu->niveau, resume, &menu->partie_en_cours,
+                       menu->playerName, menu->scores, game_duration,
+                       &total_game_time);
           break;
         case GAME_LUCA:
-          printf(">>> Entrée dans RunLucaGame\n");
-          RunLucaGame(menu->niveau, false, &menu->partie_en_cours,
-                      menu->playerName, menu->scores, game_duration);
-          printf("<<< Sortie de RunLucaGame\n");
+          RunLucaGame(menu->niveau, resume, &menu->partie_en_cours,
+                      menu->playerName, menu->scores, game_duration,
+                      &total_game_time);
           break;
         case GAME_VALENTIN:
-          printf(">>> Entrée dans RunValentinGame\n");
-          RunValentinGame(menu->niveau, false, &menu->partie_en_cours,
-                          menu->playerName, menu->scores, game_duration);
-          printf("<<< Sortie de RunValentinGame\n");
+          RunValentinGame(menu->niveau, resume, &menu->partie_en_cours,
+                          menu->playerName, menu->scores, game_duration,
+                          &total_game_time);
           break;
         }
 
-        printf("Après jeu: partie_en_cours = %s\n",
-               menu->partie_en_cours ? "true" : "false");
-        printf("WindowShouldClose = %s\n",
-               WindowShouldClose() ? "true" : "false");
+        // Marquer le jeu comme déjà initialisé pour la prochaine fois
+        game_started[current_game] = true;
+
+        printf("Après jeu: partie_en_cours = %s, temps global = %.1f\n",
+               menu->partie_en_cours ? "true" : "false", total_game_time);
 
         // Vérifier si on doit quitter (joueur mort ou ESC pressé)
         if (!menu->partie_en_cours || WindowShouldClose()) {
-          printf("!!! ARRÊT DE LA ROTATION: partie_en_cours=%s, "
-                 "WindowShouldClose=%s\n",
-                 menu->partie_en_cours ? "true" : "false",
-                 WindowShouldClose() ? "true" : "false");
+          printf("!!! ARRÊT DE LA ROTATION !!!\n");
+          // Sauvegarder le score final (Temps Total)
+          if (menu->scores) {
+            add_score(menu->scores, menu->playerName, total_game_time);
+            save_scores(menu->scores);
+            printf("Score sauvegardé: %.2fs pour %s\n", total_game_time,
+                   menu->playerName);
+          }
           should_continue = false;
           break;
         }

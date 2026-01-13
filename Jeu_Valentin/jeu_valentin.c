@@ -63,6 +63,8 @@ Obstacle tableauObstacles[MAX_OBSTACLES];
 Camera3D cameraJeu = {0};
 static bool jeuFini = false;
 static bool jeuEnPause = false;
+static bool hasGameState = false;        // Pour le resume
+static float *valentinGlobalTime = NULL; // Pour affichage
 
 float tempsSurvie = 0.0f;
 int niveauDifficulte = 0;
@@ -366,14 +368,23 @@ static void DessinerJeu(void) {
   DrawTextureRec(renderTarget.texture,
                  (Rectangle){0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU},
                  (Vector2){OFFSET_X, OFFSET_Y}, WHITE);
+
+  // Afficher le temps global sur le côté (dans la zone noire)
+  if (valentinGlobalTime != NULL) {
+    DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
+    DrawText(TextFormat("%.1fs", *valentinGlobalTime), 20,
+             HAUTEUR_FENETRE / 2 + 5, 30, WHITE);
+  }
+
   EndDrawing();
 }
 
 void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
                      const char *playerName, ScoreList *scores,
-                     float timeout_seconds) {
+                     float timeout_seconds, float *total_time) {
+  valentinGlobalTime = total_time;
+
   (void)difficulty; // Non utilisé pour l'instant
-  (void)resume;
   (void)playerName;
   (void)scores;
 
@@ -389,7 +400,11 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
   modelCharge = false;
   asteroidModelCharge = false;
 
-  InitGame();
+  // Resume: ne pas réinitialiser si on reprend une partie
+  if (!resume || !hasGameState) {
+    InitGame();
+    hasGameState = true;
+  }
 
   *game_active = true;
   float elapsed_time = 0.0f; // Timer pour le timeout
@@ -398,6 +413,11 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
   while (!WindowShouldClose()) {
     float dt = GetFrameTime();
     elapsed_time += dt;
+
+    // Accumuler le temps dans le temps global (si disponible)
+    if (total_time != NULL) {
+      *total_time += dt;
+    }
 
     // Vérifier timeout (si > 0)
     if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
@@ -434,6 +454,11 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
     UnloadModel(vaisseauModel);
   if (asteroidModelCharge)
     UnloadModel(asteroidModel);
+
+  // Si le joueur est mort, réinitialiser l'état pour la prochaine partie
+  if (jeuFini) {
+    hasGameState = false;
+  }
 
   // Note: game_active n'est pas mis à false ici pour permettre la rotation
   // Il est set à false seulement si ESC est pressé ou si le joueur meurt

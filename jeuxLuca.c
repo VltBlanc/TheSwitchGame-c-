@@ -65,6 +65,10 @@ static bool nbrBlockDoitAugmenter =
           // sans augmenter le nombre de block
 static bool jeuEnPause = false;
 
+// Variables pour le resume (état sauvegardé entre les rotations)
+static Joueur savedJoueur;
+static bool hasGameState = false;
+
 Texture2D playerTexture;
 Texture2D fondTexture;
 Texture2D solTexture;
@@ -82,7 +86,8 @@ void VerifieMort(Joueur *Joueur);
 void UpdateGridPhase(Joueur *Joueur, float deltaTime);
 void DessinePartie();
 void DessineJoueur(Joueur Joueur);
-void JeuLuca(bool *game_active, float timeout_seconds);
+void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
+             float *total_time);
 
 //---FONCTIONS---
 void InitGrid() {
@@ -414,7 +419,8 @@ void DessineJoueur(Joueur Joueur) {
   }
 }
 
-void JeuLuca(bool *game_active, float timeout_seconds) {
+void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
+             float *total_time) {
   srand((unsigned int)time(NULL)); // graine choisi aléatoirement pour éviter
                                    // répétition du même motif
 
@@ -435,8 +441,15 @@ void JeuLuca(bool *game_active, float timeout_seconds) {
   solTexture = LoadTexture("assets/sol.png");
   solFissureTexture = LoadTexture("assets/solFissure.png");
 
-  InitGrid();
-  Joueur Joueur = InitJoueur();
+  // Resume: restaurer l'état ou initialiser
+  Joueur Joueur;
+  if (resume && hasGameState) {
+    Joueur = savedJoueur; // Restaurer l'état sauvegardé
+  } else {
+    InitGrid();
+    Joueur = InitJoueur();
+    hasGameState = true;
+  }
 
   *game_active = true;
   float elapsed_time = 0.0f; // Timer pour le timeout
@@ -444,6 +457,11 @@ void JeuLuca(bool *game_active, float timeout_seconds) {
   while (!WindowShouldClose()) {
     float deltaTime = GetFrameTime();
     elapsed_time += deltaTime;
+
+    // Accumuler le temps dans le temps global (si disponible)
+    if (total_time != NULL) {
+      *total_time += deltaTime;
+    }
 
     // Vérifier timeout (si > 0)
     if (timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
@@ -521,16 +539,32 @@ void JeuLuca(bool *game_active, float timeout_seconds) {
     DrawTextureRec(lucaRenderTarget.texture,
                    (Rectangle){0, 0, (float)screenWidth, (float)-screenHeight},
                    (Vector2){(float)offsetX, (float)offsetY}, WHITE);
+
+    // Afficher le temps global sur le côté (dans la zone noire)
+    if (total_time != NULL) {
+      DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
+      DrawText(TextFormat("%.1fs", *total_time), 20, HAUTEUR_FENETRE / 2 + 5,
+               30, WHITE);
+    }
+
     EndDrawing();
   }
 
-  // Nettoyage
+  // Sauvegarder l'état du joueur pour le resume
+  savedJoueur = Joueur;
+
+  // Nettoyage des textures (mais garder grid et état)
   UnloadRenderTexture(lucaRenderTarget);
   UnloadTexture(playerTexture);
   UnloadTexture(fondTexture);
   UnloadTexture(solTexture);
   UnloadTexture(solFissureTexture);
-  FreeGrid();
+
+  // Si le joueur est mort, nettoyer l'état pour la prochaine partie
+  if (!Joueur.vivant) {
+    FreeGrid();
+    hasGameState = false;
+  }
 
   // Note: game_active n'est pas mis à false ici pour permettre la rotation
   // Il est set à false seulement si ESC est pressé ou si le joueur meurt
@@ -539,11 +573,10 @@ void JeuLuca(bool *game_active, float timeout_seconds) {
 // Fonction wrapper avec signature standard
 void RunLucaGame(Difficulte difficulty, bool resume, bool *game_active,
                  const char *playerName, ScoreList *scores,
-                 float timeout_seconds) {
+                 float timeout_seconds, float *total_time) {
   (void)difficulty; // Non utilisé pour l'instant
-  (void)resume;
   (void)playerName;
   (void)scores;
 
-  JeuLuca(game_active, timeout_seconds);
+  JeuLuca(game_active, timeout_seconds, resume, total_time);
 }

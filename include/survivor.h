@@ -160,8 +160,9 @@ void DrawGame(void);
 // ============================================================================
 
 // timeout_seconds: 0 = pas de limite, >0 = durée max en secondes
+// total_time: pointeur vers le temps total écoulé (tous jeux confondus)
 void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
                      const char *playerName, ScoreList *scores,
-                     float timeout_seconds);
+                     float timeout_seconds, float *total_time);
 
 #endif // SURVIVOR_H
