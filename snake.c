@@ -2,6 +2,7 @@
 #include "include/scores.h"
 #include <math.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -575,12 +576,12 @@ static void GererEntrees() {
 }
 
 // Fonction pour dessiner le jeu
-static void DessinerJeu() {
+static void DessinerJeu(float scale, Vector2 shake_offset) {
   // Rendu dans la texture à la taille native du jeu
   BeginTextureMode(snakeRenderTarget);
   ClearBackground((Color){10, 10, 30, 255});
 
-  // Camera Shake
+  // Camera Shake (INTERNE AU JEU, distinct de la transition)
   Camera2D camera = {0};
   camera.zoom = 1.0f;
   if (shake_intensity > 0) {
@@ -736,22 +737,34 @@ static void DessinerJeu() {
     DrawText(TextFormat("Score final: %d", score),
              LARGEUR_GRILLE * TAILLE_CASE / 2 - 90,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 10, 20, WHITE);
-    DrawText("Press R to Restart or SPACE to Quit",
-             LARGEUR_GRILLE * TAILLE_CASE / 2 - 160,
+    DrawText("Press ESCAPE to Quit", LARGEUR_GRILLE * TAILLE_CASE / 2 - 100,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 40, 20, LIGHTGRAY);
   }
 
   EndTextureMode();
 
-  // Dessiner la texture centrée sur l'écran
+  // Dessiner la texture centrée sur l'écran AVEC ZOOM ET SHAKE
   BeginDrawing();
   ClearBackground(BLACK);
-  DrawTextureRec(snakeRenderTarget.texture,
-                 (Rectangle){0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU},
-                 (Vector2){OFFSET_X, OFFSET_Y}, WHITE);
+
+  // Calcul du rectangle de destination centré et mis à l'échelle
+  float destWidth = LARGEUR_JEU * scale;
+  float destHeight = HAUTEUR_JEU * scale;
+  float destX = (LARGEUR_FENETRE - destWidth) / 2.0f + shake_offset.x;
+  float destY = (HAUTEUR_FENETRE - destHeight) / 2.0f + shake_offset.y;
+
+  // Source (taille réelle du jeu, y négatif pour Render Texture Raylib)
+  Rectangle sourceRec = {0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU};
+  Rectangle destRec = {destX, destY, destWidth, destHeight};
+  Vector2 origin = {
+      0, 0}; // Le coin haut-gauche de destRec est déjà calculé centré
+
+  DrawTexturePro(snakeRenderTarget.texture, sourceRec, destRec, origin, 0.0f,
+                 WHITE);
 
   // Afficher le temps global sur le côté (dans la zone noire)
-  if (snakeGlobalTime != NULL) {
+  // On ne l'affiche que si on est proche de l'échelle 1 (pas trop petit)
+  if (snakeGlobalTime != NULL && scale > 0.8f) {
     DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
     DrawText(TextFormat("%.1fs", *snakeGlobalTime), 20, HAUTEUR_FENETRE / 2 + 5,
              30, WHITE);
@@ -762,7 +775,7 @@ static void DessinerJeu() {
 
 void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
                   const char *playerName, ScoreList *scores,
-                  float timeout_seconds, float *total_time) {
+                  float timeout_seconds, float *total_time, float start_delay) {
   snakeGlobalTime = total_time;
 
   // Configurer la fenetre (pas de InitWindow, la fenetre appartient au main)
@@ -796,6 +809,30 @@ void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
     float dt = GetFrameTime();
     elapsed_time += dt;
 
+    // Gestion des transitions (Zoom/Shake)
+    float current_scale = 1.0f;
+    Vector2 shake_transition = {0.0f, 0.0f};
+
+    // 1. Zoom In au début (pendant start_delay)
+    if (elapsed_time < start_delay) {
+      float factor = elapsed_time / start_delay;
+      current_scale = Lerp(0.1f, 1.0f, factor);
+    }
+    // 2. Shake + Zoom Out à la fin (0.5s avant fin)
+    else if (!jeu_termine && timeout_seconds > 0 &&
+             (timeout_seconds - elapsed_time) < 0.5f) {
+      float remaining = timeout_seconds - elapsed_time;
+      float factor = remaining / 0.5f;          // Va de 1.0 -> 0.0
+      current_scale = Lerp(0.1f, 1.0f, factor); // Zoom out
+
+      // Shake scale
+      float shake_amount = (1.0f - factor) * 10.0f;
+      shake_transition.x =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.y =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+    }
+
     // Accumuler le temps dans le temps global (si disponible)
     if (total_time != NULL && !jeu_termine) {
       *total_time += dt;
@@ -807,53 +844,46 @@ void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
       break; // Sortir automatiquement après le timeout
     }
 
-    // ESC retourne au menu
+    // Retour au menu avec Escape
     if (IsKeyPressed(KEY_ESCAPE)) {
-      *game_active = false; // Signaler que le joueur veut quitter
       // Attendre que la touche soit relâchée
       while (IsKeyDown(KEY_ESCAPE)) {
         BeginDrawing();
         EndDrawing();
       }
+      *game_active = false; // Signaler que le joueur veut quitter
       break;
     }
 
-    UpdateStars();
-    UpdateParticles();
-
-    if (!jeu_termine) {
-      GererEntrees();
-
-      // Consommer le carburant
-      carburant -= dt;
-      if (carburant <= 0) {
-        jeu_termine = true;
-      }
-
-      // Mettre a jour le jeu selon la vitesse
-      temps_derniere_maj += dt;
-      if (temps_derniere_maj >= vitesse_jeu) {
-        DeplacerSerpent();
-        temps_derniere_maj = 0;
-      }
-    } else {
-      // Game over
-      // Sauvegarder le score est géré par main.c lors de la fin de
-      // rotation/quitter
-
-      // Gestion R (Rejouer) / ESPACE (Quitter)
-      if (IsKeyPressed(KEY_R)) {
-        InitialiserJeu();
-        score = 0; // Reset score visual too if needed, though Init does it
-        jeu_termine = false;
-        // On ne change pas game_active
-      } else if (IsKeyPressed(KEY_SPACE)) {
-        *game_active = false;
-        break;
-      }
+    if (jeu_termine) {
+      // Only Escape allows to quit, handled at the top of the loop
     }
 
-    DessinerJeu();
+    if (!jeu_termine) {
+      // Mise à jour de la logique SEULEMENT si pas en intro pause
+      if (elapsed_time >= start_delay) {
+        GererEntrees(); // Allow inputs only after start_delay? Or collect but
+                        // apply only? Usually pause = no update.
+
+        // Timer de jeu
+        temps_derniere_maj += dt;
+        if (temps_derniere_maj >= vitesse_jeu) {
+          temps_derniere_maj = 0;
+          DeplacerSerpent();
+        }
+
+        // Gestion de la consommation de carburant
+        carburant -= dt;
+        if (carburant <= 0) {
+          jeu_termine = true;
+          shake_intensity = 5.0f; // Petit shake quand panne sèche
+        }
+      }
+      UpdateStars();
+      UpdateParticles();
+    }
+
+    DessinerJeu(current_scale, shake_transition);
   }
 
   // Libérer la render texture

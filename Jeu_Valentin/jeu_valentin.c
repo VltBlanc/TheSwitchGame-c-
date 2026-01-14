@@ -1,8 +1,8 @@
 #include "../include/valentin.h"
 #include "etoile.h"
-#include "raylib.h"
-#include "raymath.h"
 #include <math.h>
+#include <raylib.h>
+#include <raymath.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -49,7 +49,7 @@ static void ApparitionAsteroide(void);
 static void ActualiseAsteroides(void);
 static void VerifieCollisions(void);
 static void ActualiseJeu(void);
-static void DessinerJeu(void);
+static void DessinerJeu(float scale, Vector2 shake_offset);
 
 // Variables globales
 Vector3 positionJoueur = {0.0f, 0.0f, 0.0f};
@@ -288,7 +288,7 @@ static void ActualiseJeu(void) {
   }
 }
 
-static void DessinerJeu(void) {
+static void DessinerJeu(float scale, Vector2 shake_offset) {
   // Rendu dans la texture à la taille native du jeu
   BeginTextureMode(renderTarget);
   ClearBackground(BLACK);
@@ -349,23 +349,32 @@ static void DessinerJeu(void) {
     DrawRectangle(0, 0, LARGEUR_JEU, HAUTEUR_JEU, (Color){0, 0, 0, 200});
     DrawText("GAME OVER", LARGEUR_JEU / 2 - MeasureText("GAME OVER", 40) / 2,
              HAUTEUR_JEU / 2 - 50, 40, RED);
-    DrawText("R: Rejouer | ESPACE: Quitter",
-             LARGEUR_JEU / 2 -
-                 MeasureText("R: Rejouer | ESPACE: Quitter", 20) / 2,
+    DrawText("ESCAPE: Menu",
+             LARGEUR_JEU / 2 - MeasureText("ESCAPE: Menu", 20) / 2,
              HAUTEUR_JEU / 2 + 40, 20, WHITE);
   }
 
   EndTextureMode();
 
-  // Dessiner la texture centrée sur l'écran
+  // Dessiner la texture centrée sur l'écran AVEC ZOOM ET SHAKE
   BeginDrawing();
   ClearBackground(BLACK);
-  DrawTextureRec(renderTarget.texture,
-                 (Rectangle){0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU},
-                 (Vector2){OFFSET_X, OFFSET_Y}, WHITE);
+
+  // Calcul du rectangle de destination centré et mis à l'échelle
+  float destWidth = LARGEUR_JEU * scale;
+  float destHeight = HAUTEUR_JEU * scale;
+  float destX = (LARGEUR_FENETRE - destWidth) / 2.0f + shake_offset.x;
+  float destY = (HAUTEUR_FENETRE - destHeight) / 2.0f + shake_offset.y;
+
+  // Source (taille réelle du jeu, y négatif pour Render Texture Raylib)
+  Rectangle sourceRec = {0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU};
+  Rectangle destRec = {destX, destY, destWidth, destHeight};
+  Vector2 origin = {0, 0};
+
+  DrawTexturePro(renderTarget.texture, sourceRec, destRec, origin, 0.0f, WHITE);
 
   // Afficher le temps global sur le côté (dans la zone noire)
-  if (valentinGlobalTime != NULL) {
+  if (valentinGlobalTime != NULL && scale > 0.8f) {
     DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
     DrawText(TextFormat("%.1fs", *valentinGlobalTime), 20,
              HAUTEUR_FENETRE / 2 + 5, 30, WHITE);
@@ -376,7 +385,8 @@ static void DessinerJeu(void) {
 
 void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
                      const char *playerName, ScoreList *scores,
-                     float timeout_seconds, float *total_time) {
+                     float timeout_seconds, float *total_time,
+                     float start_delay) {
   valentinGlobalTime = total_time;
 
   (void)difficulty; // Non utilisé pour l'instant
@@ -444,16 +454,39 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
 
     // Si le jeu est fini, gestion R (Rejouer) / ESPACE (Quitter)
     if (jeuFini) {
-      if (IsKeyPressed(KEY_R)) {
-        InitGame();
-      } else if (IsKeyPressed(KEY_SPACE)) {
-        *game_active = false;
-        break;
-      }
+      // Only Escape allows to quit, handled at the top of the loop
     }
 
-    ActualiseJeu();
-    DessinerJeu();
+    // Gestion des transitions (Zoom/Shake)
+    float current_scale = 1.0f;
+    Vector2 shake_transition = {0.0f, 0.0f};
+
+    // 1. Zoom In au début (pendant start_delay)
+    if (elapsed_time < start_delay) {
+      float factor = elapsed_time / start_delay;
+      current_scale = Lerp(0.1f, 1.0f, factor);
+    }
+    // 2. Shake + Zoom Out à la fin (0.5s avant fin)
+    else if (!jeuFini && timeout_seconds > 0 &&
+             (timeout_seconds - elapsed_time) < 0.5f) {
+      float remaining = timeout_seconds - elapsed_time;
+      float factor = remaining / 0.5f;          // Va de 1.0 -> 0.0
+      current_scale = Lerp(0.1f, 1.0f, factor); // Zoom out
+
+      // Shake scale
+      float shake_amount = (1.0f - factor) * 10.0f;
+      shake_transition.x =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.y =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+    }
+
+    // Mise à jour logic SEULEMENT si pas pause intro
+    if (elapsed_time >= start_delay) {
+      ActualiseJeu();
+    }
+
+    DessinerJeu(current_scale, shake_transition);
   }
 
   // Déchargement de la mémoire !

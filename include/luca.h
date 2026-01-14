@@ -7,6 +7,6 @@
 // total_time: pointeur vers le temps total écoulé (tous jeux confondus)
 void RunLucaGame(Difficulte difficulty, bool resume, bool *game_active,
                  const char *playerName, ScoreList *scores,
-                 float timeout_seconds, float *total_time);
+                 float timeout_seconds, float *total_time, float start_delay);
 
 #endif

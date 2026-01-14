@@ -12,6 +12,10 @@ UNAME_S := $(shell uname -s)
 BUILD_DIR = build
 
 # Platform-specific libraries and commands
+# Override OS detection for WSL
+ifeq ($(UNAME_S),Linux)
+    OS = Linux
+endif
 ifeq ($(OS),Windows_NT)
     # Windows (MinGW)
     LDFLAGS = -lraylib -lwinmm -lgdi32 -lopengl32

@@ -81,26 +81,27 @@ int main(void) {
         // resume = true si le jeu a déjà été lancé (pour préserver l'état)
         bool resume = game_started[current_game];
 
+        float start_delay = 0.4f;
         switch (current_game) {
         case GAME_SURVIVOR:
           RunSurvivorGame(menu->niveau, resume, &menu->partie_en_cours,
                           menu->playerName, menu->scores, game_duration,
-                          &total_game_time);
+                          &total_game_time, start_delay);
           break;
         case GAME_SNAKE:
           RunSnakeGame(menu->niveau, resume, &menu->partie_en_cours,
                        menu->playerName, menu->scores, game_duration,
-                       &total_game_time);
+                       &total_game_time, start_delay);
           break;
         case GAME_LUCA:
           RunLucaGame(menu->niveau, resume, &menu->partie_en_cours,
                       menu->playerName, menu->scores, game_duration,
-                      &total_game_time);
+                      &total_game_time, start_delay);
           break;
         case GAME_VALENTIN:
           RunValentinGame(menu->niveau, resume, &menu->partie_en_cours,
                           menu->playerName, menu->scores, game_duration,
-                          &total_game_time);
+                          &total_game_time, start_delay);
           break;
         }
 

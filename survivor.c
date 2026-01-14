@@ -1008,12 +1008,10 @@ void DrawGame() {
   // Controls Display
   DrawText("WASD/Arrows: Move", screenW - 200, 20, 20, DARKGRAY);
   DrawText("SPACE: Dash", screenW - 200, 45, 20, DARKGRAY);
-  DrawText("R: Restart", screenW - 200, 70, 20, DARKGRAY);
 
   if (gameOver) {
     DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
-    DrawText("R: Rejouer | ESPACE: Quitter", screenW / 2 - 180,
-             screenH / 2 + 10, 20, DARKGRAY);
+    DrawText("ESCAPE: Menu", screenW / 2 - 80, screenH / 2 + 10, 20, DARKGRAY);
   }
 
   EndDrawing();
@@ -1025,7 +1023,8 @@ void DrawGame() {
 
 void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
                      const char *playerName, ScoreList *scores,
-                     float timeout_seconds, float *total_time) {
+                     float timeout_seconds, float *total_time,
+                     float start_delay) {
   // Stocker le pointeur vers le temps global
   globalTotalTime = total_time;
 
@@ -1108,6 +1107,38 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     float dt = GetFrameTime();
     elapsed_time += dt;
 
+    // Gestion des transitions (Zoom/Shake)
+    bool in_transition = false;
+    float current_zoom = 1.0f;
+    Vector2 shake_offset = {0.0f, 0.0f};
+
+    // 1. Zoom In au début (pendant start_delay)
+    if (elapsed_time < start_delay) {
+      in_transition = true;
+      float factor = elapsed_time / start_delay;
+      current_zoom = Lerp(0.1f, 1.0f, factor); // Zoom progressif de 0.1 à 1.0
+    }
+    // 2. Shake + Zoom Out à la fin (0.5s avant fin)
+    else if (!gameOver && timeout_seconds > 0 &&
+             (timeout_seconds - elapsed_time) < 0.5f) {
+      float remaining = timeout_seconds - elapsed_time;
+      float factor = remaining / 0.5f;         // Va de 1.0 -> 0.0
+      current_zoom = Lerp(0.1f, 1.0f, factor); // Zoom out vers 0.1
+
+      // Shake effect
+      float shake_amount =
+          (1.0f - factor) * 10.0f; // Augmente quand le temps diminue
+      shake_offset.x = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_offset.y = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+    }
+
+    // Appliquer le zoom et shake à la caméra
+    // Sauvegarder l'offset original/target original car UpdateGame le modifie
+    Vector2 original_target = camera.target;
+    // Note: UpdateGame met à jour camera.target sur le joueur.
+    // On doit appliquer le shake APRES UpdateGame mais AVANT DrawGame,
+    // ou alors manipuler camera.zoom ici.
+
     // Vérifier timeout (si > 0)
     if (!gameOver && timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
       break; // Sortir automatiquement après le timeout
@@ -1124,28 +1155,39 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       break;
     }
 
-    // En game over, gestion des choix (R = Rejouer, ESPACE = Quitter)
     if (gameOver) {
-      if (IsKeyPressed(KEY_R)) {
-        // Rejouer
-        InitGame(difficulty);
-        // On remet game_active à true pour être sûr
-        *game_active = true;
-      } else if (IsKeyPressed(KEY_SPACE)) {
-        // Quitter
-        *game_active = false;
-        break;
-      }
+      // Only Escape allows to quit, handled at the top of the loop
     }
 
-    // Si le jeu est actif, on met à jour la logique
-    // Si game_active est false, le jeu est en pause (frozen)
-    if (*game_active) {
+    // Si le jeu est actif et PAS en transition d'intro (start_delay), on met à
+    // jour la logique Pendant l'intro, on pause la logique pour voir l'état
+    // sans bouger
+    if (*game_active && elapsed_time >= start_delay) {
       UpdateGame(dt);
     }
 
+    // Application des effets de caméra pour le rendu
+    // UpdateGame a mis à jour camera.target sur le joueur.
+    // On applique ici le shake et le zoom d'animation.
+
+    // Appliquer le Zoom d'animation
+    // Attention: UpdateGame fait aussi du zoom (effet dash), on va multiplier
+    // ou écraser ? UpdateGame fait: camera.zoom += (target - camera.zoom) * dt;
+    // Ici on force le zoom de transition qui est prioritaire
+    if (elapsed_time < start_delay ||
+        (timeout_seconds > 0 && (timeout_seconds - elapsed_time) < 0.5f)) {
+      camera.zoom = current_zoom;
+    }
+
+    camera.target.x += shake_offset.x;
+    camera.target.y += shake_offset.y;
+
     // Dessiner le jeu à chaque frame
     DrawGame();
+
+    // Restaurer target (le shake ne doit pas dériver)
+    camera.target.x -= shake_offset.x;
+    camera.target.y -= shake_offset.y;
   }
 
   // Si la fenêtre est fermée par la croix, on ne sauvegarde pas forcément

@@ -87,7 +87,7 @@ void UpdateGridPhase(Joueur *Joueur, float deltaTime);
 void DessinePartie();
 void DessineJoueur(Joueur Joueur);
 void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
-             float *total_time);
+             float *total_time, float start_delay);
 
 //---FONCTIONS---
 void InitGrid() {
@@ -420,7 +420,7 @@ void DessineJoueur(Joueur Joueur) {
 }
 
 void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
-             float *total_time) {
+             float *total_time, float start_delay) {
   srand((unsigned int)time(NULL)); // graine choisi aléatoirement pour éviter
                                    // répétition du même motif
 
@@ -484,25 +484,51 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
       jeuEnPause = !jeuEnPause; // Alterne entre vrai et faux
     }
 
+    // Gestion des transitions (Zoom/Shake)
+    float current_scale = 1.0f;
+    Vector2 shake_transition = {0.0f, 0.0f};
+
+    // 1. Zoom In au début (pendant start_delay)
+    if (elapsed_time < start_delay) {
+      float factor = elapsed_time / start_delay;
+      current_scale = Lerp(0.1f, 1.0f, factor);
+    }
+    // 2. Shake + Zoom Out à la fin (0.5s avant fin)
+    else if (Joueur.vivant && timeout_seconds > 0 &&
+             (timeout_seconds - elapsed_time) < 0.5f) {
+      float remaining = timeout_seconds - elapsed_time;
+      float factor = remaining / 0.5f;          // Va de 1.0 -> 0.0
+      current_scale = Lerp(0.1f, 1.0f, factor); // Zoom out
+
+      // Shake scale
+      float shake_amount = (1.0f - factor) * 10.0f;
+      shake_transition.x =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.y =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+    }
+
     if (Joueur.vivant) {
-      if (!jeuEnPause) {
+      // Pause logic during intro
+      if (!jeuEnPause && elapsed_time >= start_delay) {
         UpdateJoueurMouvement(&Joueur, deltaTime);
         UpdateGridPhase(&Joueur, deltaTime);
         VerifieMort(&Joueur);
       }
+    }
 
-    } else {
-      // Joueur mort
+    if (!Joueur.vivant) {
       // Gestion R (Rejouer) / ESPACE (Quitter)
-      if (IsKeyPressed(KEY_R)) {
-        ResetGridState();
-        Joueur = InitJoueur();
-        // On s'assure que le jeu reprend
-        // hasGameState est déjà true
-      } else if (IsKeyPressed(KEY_SPACE)) {
-        *game_active = false;
-        break;
-      }
+      // Only Escape allows to quit, handled at the top of the loop
+      // if (IsKeyPressed(KEY_R)) {
+      //   ResetGridState();
+      //   Joueur = InitJoueur();
+      //   // On s'assure que le jeu reprend
+      //   // hasGameState est déjà true
+      // } else if (IsKeyPressed(KEY_SPACE)) {
+      //   *game_active = false;
+      //   break;
+      // }
     }
 
     // Rendu dans la texture à la taille native du jeu
@@ -529,23 +555,42 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
       DrawText("GAME OVER!",
                (screenWidth / 2) - MeasureText("GAME OVER!", 60) / 2,
                screenHeight / 3, 60, RED);
-      DrawText("R: Rejouer | ESPACE: Quitter",
-               (screenWidth / 2) -
-                   MeasureText("R: Rejouer | ESPACE: Quitter", 20) / 2,
+      DrawText("ESCAPE: Menu",
+               (screenWidth / 2) - MeasureText("ESCAPE: Menu", 20) / 2,
                screenHeight / 2, 20, RAYWHITE);
     }
 
     EndTextureMode();
 
-    // Dessiner la texture centrée sur l'écran
+    // Dessiner la texture centrée sur l'écran AVEC ZOOM ET SHAKE
     BeginDrawing();
     ClearBackground(BLACK);
-    DrawTextureRec(lucaRenderTarget.texture,
-                   (Rectangle){0, 0, (float)screenWidth, (float)-screenHeight},
-                   (Vector2){(float)offsetX, (float)offsetY}, WHITE);
+
+    // Calcul du rectangle de destination centré et mis à l'échelle
+    float destWidth = screenWidth * current_scale;
+    float destHeight =
+        screenHeight *
+        current_scale; // screenHeight/Width here refer to game resolution
+
+    // Note: The original code used offsetX/Y which centered the game in
+    // 1280x720. We need to apply shake to this centered position.
+    float destX = (LARGEUR_FENETRE - destWidth) / 2.0f + shake_transition.x;
+    float destY = (HAUTEUR_FENETRE - destHeight) / 2.0f +
+                  shake_transition.y; // Normally offsetY
+
+    // If using clip (original offset was negative?), we might need to be
+    // careful. In strict fit mode: Source rect size = screenWidth,
+    // screenHeight
+
+    Rectangle sourceRec = {0, 0, (float)screenWidth, (float)-screenHeight};
+    Rectangle destRec = {destX, destY, destWidth, destHeight};
+    Vector2 origin = {0, 0};
+
+    DrawTexturePro(lucaRenderTarget.texture, sourceRec, destRec, origin, 0.0f,
+                   WHITE);
 
     // Afficher le temps global sur le côté (dans la zone noire)
-    if (total_time != NULL) {
+    if (total_time != NULL && current_scale > 0.8f) {
       DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
       DrawText(TextFormat("%.1fs", *total_time), 20, HAUTEUR_FENETRE / 2 + 5,
                30, WHITE);
@@ -589,11 +634,11 @@ void InitDifficulte(Difficulte version) {
 // Fonction wrapper avec signature standard
 void RunLucaGame(Difficulte difficulty, bool resume, bool *game_active,
                  const char *playerName, ScoreList *scores,
-                 float timeout_seconds, float *total_time) {
+                 float timeout_seconds, float *total_time, float start_delay) {
   (void)difficulty; // Non utilisé pour l'instant
   (void)playerName;
   (void)scores;
 
   InitDifficulte(difficulty);
-  JeuLuca(game_active, timeout_seconds, resume, total_time);
+  JeuLuca(game_active, timeout_seconds, resume, total_time, start_delay);
 }
