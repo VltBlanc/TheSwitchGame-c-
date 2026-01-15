@@ -14,7 +14,8 @@ typedef enum {
   MENU_PRINCIPAL,
   MENU_DEMARRAGE,
   MENU_QUITTER,
-  MENU_NAME_INPUT // État pour la saisie du nom du joueur
+  MENU_NAME_INPUT,   // Saisie du nom du joueur 1
+  MENU_NAME_INPUT_2  // Saisie du nom du joueur 2
 } EtatMenu;
 
 // Modes de jeu
@@ -43,8 +44,9 @@ typedef struct {
   ScoreEntry meilleurs_scores[NOMBRE_MEILLEURS_SCORES];
   int nombre_scores;
   bool partie_en_cours; // Indique si une partie est en cours (pour reprendre)
-  char playerName[MAX_PLAYER_NAME]; // Nom du joueur pour les scores
-  GameSelection jeu_selectionne;    // Le jeu actuellement sélectionné
+  char playerName[MAX_PLAYER_NAME];  // Nom du joueur 1
+  char playerName2[MAX_PLAYER_NAME]; // Nom du joueur 2
+  GameSelection jeu_selectionne;     // Le jeu actuellement sélectionné
 } MenuJeu;
 
 // Structure pour les boutons

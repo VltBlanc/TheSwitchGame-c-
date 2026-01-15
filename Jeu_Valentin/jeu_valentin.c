@@ -1,4 +1,5 @@
 #include "../include/valentin.h"
+#include "../include/player_input.h"
 #include "etoile.h"
 #include <math.h>
 #include <raylib.h>
@@ -51,20 +52,30 @@ static void VerifieCollisions(void);
 static void ActualiseJeu(void);
 static void DessinerJeu(float scale, Vector2 shake_offset);
 
-// Variables globales
-Vector3 positionJoueur = {0.0f, 0.0f, 0.0f};
-int voieJoueurX = 1; // Milieu par défaut
-int voieJoueurY = 0;
+// Variables globales - Joueur 1
+Vector3 positionJoueur1 = {0.0f, 0.0f, 0.0f};
+int voieJoueur1X = 1;
+int voieJoueur1Y = 0;
+static bool jeuFini1 = false;
+
+// Variables globales - Joueur 2
+Vector3 positionJoueur2 = {0.0f, 0.0f, 0.0f};
+int voieJoueur2X = 1;
+int voieJoueur2Y = 1;
+static bool jeuFini2 = false;
+
+// Mode de jeu
+static ModeJoueur modeActuel = UN_JOUEUR;
+static int winner = 0;
 
 float positionsXVoies[NB_VOIES_X] = {-4.0f, 0.0f, 4.0f};
 float positionsYVoies[NB_VOIES_Y] = {-2.0f, 2.0f};
 
 Obstacle tableauObstacles[MAX_OBSTACLES];
 Camera3D cameraJeu = {0};
-static bool jeuFini = false;
 static bool jeuEnPause = false;
-static bool hasGameState = false;        // Pour le resume
-static float *valentinGlobalTime = NULL; // Pour affichage
+static bool hasGameState = false;
+static float *valentinGlobalTime = NULL;
 
 float tempsSurvie = 0.0f;
 int niveauDifficulte = 0;
@@ -75,7 +86,7 @@ Model asteroidModel;
 bool asteroidModelCharge = false;
 static RenderTexture2D renderTarget;
 
-// Initialisation ou remise à zéro du jeu
+// Initialisation ou remise a zero du jeu
 static void InitGame(void) {
   srand((unsigned int)time(NULL));
 
@@ -86,18 +97,29 @@ static void InitGame(void) {
   cameraJeu.fovy = 80.0f;
   cameraJeu.projection = CAMERA_PERSPECTIVE;
 
-  voieJoueurX = 1;
-  voieJoueurY = 0;
-  positionJoueur.x = positionsXVoies[voieJoueurX];
-  positionJoueur.y = positionsYVoies[voieJoueurY];
-  positionJoueur.z = 0.0f;
+  // Joueur 1 - voie gauche/bas par defaut
+  voieJoueur1X = 0;
+  voieJoueur1Y = 0;
+  positionJoueur1.x = positionsXVoies[voieJoueur1X];
+  positionJoueur1.y = positionsYVoies[voieJoueur1Y];
+  positionJoueur1.z = 0.0f;
+  jeuFini1 = false;
 
-  // On désactive tous les obstacles au démarrage
+  // Joueur 2 - voie droite/haut par defaut (mode 2 joueurs)
+  voieJoueur2X = 2;
+  voieJoueur2Y = 1;
+  positionJoueur2.x = positionsXVoies[voieJoueur2X];
+  positionJoueur2.y = positionsYVoies[voieJoueur2Y];
+  positionJoueur2.z = 0.0f;
+  jeuFini2 = false;
+
+  winner = 0;
+
+  // On desactive tous les obstacles au demarrage
   for (int i = 0; i < MAX_OBSTACLES; i++) {
     tableauObstacles[i].actif = false;
   }
 
-  jeuFini = false;
   jeuEnPause = false;
   tempsSurvie = 0.0f;
   niveauDifficulte = 0;
@@ -114,51 +136,59 @@ static int LimiteEspace(int valeur, int min, int max) {
   return valeur;
 }
 
-static void ActualiseJoueur(void) {
+// Mise a jour pour un joueur specifique
+static void ActualiseJoueurIndividuel(int player_id) {
+  Vector3 *position;
+  int *voieX, *voieY;
+  bool *jeuFini_joueur;
+
+  if (player_id == 1) {
+    position = &positionJoueur1;
+    voieX = &voieJoueur1X;
+    voieY = &voieJoueur1Y;
+    jeuFini_joueur = &jeuFini1;
+  } else {
+    position = &positionJoueur2;
+    voieX = &voieJoueur2X;
+    voieY = &voieJoueur2Y;
+    jeuFini_joueur = &jeuFini2;
+  }
+
+  if (*jeuFini_joueur) return;
+
   bool isMoving = false;
-  // Gestion des entrées clavier pour changer de voie
-  if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
-    voieJoueurX--;
-    isMoving = true;
-  }
-  if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
-    voieJoueurX++;
-    isMoving = true;
-  }
-  if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-    voieJoueurY--;
-    isMoving = true;
-  }
-  if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-    voieJoueurY++;
-    isMoving = true;
+
+  if (player_id == 1) {
+    // Joueur 1: ZQSD
+    if (IS_P1_LEFT_PRESSED()) { (*voieX)--; isMoving = true; }
+    if (IS_P1_RIGHT_PRESSED()) { (*voieX)++; isMoving = true; }
+    if (IS_P1_DOWN_PRESSED()) { (*voieY)--; isMoving = true; }
+    if (IS_P1_UP_PRESSED()) { (*voieY)++; isMoving = true; }
+  } else {
+    // Joueur 2: Fleches
+    if (IS_P2_LEFT_PRESSED()) { (*voieX)--; isMoving = true; }
+    if (IS_P2_RIGHT_PRESSED()) { (*voieX)++; isMoving = true; }
+    if (IS_P2_DOWN_PRESSED()) { (*voieY)--; isMoving = true; }
+    if (IS_P2_UP_PRESSED()) { (*voieY)++; isMoving = true; }
   }
 
-  voieJoueurX = LimiteEspace(voieJoueurX, 0, NB_VOIES_X - 1);
-  voieJoueurY = LimiteEspace(voieJoueurY, 0, NB_VOIES_Y - 1);
+  *voieX = LimiteEspace(*voieX, 0, NB_VOIES_X - 1);
+  *voieY = LimiteEspace(*voieY, 0, NB_VOIES_Y - 1);
 
-  float cibleX = positionsXVoies[voieJoueurX];
-  float cibleY = positionsYVoies[voieJoueurY];
+  float cibleX = positionsXVoies[*voieX];
+  float cibleY = positionsYVoies[*voieY];
 
-  // Crée un mouvement fluide vers la cible !
   const float facteurLissage = 0.2f;
-  positionJoueur.x = Lerp(positionJoueur.x, cibleX, facteurLissage);
-  positionJoueur.y = Lerp(positionJoueur.y, cibleY, facteurLissage);
+  position->x = Lerp(position->x, cibleX, facteurLissage);
+  position->y = Lerp(position->y, cibleY, facteurLissage);
 
-  float dt = GetFrameTime();
+  (void)isMoving; // Animation supprimee pour simplifier
+}
 
-  // Logique d'animation
-  if (isMoving || fabsf(positionJoueur.x - cibleX) > 0.1f ||
-      fabsf(positionJoueur.y - cibleY) > 0.1f) {
-    static float frameTimer = 0.0f;
-    frameTimer += dt;
-    if (frameTimer >= 0.1f) {
-      frameTimer = 0.0f;
-      static int currentFrame = 1;
-      currentFrame++;
-      if (currentFrame >= 3)
-        currentFrame = 0;
-    }
+static void ActualiseJoueur(void) {
+  ActualiseJoueurIndividuel(1);
+  if (modeActuel == DEUX_JOUEURS) {
+    ActualiseJoueurIndividuel(2);
   }
 }
 
@@ -230,9 +260,9 @@ static void ActualiseAsteroides(void) {
     if (tableauObstacles[i].actif) {
       // Les astéroïdes avancent vers le joueur (z augmente)
       tableauObstacles[i].z_distance += VITESSE_ASTEROIDE;
-      // Si l'astéroïde dépasse le joueur, on le désactive pour le réutiliser
+      // Si l'asteroide depasse le joueur, on le desactive pour le reutiliser
       if (tableauObstacles[i].z_distance >
-          positionJoueur.z + tableauObstacles[i].rayon) {
+          positionJoueur1.z + tableauObstacles[i].rayon) {
         tableauObstacles[i].actif = false;
       }
     }
@@ -244,35 +274,54 @@ static void VerifieCollisions(void) {
 
   for (int i = 0; i < MAX_OBSTACLES; i++) {
     if (tableauObstacles[i].actif) {
-      // On ne vérifie la distance que s'ils sont sur la même voie (petite
-      // optmisation )
-      if (tableauObstacles[i].Voie_X == voieJoueurX &&
-          tableauObstacles[i].Voie_Y == voieJoueurY) {
-        Vector3 positionAsteroide = {
-            positionsXVoies[tableauObstacles[i].Voie_X],
-            positionsYVoies[tableauObstacles[i].Voie_Y],
-            tableauObstacles[i].z_distance};
+      Vector3 positionAsteroide = {
+          positionsXVoies[tableauObstacles[i].Voie_X],
+          positionsYVoies[tableauObstacles[i].Voie_Y],
+          tableauObstacles[i].z_distance};
 
-        // Collision sphérique : distance < somme des rayons
-        float distance = Vector3Distance(positionJoueur, positionAsteroide);
+      // Collision Joueur 1
+      if (!jeuFini1 && tableauObstacles[i].Voie_X == voieJoueur1X &&
+          tableauObstacles[i].Voie_Y == voieJoueur1Y) {
+        float distance = Vector3Distance(positionJoueur1, positionAsteroide);
         float distanceMinimale = rayonJoueur + tableauObstacles[i].rayon;
-
         if (distance < distanceMinimale) {
-          jeuFini = true;
+          jeuFini1 = true;
+          if (modeActuel == DEUX_JOUEURS && !jeuFini2) {
+            winner = 2;
+          }
+        }
+      }
+
+      // Collision Joueur 2 (mode 2 joueurs)
+      if (modeActuel == DEUX_JOUEURS && !jeuFini2 &&
+          tableauObstacles[i].Voie_X == voieJoueur2X &&
+          tableauObstacles[i].Voie_Y == voieJoueur2Y) {
+        float distance = Vector3Distance(positionJoueur2, positionAsteroide);
+        float distanceMinimale = rayonJoueur + tableauObstacles[i].rayon;
+        if (distance < distanceMinimale) {
+          jeuFini2 = true;
+          if (!jeuFini1) {
+            winner = 1;
+          }
         }
       }
     }
   }
 }
 
-// Gère le cycle du jeu (Pause, MiseÀjour, Game Over)
+// Gere le cycle du jeu (Pause, MiseAjour, Game Over)
 static void ActualiseJeu(void) {
+  // Determiner si le jeu est termine
+  bool game_over;
+  if (modeActuel == DEUX_JOUEURS) {
+    game_over = (winner != 0);
+  } else {
+    game_over = jeuFini1;
+  }
 
-  if (!jeuFini) {
+  if (!game_over) {
     tempsSurvie += GetFrameTime();
 
-    // Progression de la difficulté par paliers de temps ! (trouver un
-    // équilibre)
     int nouveauNiveauDifficulte = (int)(tempsSurvie / TEMPS_PALIER_DIFFICULTE);
     if (nouveauNiveauDifficulte > niveauDifficulte) {
       niveauDifficulte = nouveauNiveauDifficulte;
@@ -283,8 +332,6 @@ static void ActualiseJeu(void) {
     ActualiseAsteroides();
     VerifieCollisions();
     Actualiseretoile(tempsSurvie, niveauDifficulte);
-  } else if (jeuFini) {
-    // La gestion du restart est faite dans la boucle principale maintenant
   }
 }
 
@@ -317,38 +364,69 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
     }
   }
 
-  // Rendu du vaisseau
-  if (modelCharge) {
-    float echelleVaisseau = 0.005f;
-    DrawModelEx(
-        vaisseauModel, positionJoueur, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
-        (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, WHITE);
-  } else {
-    // Si le modèle png ne fonctionne pas remplacement par le cube (éphémère à
-    // enlever à terme )
-    DrawCube(positionJoueur, 1.5f, 1.5f, 2.0f, BLUE);
-    DrawCubeWires(positionJoueur, 1.5f, 1.5f, 2.0f, DARKBLUE);
+  // Rendu du vaisseau Joueur 1 (si vivant)
+  if (!jeuFini1) {
+    Color couleur1 = (modeActuel == DEUX_JOUEURS) ? (Color){100, 180, 255, 255} : WHITE;
+    if (modelCharge) {
+      float echelleVaisseau = 0.005f;
+      DrawModelEx(
+          vaisseauModel, positionJoueur1, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
+          (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, couleur1);
+    } else {
+      DrawCube(positionJoueur1, 1.5f, 1.5f, 2.0f, BLUE);
+      DrawCubeWires(positionJoueur1, 1.5f, 1.5f, 2.0f, DARKBLUE);
+    }
+  }
+
+  // Rendu du vaisseau Joueur 2 (mode 2 joueurs, si vivant)
+  if (modeActuel == DEUX_JOUEURS && !jeuFini2) {
+    Color couleur2 = (Color){255, 120, 120, 255};
+    if (modelCharge) {
+      float echelleVaisseau = 0.005f;
+      DrawModelEx(
+          vaisseauModel, positionJoueur2, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
+          (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, couleur2);
+    } else {
+      DrawCube(positionJoueur2, 1.5f, 1.5f, 2.0f, RED);
+      DrawCubeWires(positionJoueur2, 1.5f, 1.5f, 2.0f, MAROON);
+    }
   }
 
   EndMode3D();
 
   // INTERFACE utilisateur
-
   char texteTemps[64];
   sprintf(texteTemps, "Temps: %.1f s | Difficulte: %d", tempsSurvie,
           niveauDifficulte);
   DrawText(texteTemps, 10, 10, 20, WHITE);
 
-  if (jeuEnPause && !jeuFini) {
+  // Labels joueurs en mode 2 joueurs
+  if (modeActuel == DEUX_JOUEURS) {
+    DrawText("P1: ZQSD", 10, 35, 16, (Color){100, 180, 255, 255});
+    DrawText("P2: Fleches", 10, 55, 16, (Color){255, 120, 120, 255});
+  }
+
+  // Determiner si game over
+  bool game_over = (modeActuel == DEUX_JOUEURS) ? (winner != 0) : jeuFini1;
+
+  if (jeuEnPause && !game_over) {
     DrawRectangle(0, 0, LARGEUR_JEU, HAUTEUR_JEU, (Color){0, 0, 0, 150});
     DrawText("PAUSE", LARGEUR_JEU / 2 - MeasureText("PAUSE", 60) / 2,
              HAUTEUR_JEU / 2 - 80, 60, YELLOW);
   }
 
-  if (jeuFini) {
+  if (game_over) {
     DrawRectangle(0, 0, LARGEUR_JEU, HAUTEUR_JEU, (Color){0, 0, 0, 200});
-    DrawText("GAME OVER", LARGEUR_JEU / 2 - MeasureText("GAME OVER", 40) / 2,
-             HAUTEUR_JEU / 2 - 50, 40, RED);
+
+    if (modeActuel == DEUX_JOUEURS && winner != 0) {
+      const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
+      Color winner_color = (winner == 1) ? (Color){100, 180, 255, 255} : (Color){255, 120, 120, 255};
+      DrawText(winner_text, LARGEUR_JEU / 2 - MeasureText(winner_text, 40) / 2,
+               HAUTEUR_JEU / 2 - 50, 40, winner_color);
+    } else {
+      DrawText("GAME OVER", LARGEUR_JEU / 2 - MeasureText("GAME OVER", 40) / 2,
+               HAUTEUR_JEU / 2 - 50, 40, RED);
+    }
     DrawText("ESCAPE: Menu",
              LARGEUR_JEU / 2 - MeasureText("ESCAPE: Menu", 20) / 2,
              HAUTEUR_JEU / 2 + 40, 20, WHITE);
@@ -383,11 +461,12 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
   EndDrawing();
 }
 
-void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
-                     const char *playerName, ScoreList *scores,
-                     float timeout_seconds, float *total_time,
-                     float start_delay) {
+void RunValentinGame(Difficulte difficulty, ModeJoueur mode, bool resume,
+                     bool *game_active, const char *playerName,
+                     ScoreList *scores, float timeout_seconds,
+                     float *total_time, float start_delay) {
   valentinGlobalTime = total_time;
+  modeActuel = mode;
 
   (void)difficulty; // Non utilisé pour l'instant
   (void)playerName;
@@ -431,14 +510,17 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
     float dt = GetFrameTime();
     elapsed_time += dt;
 
+    // Determiner si le jeu est termine (selon le mode)
+    bool jeuFini = (modeActuel == DEUX_JOUEURS) ? (winner != 0) : jeuFini1;
+
     // Accumuler le temps dans le temps global (si disponible)
     if (total_time != NULL && !jeuFini) {
       *total_time += dt;
     }
 
-    // Vérifier timeout (si > 0)
+    // Verifier timeout (si > 0)
     if (!jeuFini && timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
-      break; // Sortir automatiquement après le timeout
+      break; // Sortir automatiquement apres le timeout
     }
 
     // Retour au menu avec Escape
@@ -496,8 +578,9 @@ void RunValentinGame(Difficulte difficulty, bool resume, bool *game_active,
   if (asteroidModelCharge)
     UnloadModel(asteroidModel);
 
-  // Si le joueur est mort, réinitialiser l'état pour la prochaine partie
-  if (jeuFini) {
+  // Si le joueur est mort, reinitialiser l'etat pour la prochaine partie
+  bool jeuTermine = (modeActuel == DEUX_JOUEURS) ? (winner != 0) : jeuFini1;
+  if (jeuTermine) {
     hasGameState = false;
   }
 

@@ -25,7 +25,8 @@ MenuJeu *init_menu(void) {
   menu->etat = MENU_PRINCIPAL;
   menu->mode = UN_JOUEUR;
   menu->niveau = MOYEN;
-  strcpy(menu->playerName, "JOUEUR"); // Nom par défaut
+  strcpy(menu->playerName, "JOUEUR 1");  // Nom par defaut J1
+  strcpy(menu->playerName2, "JOUEUR 2"); // Nom par defaut J2
   menu->niveau = MOYEN;
   menu->option_selectionnee = 0;
   menu->partie_en_cours = false;
@@ -62,27 +63,30 @@ void update_menu(MenuJeu *menu) {
     int max_options = menu->partie_en_cours ? 4 : 3;
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
       menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
-    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_Z) || IsKeyPressed(KEY_W)) {
       menu->option_selectionnee =
           (menu->option_selectionnee - 1 + max_options) % max_options;
     }
-  } else if (menu->etat == MENU_NAME_INPUT) {
+  } else if (menu->etat == MENU_NAME_INPUT || menu->etat == MENU_NAME_INPUT_2) {
+    // Determiner quel nom on edite
+    char *currentName = (menu->etat == MENU_NAME_INPUT) ? menu->playerName : menu->playerName2;
+
     // Gestion de la saisie de texte
     int key = GetCharPressed();
     while (key > 0) {
-      // Seulement les caractères alphanumériques
-      if ((key >= 32) && (key <= 125) && (strlen(menu->playerName) < 15)) {
-        int len = strlen(menu->playerName);
-        menu->playerName[len] = (char)key;
-        menu->playerName[len + 1] = '\0';
+      // Seulement les caracteres alphanumeriques
+      if ((key >= 32) && (key <= 125) && (strlen(currentName) < 15)) {
+        int len = strlen(currentName);
+        currentName[len] = (char)key;
+        currentName[len + 1] = '\0';
       }
       key = GetCharPressed();
     }
 
     if (IsKeyPressed(KEY_BACKSPACE)) {
-      int len = strlen(menu->playerName);
+      int len = strlen(currentName);
       if (len > 0) {
-        menu->playerName[len - 1] = '\0';
+        currentName[len - 1] = '\0';
       }
     }
 
@@ -118,8 +122,8 @@ void update_menu(MenuJeu *menu) {
 
     // Flèches gauche/droite
     // Flèches gauche/droite (Removed Mode Toggle)
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
-      if (menu->option_selectionnee == 1) { // Difficulté
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_A)) {
+      if (menu->option_selectionnee == 1) { // Difficulte
         menu->niveau = (menu->niveau - 1 + 3) % 3;
       }
     }
@@ -134,21 +138,34 @@ void update_menu(MenuJeu *menu) {
   Vector2 position_souris = GetMousePosition();
   int centerLeft = 250;
 
-  // 1. Nom (Name Input)
-  Rectangle nomBox = {centerLeft - 100, 150, 200, 30};
+  // 1. Noms des joueurs (Name Input)
+  Rectangle nomBox1 = {centerLeft - 100, 150, 200, 30};
+  Rectangle nomBox2 = {centerLeft - 100, 185, 200, 30}; // Box J2 en dessous
+
   if (menu->etat == MENU_PRINCIPAL) {
-    if (CheckCollisionPointRec(position_souris, nomBox) &&
-        IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-      menu->etat = MENU_NAME_INPUT;
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+      if (CheckCollisionPointRec(position_souris, nomBox1)) {
+        menu->etat = MENU_NAME_INPUT;
+      } else if (menu->mode == DEUX_JOUEURS && CheckCollisionPointRec(position_souris, nomBox2)) {
+        menu->etat = MENU_NAME_INPUT_2;
+      }
     }
-  } else if (menu->etat == MENU_NAME_INPUT) {
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
-        !CheckCollisionPointRec(position_souris, nomBox)) {
-      menu->etat = MENU_PRINCIPAL;
+  } else if (menu->etat == MENU_NAME_INPUT || menu->etat == MENU_NAME_INPUT_2) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+      bool clickedBox1 = CheckCollisionPointRec(position_souris, nomBox1);
+      bool clickedBox2 = menu->mode == DEUX_JOUEURS && CheckCollisionPointRec(position_souris, nomBox2);
+
+      if (clickedBox1) {
+        menu->etat = MENU_NAME_INPUT;
+      } else if (clickedBox2) {
+        menu->etat = MENU_NAME_INPUT_2;
+      } else {
+        menu->etat = MENU_PRINCIPAL;
+      }
     }
   }
 
-  // Si on est en saisie de nom, on ne gère pas les autres clics
+  // Si on est en saisie de nom, on ne gere pas les autres clics
   if (menu->etat != MENU_PRINCIPAL)
     return;
 
@@ -222,26 +239,59 @@ void draw_menu(const MenuJeu *menu) {
   int taille_titre = MeasureText(titre, 60);
   DrawText(titre, (LARGEUR_ECRAN - taille_titre) / 2, 30, 60, COULEUR_SURBRILL);
 
-  // Colonne Gauche: Contrôles (Centre ~ x=250)
+  // Colonne Gauche: Controles (Centre ~ x=250)
   int centerLeft = 250;
 
-  // Affichage du nom du joueur
-  Rectangle nomBox = {centerLeft - 100, 150, 200, 30};
-  bool editing = (menu->etat == MENU_NAME_INPUT);
-  Color boxColor = editing ? COULEUR_SURBRILL : COULEUR_BOUTON;
+  // Affichage des noms des joueurs
+  bool editing1 = (menu->etat == MENU_NAME_INPUT);
+  bool editing2 = (menu->etat == MENU_NAME_INPUT_2);
 
-  DrawText("NOM DU JOUEUR:", centerLeft - MeasureText("NOM DU JOUEUR:", 20) / 2,
-           125, 20, COULEUR_TEXTE);
-  DrawRectangleRec(nomBox, boxColor);
-  DrawRectangleLinesEx(nomBox, 2, COULEUR_TEXTE);
-  int nameWidth = MeasureText(menu->playerName, 20);
-  DrawText(menu->playerName, nomBox.x + (nomBox.width - nameWidth) / 2,
-           nomBox.y + 5, 20, BLACK);
+  if (menu->mode == DEUX_JOUEURS) {
+    // Mode 2 joueurs: afficher les deux noms
+    Rectangle nomBox1 = {centerLeft - 100, 150, 200, 30};
+    Rectangle nomBox2 = {centerLeft - 100, 185, 200, 30};
 
-  if (editing) {
-    const char *msg = "ENTRÉE pour valider";
-    DrawText(msg, centerLeft - MeasureText(msg, 16) / 2, 185, 16,
-             COULEUR_SURBRILL);
+    // Joueur 1
+    Color boxColor1 = editing1 ? COULEUR_SURBRILL : (Color){100, 180, 255, 255};
+    DrawText("P1:", nomBox1.x - 35, nomBox1.y + 5, 20, (Color){100, 180, 255, 255});
+    DrawRectangleRec(nomBox1, boxColor1);
+    DrawRectangleLinesEx(nomBox1, 2, COULEUR_TEXTE);
+    int nameWidth1 = MeasureText(menu->playerName, 18);
+    DrawText(menu->playerName, nomBox1.x + (nomBox1.width - nameWidth1) / 2,
+             nomBox1.y + 6, 18, BLACK);
+
+    // Joueur 2
+    Color boxColor2 = editing2 ? COULEUR_SURBRILL : (Color){255, 120, 120, 255};
+    DrawText("P2:", nomBox2.x - 35, nomBox2.y + 5, 20, (Color){255, 120, 120, 255});
+    DrawRectangleRec(nomBox2, boxColor2);
+    DrawRectangleLinesEx(nomBox2, 2, COULEUR_TEXTE);
+    int nameWidth2 = MeasureText(menu->playerName2, 18);
+    DrawText(menu->playerName2, nomBox2.x + (nomBox2.width - nameWidth2) / 2,
+             nomBox2.y + 6, 18, BLACK);
+
+    if (editing1 || editing2) {
+      const char *msg = "ENTREE pour valider";
+      DrawText(msg, centerLeft - MeasureText(msg, 14) / 2, 220, 14,
+               COULEUR_SURBRILL);
+    }
+  } else {
+    // Mode 1 joueur: afficher un seul nom
+    Rectangle nomBox = {centerLeft - 100, 150, 200, 30};
+    Color boxColor = editing1 ? COULEUR_SURBRILL : COULEUR_BOUTON;
+
+    DrawText("NOM DU JOUEUR:", centerLeft - MeasureText("NOM DU JOUEUR:", 20) / 2,
+             125, 20, COULEUR_TEXTE);
+    DrawRectangleRec(nomBox, boxColor);
+    DrawRectangleLinesEx(nomBox, 2, COULEUR_TEXTE);
+    int nameWidth = MeasureText(menu->playerName, 20);
+    DrawText(menu->playerName, nomBox.x + (nomBox.width - nameWidth) / 2,
+             nomBox.y + 5, 20, BLACK);
+
+    if (editing1) {
+      const char *msg = "ENTREE pour valider";
+      DrawText(msg, centerLeft - MeasureText(msg, 16) / 2, 185, 16,
+               COULEUR_SURBRILL);
+    }
   }
 
   // Draw other left column controls
@@ -256,9 +306,9 @@ void draw_menu(const MenuJeu *menu) {
   DrawLine(425, 120, 425, 500, GRAY);
 
   // Instructions
-  DrawText("↑ ↓ Naviguer  |  ← → Modifier  |  ENTRÉE Sélectionner",
-           LARGEUR_ECRAN / 2 - 220, 570, 16, COULEUR_TEXTE);
-  DrawText("Échap pour quitter", LARGEUR_ECRAN / 2 - 70, 590, 16,
+  DrawText("Fleches/ZQSD Naviguer  |  ENTREE Selectionner",
+           LARGEUR_ECRAN / 2 - 180, 570, 16, COULEUR_TEXTE);
+  DrawText("Echap pour quitter", LARGEUR_ECRAN / 2 - 70, 590, 16,
            COULEUR_TEXTE);
 }
 
@@ -304,24 +354,44 @@ void draw_player_selection(const MenuJeu *menu) {
   int centerLeft = 250;
   int yPos = 230;
 
-  // Indicateur de sélection
+  // Indicateur de selection clavier
   if (menu->option_selectionnee == 0) {
-    DrawText("▶ JOUEURS", centerLeft - 50, yPos, 25, COULEUR_SURBRILL);
+    DrawText("> JOUEURS", centerLeft - 60, yPos, 25, COULEUR_SURBRILL);
   } else {
     DrawText("JOUEURS", centerLeft - MeasureText("JOUEURS", 25) / 2, yPos, 25,
              COULEUR_TEXTE);
   }
 
+  // Boutons 1 joueur et 2 joueurs
+  int btnWidth = 100;
+  int gap = 10;
+  int startX = centerLeft - (2 * btnWidth + gap) / 2;
+
   // Bouton 1 joueur
-  Rectangle bouton_1j = {centerLeft - 50, yPos + 40, 100, 30};
-  Color couleur_1j =
-      COULEUR_SURBRILL; // Toujours sélectionné visuellement ou juste statique
+  Rectangle bouton_1j = {startX, yPos + 40, btnWidth, 30};
+  Color couleur_1j = (menu->mode == UN_JOUEUR) ? COULEUR_SURBRILL : COULEUR_BOUTON;
   DrawRectangleRec(bouton_1j, couleur_1j);
   DrawRectangleLinesEx(bouton_1j, 2, COULEUR_TEXTE);
-  DrawText("1 JOUEUR",
-           bouton_1j.x + (bouton_1j.width - MeasureText("1 JOUEUR", 10)) / 2 -
-               15,
-           bouton_1j.y + 8, 16, BLACK);
+  int text1jWidth = MeasureText("1 JOUEUR", 16);
+  DrawText("1 JOUEUR", bouton_1j.x + (bouton_1j.width - text1jWidth) / 2,
+           bouton_1j.y + 7, 16, BLACK);
+
+  // Bouton 2 joueurs
+  Rectangle bouton_2j = {startX + btnWidth + gap, yPos + 40, btnWidth, 30};
+  Color couleur_2j = (menu->mode == DEUX_JOUEURS) ? COULEUR_SURBRILL : COULEUR_BOUTON;
+  DrawRectangleRec(bouton_2j, couleur_2j);
+  DrawRectangleLinesEx(bouton_2j, 2, COULEUR_TEXTE);
+  int text2jWidth = MeasureText("2 JOUEURS", 16);
+  DrawText("2 JOUEURS", bouton_2j.x + (bouton_2j.width - text2jWidth) / 2,
+           bouton_2j.y + 7, 16, BLACK);
+
+  // Afficher les controles en mode 2 joueurs
+  if (menu->mode == DEUX_JOUEURS) {
+    DrawText("P1: ZQSD + ESPACE", centerLeft - 85, yPos + 78, 14,
+             (Color){100, 180, 255, 255});
+    DrawText("P2: Fleches + CTRL", centerLeft + 5, yPos + 78, 14,
+             (Color){255, 120, 120, 255});
+  }
 }
 
 void draw_difficulty_selection(const MenuJeu *menu) {

@@ -54,7 +54,7 @@ else
 endif
 
 # Source files
-SOURCES = main.c menu.c scores.c survivor.c hyperspace.c snake.c jeuxLuca.c
+SOURCES = main.c menu.c scores.c survivor.c hyperspace.c snake.c jeuxLuca.c splitscreen.c
 VALENTIN_SOURCES = Jeu_Valentin/jeu_valentin.c Jeu_Valentin/etoile.c
 OBJS = $(addprefix $(BUILD_DIR)/, $(SOURCES:.c=.o)) $(BUILD_DIR)/jeu_valentin.o $(BUILD_DIR)/etoile.o
 TARGET = the_switch_game$(EXE_EXT)

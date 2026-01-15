@@ -84,24 +84,28 @@ int main(void) {
         float start_delay = 0.4f;
         switch (current_game) {
         case GAME_SURVIVOR:
-          RunSurvivorGame(menu->niveau, resume, &menu->partie_en_cours,
-                          menu->playerName, menu->scores, game_duration,
-                          &total_game_time, start_delay);
+          RunSurvivorGame(menu->niveau, menu->mode, resume,
+                          &menu->partie_en_cours, menu->playerName,
+                          menu->scores, game_duration, &total_game_time,
+                          start_delay);
           break;
         case GAME_SNAKE:
-          RunSnakeGame(menu->niveau, resume, &menu->partie_en_cours,
-                       menu->playerName, menu->scores, game_duration,
-                       &total_game_time, start_delay);
+          RunSnakeGame(menu->niveau, menu->mode, resume,
+                       &menu->partie_en_cours, menu->playerName,
+                       menu->scores, game_duration, &total_game_time,
+                       start_delay);
           break;
         case GAME_LUCA:
-          RunLucaGame(menu->niveau, resume, &menu->partie_en_cours,
-                      menu->playerName, menu->scores, game_duration,
-                      &total_game_time, start_delay);
+          RunLucaGame(menu->niveau, menu->mode, resume,
+                      &menu->partie_en_cours, menu->playerName,
+                      menu->scores, game_duration, &total_game_time,
+                      start_delay);
           break;
         case GAME_VALENTIN:
-          RunValentinGame(menu->niveau, resume, &menu->partie_en_cours,
-                          menu->playerName, menu->scores, game_duration,
-                          &total_game_time, start_delay);
+          RunValentinGame(menu->niveau, menu->mode, resume,
+                          &menu->partie_en_cours, menu->playerName,
+                          menu->scores, game_duration, &total_game_time,
+                          start_delay);
           break;
         }
 
