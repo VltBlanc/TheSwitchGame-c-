@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-
 // Taille de la grille (plus petite pour elements plus gros)
 #define LARGEUR_GRILLE 15
 #define HAUTEUR_GRILLE 15
@@ -1180,6 +1179,13 @@ void RunSnakeGame(Difficulte difficulty, ModeJoueur mode, bool resume,
   // Initialiser SEULEMENT si on ne reprend pas une partie
   if (!resume) {
     InitialiserJeu();
+  } else {
+    // Si on reprend, on redonne du carburant pour eviter la mort instantanee
+    // si le joueur etait a court de carburant avant le changement de jeu
+    carburant1 = CARBURANT_MAX;
+    if (modeActuel == DEUX_JOUEURS) {
+      carburant2 = CARBURANT_MAX;
+    }
   }
 
   *game_active = true;
@@ -1239,6 +1245,16 @@ void RunSnakeGame(Difficulte difficulty, ModeJoueur mode, bool resume,
       }
       *game_active = false;
       break;
+    }
+
+    // Gestion du Redemarrage Global (R)
+    if (game_over) {
+      if (IsKeyPressed(KEY_R)) {
+        if (restart)
+          *restart = true;
+        *game_active = true; // Pour que le main loop detecte le restart
+        break;
+      }
     }
 
     if (!game_over) {

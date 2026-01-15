@@ -347,87 +347,145 @@ void RunGame(
                 <p style="font-size: 0.5em; margin-top: 50px;">(Menu -> Solo -> Split-screen -> Rotation)</p>
             </section>
 
-            <!-- SLIDE 7: Technique (Part 1 - Zapping) -->
+            <!-- SLIDE 7: Focus Tech 1 - Split Screen -->
             <section>
-                <h3>5. Focus Tech : Le Zapping</h3>
+                <h3>5. Focus Tech : Rendu Split-Screen</h3>
+                <h4>Virtualisation de l'affichage</h4>
 
                 <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-blue)">Le Défi :</strong> Changer de jeu sans recharger
-                            l'exécutable.</p>
+                        <p><strong style="color:var(--neon-blue)">Problème :</strong> Comment gérer 1 ou 2 vues sans
+                            réécrire le code de rendu ?</p>
+                        <p><strong>Solution :</strong> Utilisation de <code>RenderTexture2D</code>.</p>
                         <ul>
-                            <li><strong>State Injection :</strong> <code>main.c</code> passe un pointeur
-                                <code>bool *restart</code> et <code>float *total_time</code> à chaque jeu.
-                            </li>
-                            <li><strong>Persistance Volatile :</strong> Un tableau <code>game_started[]</code> retient
-                                si un jeu a déjà été initialisé pour permettre le "Resume".</li>
-                            <li><strong>Aléatoire Contrôlé :</strong> <code>rand() % 4</code> assure une rotation
-                                imprévisible.</li>
+                            <li><strong>Étape 1 :</strong> Chaque vue (P1, P2) dessine dans une texture hors-écran
+                                (640x720).</li>
+                            <li><strong>Étape 2 :</strong> <code>splitscreen.c</code> composite ces textures sur l'écran
+                                final.</li>
                         </ul>
                     </div>
-                    <div>
-                        <pre><code class="c" data-trim data-noescape>
-// main.c : La Rotation
-while (menu->partie_en_cours) {
-    // 1. Durée aléatoire
-    float duration = 5.0f + (rand() % 7);
-    
-    // 2. Lancement du module
-    switch(current_game) {
-        case GAME_SURVIVOR:
-           RunSurvivorGame(..., &restart);
-           break;
-        // ...
-    }
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// splitscreen.c
+void DrawSplitScreen(SplitScreenContext *ctx) {
+    if (ctx->is_split_screen) {
+        // Collage P1 à gauche (src -> dest)
+        Rectangle src1 = {0, 0, SPLIT_WIDTH, -SPLIT_HEIGHT};
+        Rectangle dst1 = {0, 0, SPLIT_WIDTH, SPLIT_HEIGHT};
+        DrawTexturePro(ctx->target1, src1, dst1, ...);
 
-    // 3. Gestion Restart Global
-    if (restart) {
-        ResetSession();
-        continue; 
+        // Collage P2 à droite (Offset X)
+        Rectangle dst2 = {SPLIT_WIDTH, 0, SPLIT_WIDTH, ...};
+        DrawTexturePro(ctx->target2, src2, dst2, ...);
     }
 }
-                        </code></pre>
+</code></pre>
                     </div>
                 </div>
             </section>
 
-            <!-- SLIDE 8: Technique (Part 2 - Scores) -->
+            <!-- SLIDE 8: Focus Tech 2 - Input Abstraction -->
             <section>
-                <h3>6. Focus Module : Scores</h3>
-                <h4>Encapsulation & IO</h4>
+                <h3>6. Focus Tech : Abstraction Inputs</h3>
+                <h4>Mapping Physique & Macros</h4>
 
                 <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
-                    <div>
-                        <pre><code class="c" data-trim data-noescape>
-// scores.h : Abstraction
-typedef struct {
-  char playername[32];
-  float time;
-  int score;
-} ScoreEntry;
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// player_input.h
+// Mapping physique (W = Z sur Azerty)
+#define IS_P1_UP()     (IsKeyDown(KEY_W))
+#define IS_P1_LEFT()   (IsKeyDown(KEY_A))
 
-// scores.c : Parsing CSV robuste
+// Structure de config (extensible)
+typedef struct {
+    int key_up;
+    int key_action;
+} PlayerControls;
+
+static const PlayerControls P2_CONTROLS = {
+    .key_up = KEY_UP,
+    .key_action = KEY_RIGHT_CONTROL
+};
+</code></pre>
+                    </div>
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong style="color:var(--neon-pink)">Avantages :</strong></p>
+                        <ul>
+                            <li><span style="color:var(--neon-green)">Lisibilité :</span> Les jeux utilisent
+                                <code>IS_P1_UP()</code> au lieu de <code>IsKeyDown(KEY_W)</code>.</li>
+                            <li><span style="color:var(--neon-green)">Portabilité :</span> Si on change les touches (ex:
+                                support Manette), on modifie un seul fichier header.</li>
+                            <li><span style="color:var(--neon-green)">Zéro Coût :</span> Les macros sont résolues à la
+                                compilation.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Focus Tech 3 - Hyperspace -->
+            <section>
+                <h3>7. Focus Tech : Animations 3D</h3>
+                <h4>L'Effet Hyperspace</h4>
+
+                <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p>Simule un vol spatial en utilisant la projection 3D vers 2D simple (Perspective).</p>
+                        <ul>
+                            <li><strong>Maths :</strong> Projection <code>x_screen = x / z</code>.</li>
+                            <li><strong>Animation :</strong> Lerp (Linear Interpolation) pour l'entrée du vaisseau.</li>
+                            <li><strong>Performance :</strong> Array statique de 420 étoiles recyclées.</li>
+                        </ul>
+                    </div>
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// hyperspace.c
+// Projection 3D -> 2D
+starsScreenPos[i] = (Vector2){
+    screenWidth * 0.5f + stars[i].x / stars[i].z,
+    screenHeight * 0.5f + stars[i].y / stars[i].z,
+};
+
+// Lerp pour effet "Dash"
+if (timer < 1.0f) {
+    speed = Lerp(0.1f, 2.0f, timer);
+}
+</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Focus Module - Scores -->
+            <section>
+                <h3>8. Focus Module : Scores</h3>
+                <h4>Robustesse & IO</h4>
+
+                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// scores.c : Parsing CSV sécurisé
 while (fgets(line, ..., file)) {
     char *token = strtok(line, ",");
     strncpy(entry->name, token, ...);
     
+    // Conversion Safe
     token = strtok(NULL, ",");
-    entry->time = atof(token);
-    // ...
+    if(token) entry->time = atof(token);
 }
-                        </code></pre>
+
+// Tri via qsort (O(n log n))
+int compare_scores(const void *a, const void *b) {
+    return (entry_b->score - entry_a->score);
+}
+</code></pre>
                     </div>
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p>Le module <code style="color:var(--neon-pink)">scores.c</code> est totalement isolé :</p>
+                        <p><strong style="color:var(--neon-blue)">Points Clés :</strong></p>
                         <ul>
-                            <li><span style="color:var(--neon-green)">Responsabilité Unique :</span> Gestion I/O (CSV)
-                                et Tri (Qsort).</li>
-                            <li><span style="color:var(--neon-green)">Double Classement :</span> Gère simultanément les
-                                "Meilleurs Temps" et "Meilleurs Scores" via un enum.</li>
-                            <li><span style="color:var(--neon-green)">Robustesse :</span> Gère les fichiers manquants ou
-                                corrompus sans crasher l'application.</li>
+                            <li>Gestion des erreurs (Fichiers manquants, lignes corrompues).</li>
+                            <li>Indépendance totale (Module autonome sans dépendance Raylib).</li>
+                            <li>Supporte <strong>deux classements parallèles</strong> (Temps vs Points).</li>
                         </ul>
-                        <p>C'est un exemple de code réutilisable et découplé du reste du moteur de jeu.</p>
                     </div>
                 </div>
             </section>
