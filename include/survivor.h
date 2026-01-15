@@ -19,7 +19,6 @@
 #define MAX_BULLETS 1000
 #define MAX_BONUSES 50
 #define MAX_TRAINEE 20
-#define MAX_MISSILES 10
 
 // ============================================================================
 // TYPES - PLAYER
@@ -53,11 +52,6 @@ typedef struct {
   float dashCooldown;
   float dashSpeed;
   float dashDuration;
-
-  // Missile
-  float missileCooldown;
-  float missileMaxCooldown;
-  float missileCooldownTimer; // Timer actuel
 } SurvivorPlayer;
 
 // ============================================================================
@@ -96,15 +90,6 @@ typedef struct {
   int damage;
 } SurvivorBullet;
 
-typedef struct {
-  bool active;
-  Vector2 position;
-  Vector2 velocity;
-  float radius;
-  float damage;
-  float explosionRadius;
-} SurvivorMissile;
-
 // ============================================================================
 // TYPES - BONUS
 // ============================================================================
@@ -113,8 +98,7 @@ typedef enum {
   BONUS_DAMAGE,
   BONUS_HEALTH,
   BONUS_SPEED,
-  BONUS_TIR_RAPIDE,
-  BONUS_MISSILE_CD
+  BONUS_TIR_RAPIDE
 } BonusType;
 
 typedef struct {

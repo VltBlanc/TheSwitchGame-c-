@@ -33,7 +33,6 @@ typedef SurvivorEnemy Enemy;
 typedef SurvivorBullet Bullet;
 typedef SurvivorBonus Bonus;
 typedef SurvivorTrainee Trainee;
-typedef SurvivorMissile Missile;
 
 // ============================================================================
 // VARIABLES GLOBALES - ENTITÉS
@@ -45,7 +44,6 @@ static Enemy *enemies = NULL;
 static Bullet *bullets = NULL;
 static Bonus *bonuses = NULL;
 static Trainee *trainee = NULL;
-static Missile *missiles = NULL;
 
 // ============================================================================
 // VARIABLES GLOBALES - SCORE & SESSION
@@ -125,46 +123,32 @@ static void InitPlayer(Player *p, Vector2 position, Difficulte difficulty) {
   p->dashCooldown = 0.1f;
   p->dashSpeed = 2000.0f;
   p->dashDuration = 0.1f;
-
-  // Missile
-  p->missileMaxCooldown = 15.0f;
-  p->missileCooldownTimer = 0.0f;
 }
 
 void InitGame(Difficulte difficulty) {
   currentDifficulty = difficulty;
 
   // Initialize Player 1 (center-left in 2P, center in 1P)
+  Vector2 camOffset = GetCameraOffset(currentMode);
   Vector2 p1Pos;
   if (currentMode == DEUX_JOUEURS) {
     p1Pos = (Vector2){MAP_WIDTH / 2 - 200, MAP_HEIGHT / 2};
+    Vector2 p2Pos = {MAP_WIDTH / 2 + 200, MAP_HEIGHT / 2};
+    InitPlayer(&player2, p2Pos, difficulty);
+    camera2.target = player2.position;
+    camera2.offset = camOffset;
+    camera2.rotation = 0.0f;
+    camera2.zoom = 1.0f;
   } else {
     p1Pos = (Vector2){MAP_WIDTH / 2, MAP_HEIGHT / 2};
   }
   InitPlayer(&player1, p1Pos, difficulty);
-
-  // Initialize Player 2 (only in 2P mode)
-  if (currentMode == DEUX_JOUEURS) {
-    Vector2 p2Pos = {MAP_WIDTH / 2 + 200, MAP_HEIGHT / 2};
-    InitPlayer(&player2, p2Pos, difficulty);
-  }
-
-  // Camera offset depends on mode
-  Vector2 camOffset = GetCameraOffset(currentMode);
 
   // Initialize Camera 1
   camera1.target = player1.position;
   camera1.offset = camOffset;
   camera1.rotation = 0.0f;
   camera1.zoom = 1.0f;
-
-  // Initialize Camera 2 (only in 2P mode)
-  if (currentMode == DEUX_JOUEURS) {
-    camera2.target = player2.position;
-    camera2.offset = camOffset;
-    camera2.rotation = 0.0f;
-    camera2.zoom = 1.0f;
-  }
 
   // Reset global variables
   gameTime = 0.0f;
@@ -183,8 +167,6 @@ void InitGame(Difficulte difficulty) {
     bonuses[i].active = false;
   for (int i = 0; i < MAX_trainee; i++)
     trainee[i].active = false;
-  for (int i = 0; i < MAX_MISSILES; i++)
-    missiles[i].active = false;
 }
 
 // ============================================================================
@@ -224,12 +206,8 @@ void SpawnBonus() {
   } else if (typeRoll < 60) {
     bonuses[slot].type = BONUS_SPEED;
     bonuses[slot].color = SKYBLUE;
-  } else if (typeRoll < 80) { //
     bonuses[slot].type = BONUS_TIR_RAPIDE;
     bonuses[slot].color = YELLOW;
-  } else {
-    bonuses[slot].type = BONUS_MISSILE_CD;
-    bonuses[slot].color = PURPLE;
   }
 }
 
@@ -264,7 +242,6 @@ void SpawnEnemy() {
   // En mode 2 joueurs, spawn autour d'un joueur aleatoire
   Vector2 spawnCenter = player1.position;
   if (currentMode == DEUX_JOUEURS && player2.isAlive) {
-    // Alterner entre les deux joueurs ou choisir aleatoirement
     if (GetRandomValue(0, 1) == 1) {
       spawnCenter = player2.position;
     }
@@ -366,10 +343,13 @@ int FindNearestEnemy() {
   // En mode 2 joueurs, trouve l'ennemi le plus proche des deux joueurs
   if (currentMode == DEUX_JOUEURS) {
     int nearest1 = FindNearestEnemyToPos(player1.position);
-    int nearest2 = player2.isAlive ? FindNearestEnemyToPos(player2.position) : -1;
+    int nearest2 =
+        player2.isAlive ? FindNearestEnemyToPos(player2.position) : -1;
 
-    if (nearest1 == -1) return nearest2;
-    if (nearest2 == -1) return nearest1;
+    if (nearest1 == -1)
+      return nearest2;
+    if (nearest2 == -1)
+      return nearest1;
 
     // Retourne celui qui est globalement le plus proche
     float d1 = Vector2DistanceSqr(player1.position, enemies[nearest1].position);
@@ -384,8 +364,10 @@ int FindNearestEnemy() {
 // ============================================================================
 
 // Mise a jour du mouvement d'un joueur
-static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, float dt) {
-  if (!p->isAlive) return;
+static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed,
+                                 float dt) {
+  if (!p->isAlive)
+    return;
 
   float moveLen = sqrtf(move.x * move.x + move.y * move.y);
   if (moveLen > 0) {
@@ -395,7 +377,8 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, floa
   }
 
   // Logique du Dash
-  if (p->dashCooldown > 0) p->dashCooldown -= dt;
+  if (p->dashCooldown > 0)
+    p->dashCooldown -= dt;
 
   if (dashPressed && p->dashCooldown <= 0 && moveLen > 0) {
     p->isDashing = true;
@@ -411,7 +394,8 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, floa
     // Effet de trainee
     static float traineeSpawnTimer1 = 0.0f;
     static float traineeSpawnTimer2 = 0.0f;
-    float *traineeTimer = (p == &player1) ? &traineeSpawnTimer1 : &traineeSpawnTimer2;
+    float *traineeTimer =
+        (p == &player1) ? &traineeSpawnTimer1 : &traineeSpawnTimer2;
     *traineeTimer += dt;
     if (*traineeTimer >= 0.02f) {
       *traineeTimer = 0.0f;
@@ -427,7 +411,8 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, floa
       }
     }
 
-    if (p->dashTimer <= 0) p->isDashing = false;
+    if (p->dashTimer <= 0)
+      p->isDashing = false;
   }
 
   if (moveLen > 0 || p->isDashing) {
@@ -439,7 +424,8 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, floa
     if (p->frameTimer >= 0.1f) {
       p->frameTimer = 0.0f;
       p->currentFrame++;
-      if (p->currentFrame >= 3) p->currentFrame = 0;
+      if (p->currentFrame >= 3)
+        p->currentFrame = 0;
       p->frameRec.y = (float)p->currentFrame * 399.0f;
     }
   } else {
@@ -454,7 +440,8 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, floa
 
 // Mise a jour du tir automatique d'un joueur
 static void UpdatePlayerShooting(Player *p, float dt) {
-  if (!p->isAlive) return;
+  if (!p->isAlive)
+    return;
 
   p->shootTimer += dt;
   if (p->shootTimer >= p->fireRate) {
@@ -463,24 +450,32 @@ static void UpdatePlayerShooting(Player *p, float dt) {
       float dx = p->position.x - enemies[targetIdx].position.x;
       float dy = p->position.y - enemies[targetIdx].position.y;
       float distSq = dx * dx + dy * dy;
-      if (distSq > 675.0f * 675.0f) targetIdx = -1;
+      if (distSq > 675.0f * 675.0f)
+        targetIdx = -1;
     }
 
     if (targetIdx != -1) {
       int bSlot = -1;
       for (int i = 0; i < MAX_BULLETS; i++) {
-        if (!bullets[i].active) { bSlot = i; break; }
+        if (!bullets[i].active) {
+          bSlot = i;
+          break;
+        }
       }
 
       if (bSlot != -1) {
         Vector2 dir = {enemies[targetIdx].position.x - p->position.x,
                        enemies[targetIdx].position.y - p->position.y};
         float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
-        if (dirLen > 0) { dir.x /= dirLen; dir.y /= dirLen; }
+        if (dirLen > 0) {
+          dir.x /= dirLen;
+          dir.y /= dirLen;
+        }
 
         bullets[bSlot].active = true;
         bullets[bSlot].position = p->position;
-        bullets[bSlot].velocity = (Vector2){dir.x * p->bulletSpeed, dir.y * p->bulletSpeed};
+        bullets[bSlot].velocity =
+            (Vector2){dir.x * p->bulletSpeed, dir.y * p->bulletSpeed};
         bullets[bSlot].radius = p->bulletSize;
         bullets[bSlot].damage = p->damage;
         bullets[bSlot].lifeTime = 2.0f;
@@ -503,10 +498,14 @@ static void UpdateCameraForPlayer(Camera2D *cam, Player *p) {
   float maxX = MAP_WIDTH - viewW / 2.0f;
   float maxY = MAP_HEIGHT - viewH / 2.0f;
 
-  if (cam->target.x < minX) cam->target.x = minX;
-  if (cam->target.x > maxX) cam->target.x = maxX;
-  if (cam->target.y < minY) cam->target.y = minY;
-  if (cam->target.y > maxY) cam->target.y = maxY;
+  if (cam->target.x < minX)
+    cam->target.x = minX;
+  if (cam->target.x > maxX)
+    cam->target.x = maxX;
+  if (cam->target.y < minY)
+    cam->target.y = minY;
+  if (cam->target.y > maxY)
+    cam->target.y = maxY;
 }
 
 // Application d'un bonus a un joueur
@@ -518,37 +517,45 @@ static void ApplyBonusToPlayer(Player *p, Bonus *b) {
     p->health = p->maxHealth;
   } else if (b->type == BONUS_SPEED) {
     p->speed += 50.0f;
-    if (p->speed > 800.0f) p->speed = 800.0f;
+    if (p->speed > 800.0f)
+      p->speed = 800.0f;
   } else if (b->type == BONUS_TIR_RAPIDE) {
     p->fireRate = p->fireRate / 1.15f;
-  } else if (b->type == BONUS_MISSILE_CD) {
-    p->missileMaxCooldown -= 1.0f;
-    if (p->missileMaxCooldown < 5.0f) p->missileMaxCooldown = 5.0f;
   }
   b->active = false;
 }
 
 void UpdateGame(float dt) {
-  if (gameOver) return;
+  if (gameOver)
+    return;
 
   gameTime += dt;
-  if (globalTotalTime != NULL) *globalTotalTime += dt;
+  if (globalTotalTime != NULL)
+    *globalTotalTime += dt;
 
   // --- MOUVEMENT JOUEUR 1 (ZQSD + SPACE) ---
   Vector2 move1 = {0};
-  if (IS_P1_UP()) move1.y -= 1;
-  if (IS_P1_DOWN()) move1.y += 1;
-  if (IS_P1_LEFT()) move1.x -= 1;
-  if (IS_P1_RIGHT()) move1.x += 1;
+  if (IS_P1_UP())
+    move1.y -= 1;
+  if (IS_P1_DOWN())
+    move1.y += 1;
+  if (IS_P1_LEFT())
+    move1.x -= 1;
+  if (IS_P1_RIGHT())
+    move1.x += 1;
   UpdatePlayerMovement(&player1, move1, IS_P1_ACTION(), dt);
 
   // --- MOUVEMENT JOUEUR 2 (Fleches + CTRL) ---
   if (currentMode == DEUX_JOUEURS && player2.isAlive) {
     Vector2 move2 = {0};
-    if (IS_P2_UP()) move2.y -= 1;
-    if (IS_P2_DOWN()) move2.y += 1;
-    if (IS_P2_LEFT()) move2.x -= 1;
-    if (IS_P2_RIGHT()) move2.x += 1;
+    if (IS_P2_UP())
+      move2.y -= 1;
+    if (IS_P2_DOWN())
+      move2.y += 1;
+    if (IS_P2_LEFT())
+      move2.x -= 1;
+    if (IS_P2_RIGHT())
+      move2.x += 1;
     UpdatePlayerMovement(&player2, move2, IS_P2_ACTION(), dt);
   }
 
@@ -556,7 +563,8 @@ void UpdateGame(float dt) {
   for (int i = 0; i < MAX_trainee; i++) {
     if (trainee[i].active) {
       trainee[i].alpha -= 2.0f * dt;
-      if (trainee[i].alpha <= 0) trainee[i].active = false;
+      if (trainee[i].alpha <= 0)
+        trainee[i].active = false;
     }
   }
 
@@ -575,98 +583,6 @@ void UpdateGame(float dt) {
   UpdatePlayerShooting(&player1, dt);
   if (currentMode == DEUX_JOUEURS && player2.isAlive) {
     UpdatePlayerShooting(&player2, dt);
-  }
-
-  // --- MISSILE (P1 seulement avec E) ---
-  if (player1.isAlive) {
-    if (player1.missileCooldownTimer > 0) player1.missileCooldownTimer -= dt;
-
-    if (IsKeyPressed(KEY_E) && player1.missileCooldownTimer <= 0) {
-      int mSlot = -1;
-      for (int i = 0; i < MAX_MISSILES; i++) {
-        if (!missiles[i].active) { mSlot = i; break; }
-      }
-
-      if (mSlot != -1) {
-        missiles[mSlot].active = true;
-        missiles[mSlot].position = player1.position;
-        float rad = (player1.rotation - 90.0f) * DEG2RAD;
-        Vector2 dir = {cosf(rad), sinf(rad)};
-        missiles[mSlot].velocity = (Vector2){dir.x * 600.0f, dir.y * 600.0f};
-        missiles[mSlot].radius = 15.0f;
-        missiles[mSlot].damage = 10.0f;
-        missiles[mSlot].explosionRadius = 150.0f;
-        player1.missileCooldownTimer = player1.missileMaxCooldown;
-      }
-    }
-  }
-
-  // --- UPDATE MISSILES ---
-  for (int i = 0; i < MAX_MISSILES; i++) {
-    if (missiles[i].active) {
-      int targetIdx = FindNearestEnemy();
-      if (targetIdx != -1) {
-        Vector2 targetPos = enemies[targetIdx].position;
-        Vector2 desiredDir = {targetPos.x - missiles[i].position.x,
-                              targetPos.y - missiles[i].position.y};
-        float dist = sqrtf(desiredDir.x * desiredDir.x + desiredDir.y * desiredDir.y);
-
-        if (dist > 0) {
-          desiredDir.x /= dist;
-          desiredDir.y /= dist;
-          float curSpeed = sqrtf(missiles[i].velocity.x * missiles[i].velocity.x +
-                                 missiles[i].velocity.y * missiles[i].velocity.y);
-          float turnRate = 4.0f * dt;
-          missiles[i].velocity.x += (desiredDir.x * curSpeed - missiles[i].velocity.x) * turnRate;
-          missiles[i].velocity.y += (desiredDir.y * curSpeed - missiles[i].velocity.y) * turnRate;
-
-          float newSpeed = sqrtf(missiles[i].velocity.x * missiles[i].velocity.x +
-                                 missiles[i].velocity.y * missiles[i].velocity.y);
-          if (newSpeed > 0) {
-            missiles[i].velocity.x = (missiles[i].velocity.x / newSpeed) * curSpeed;
-            missiles[i].velocity.y = (missiles[i].velocity.y / newSpeed) * curSpeed;
-          }
-        }
-      }
-
-      missiles[i].position.x += missiles[i].velocity.x * dt;
-      missiles[i].position.y += missiles[i].velocity.y * dt;
-
-      bool exploded = false;
-      if (missiles[i].position.x < 0 || missiles[i].position.x > MAP_WIDTH ||
-          missiles[i].position.y < 0 || missiles[i].position.y > MAP_HEIGHT) {
-        exploded = true;
-      }
-
-      if (!exploded) {
-        for (int e = 0; e < MAX_ENEMIES; e++) {
-          if (enemies[e].active &&
-              CheckCollisionCircles(missiles[i].position, missiles[i].radius,
-                                    enemies[e].position, enemies[e].radius)) {
-            exploded = true;
-            break;
-          }
-        }
-      }
-
-      if (exploded) {
-        missiles[i].active = false;
-        for (int e = 0; e < MAX_ENEMIES; e++) {
-          if (enemies[e].active) {
-            float dx = missiles[i].position.x - enemies[e].position.x;
-            float dy = missiles[i].position.y - enemies[e].position.y;
-            float distSq = dx * dx + dy * dy;
-            if (distSq <= missiles[i].explosionRadius * missiles[i].explosionRadius) {
-              enemies[e].health -= (int)missiles[i].damage;
-              if (enemies[e].health <= 0) {
-                enemies[e].active = false;
-                score += 15;
-              }
-            }
-          }
-        }
-      }
-    }
   }
 
   // --- UPDATE BALLES ---
@@ -700,7 +616,8 @@ void UpdateGame(float dt) {
   // --- SPAWN ENNEMIS ---
   float difficultyTime = gameTime;
   float currentSpawnRate = 0.8f - (difficultyTime / 10.0f) * 0.05f;
-  if (currentSpawnRate < 0.1f) currentSpawnRate = 0.1f;
+  if (currentSpawnRate < 0.1f)
+    currentSpawnRate = 0.1f;
 
   spawnTimer += dt;
   if (spawnTimer >= currentSpawnRate) {
@@ -719,8 +636,9 @@ void UpdateGame(float dt) {
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
       // P1 collecte
-      if (player1.isAlive && CheckCollisionCircles(player1.position, player1.radius,
-                                                    bonuses[i].position, bonuses[i].radius)) {
+      if (player1.isAlive &&
+          CheckCollisionCircles(player1.position, player1.radius,
+                                bonuses[i].position, bonuses[i].radius)) {
         ApplyBonusToPlayer(&player1, &bonuses[i]);
         continue;
       }
@@ -739,8 +657,12 @@ void UpdateGame(float dt) {
       // En 2P, l'ennemi chasse le joueur le plus proche
       Vector2 targetPos = player1.position;
       if (currentMode == DEUX_JOUEURS) {
-        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position, player1.position) : 999999999.0f;
-        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position, player2.position) : 999999999.0f;
+        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position,
+                                                        player1.position)
+                                   : 999999999.0f;
+        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position,
+                                                        player2.position)
+                                   : 999999999.0f;
         targetPos = (d1 <= d2) ? player1.position : player2.position;
       }
 
@@ -759,9 +681,11 @@ void UpdateGame(float dt) {
       if (enemies[i].type == ENEMY_TANK) {
         enemies[i].rotation = 0.0f;
         if (dir.x >= 0) {
-          if (enemies[i].frameRec.width < 0) enemies[i].frameRec.width *= -1;
+          if (enemies[i].frameRec.width < 0)
+            enemies[i].frameRec.width *= -1;
         } else {
-          if (enemies[i].frameRec.width > 0) enemies[i].frameRec.width *= -1;
+          if (enemies[i].frameRec.width > 0)
+            enemies[i].frameRec.width *= -1;
         }
       } else {
         enemies[i].rotation = atan2f(dir.y, dir.x) * RAD2DEG + 90.0f;
@@ -773,13 +697,16 @@ void UpdateGame(float dt) {
         enemies[i].frameTimer = 0.0f;
         enemies[i].currentFrame++;
         int maxFrames = (enemies[i].type == ENEMY_TANK) ? 2 : 3;
-        if (enemies[i].currentFrame >= maxFrames) enemies[i].currentFrame = 0;
-        enemies[i].frameRec.y = (float)enemies[i].currentFrame * enemies[i].frameRec.height;
+        if (enemies[i].currentFrame >= maxFrames)
+          enemies[i].currentFrame = 0;
+        enemies[i].frameRec.y =
+            (float)enemies[i].currentFrame * enemies[i].frameRec.height;
       }
 
       // Collision avec P1
-      if (player1.isAlive && CheckCollisionCircles(player1.position, player1.radius,
-                                                    enemies[i].position, enemies[i].radius)) {
+      if (player1.isAlive &&
+          CheckCollisionCircles(player1.position, player1.radius,
+                                enemies[i].position, enemies[i].radius)) {
         player1.health--;
         enemies[i].active = false;
         if (player1.health <= 0) {
@@ -872,13 +799,15 @@ static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
   // Ennemis
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
-      Texture2D tex = (enemies[i].type == ENEMY_TANK) ? tankTexture : chasseurTexture;
+      Texture2D tex =
+          (enemies[i].type == ENEMY_TANK) ? tankTexture : chasseurTexture;
       float baseScale = (enemies[i].type == ENEMY_TANK) ? 0.4f : 0.6f;
       float w = fabsf(enemies[i].frameRec.width) * baseScale;
       float h = enemies[i].frameRec.height * baseScale;
       Rectangle dest = {enemies[i].position.x, enemies[i].position.y, w, h};
       Vector2 origin = {w / 2.0f, h / 2.0f};
-      DrawTexturePro(tex, enemies[i].frameRec, dest, origin, enemies[i].rotation, WHITE);
+      DrawTexturePro(tex, enemies[i].frameRec, dest, origin,
+                     enemies[i].rotation, WHITE);
     }
   }
 
@@ -889,38 +818,39 @@ static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
     }
   }
 
-  // Missiles
-  for (int i = 0; i < MAX_MISSILES; i++) {
-    if (missiles[i].active) {
-      DrawCircleV(missiles[i].position, missiles[i].radius, ORANGE);
-      DrawCircleLines(missiles[i].position.x, missiles[i].position.y, missiles[i].radius, RED);
-    }
-  }
-
   // Bonus
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
       DrawCircleV(bonuses[i].position, bonuses[i].radius, bonuses[i].color);
-      DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y, bonuses[i].radius, WHITE);
+      DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y,
+                      bonuses[i].radius, WHITE);
 
       // Indicateur hors ecran (fleche vers bonus)
       Vector2 screenPos = GetWorldToScreen2D(bonuses[i].position, *cam);
       int viewW = (currentMode == DEUX_JOUEURS) ? SPLIT_WIDTH : SCREEN_WIDTH;
       int viewH = (currentMode == DEUX_JOUEURS) ? SPLIT_HEIGHT : SCREEN_HEIGHT;
 
-      if (screenPos.x < 0 || screenPos.x > viewW || screenPos.y < 0 || screenPos.y > viewH) {
-        Vector2 dir = Vector2Subtract(bonuses[i].position, viewPlayer->position);
+      if (screenPos.x < 0 || screenPos.x > viewW || screenPos.y < 0 ||
+          screenPos.y > viewH) {
+        Vector2 dir =
+            Vector2Subtract(bonuses[i].position, viewPlayer->position);
         float length = Vector2Length(dir);
-        if (length > 0) dir = Vector2Scale(dir, 1.0f / length);
+        if (length > 0)
+          dir = Vector2Scale(dir, 1.0f / length);
 
         float indicatorRadius = 60.0f;
         float triangleSize = 15.0f;
 
-        Vector2 baseCenter = Vector2Add(viewPlayer->position, Vector2Scale(dir, indicatorRadius));
-        Vector2 tip = Vector2Add(viewPlayer->position, Vector2Scale(dir, indicatorRadius + triangleSize));
+        Vector2 baseCenter = Vector2Add(viewPlayer->position,
+                                        Vector2Scale(dir, indicatorRadius));
+        Vector2 tip =
+            Vector2Add(viewPlayer->position,
+                       Vector2Scale(dir, indicatorRadius + triangleSize));
         Vector2 perp = {-dir.y, dir.x};
-        Vector2 baseLeft = Vector2Add(baseCenter, Vector2Scale(perp, -triangleSize * 0.5f));
-        Vector2 baseRight = Vector2Add(baseCenter, Vector2Scale(perp, triangleSize * 0.5f));
+        Vector2 baseLeft =
+            Vector2Add(baseCenter, Vector2Scale(perp, -triangleSize * 0.5f));
+        Vector2 baseRight =
+            Vector2Add(baseCenter, Vector2Scale(perp, triangleSize * 0.5f));
 
         DrawTriangle(tip, baseLeft, baseRight, bonuses[i].color);
       }
@@ -943,7 +873,8 @@ static void DrawPlayerUI(Player *p, int playerId, int screenW, int screenH) {
 
   DrawText(scoreText, screenW / 2 - scoreW / 2 + 1, 12, fontSize, DARKBLUE);
   DrawText(scoreText, screenW / 2 - scoreW / 2, 10, fontSize, SKYBLUE);
-  DrawText(timeText, screenW / 2 - timeW / 2 + 1, 10 + fontSize + 2, fontSize, DARKBLUE);
+  DrawText(timeText, screenW / 2 - timeW / 2 + 1, 10 + fontSize + 2, fontSize,
+           DARKBLUE);
   DrawText(timeText, screenW / 2 - timeW / 2, 10 + fontSize, fontSize, SKYBLUE);
 
   // Nom du joueur
@@ -968,7 +899,8 @@ static void DrawPlayerUI(Player *p, int playerId, int screenW, int screenH) {
   DrawRectangle(barX + 25, barY, barW, barH, Fade(RED, 0.5f));
   DrawRectangle(barX + 25, barY, (int)(barW * hpPct), barH, GREEN);
   DrawRectangleLines(barX + 25, barY, barW, barH, WHITE);
-  DrawText(TextFormat("%d/%d", p->health, p->maxHealth), barX + 30, barY + 1, 14, WHITE);
+  DrawText(TextFormat("%d/%d", p->health, p->maxHealth), barX + 30, barY + 1,
+           14, WHITE);
 
   // Stats simples
   int statsX = barX + barW + 40;
@@ -977,7 +909,7 @@ static void DrawPlayerUI(Player *p, int playerId, int screenW, int screenH) {
 
   // Controles (seulement en 1P ou texte adapte)
   if (currentMode == UN_JOUEUR) {
-    DrawText("ZQSD: Move  SPACE: Dash  E: Missile", 10, panelY - 20, 16, DARKGRAY);
+    DrawText("ZQSD: Move  SPACE: Dash", 10, panelY - 20, 16, DARKGRAY);
   }
 }
 
@@ -1010,16 +942,20 @@ void DrawGame() {
       Color p1Col = (winner == 1) ? GREEN : RED;
       DrawRectangle(0, 0, SPLIT_WIDTH, SPLIT_HEIGHT, Fade(BLACK, 0.5f));
       int tw1 = MeasureText(p1Text, 50);
-      DrawText(p1Text, SPLIT_WIDTH / 2 - tw1 / 2, SPLIT_HEIGHT / 2 - 25, 50, p1Col);
+      DrawText(p1Text, SPLIT_WIDTH / 2 - tw1 / 2, SPLIT_HEIGHT / 2 - 25, 50,
+               p1Col);
 
       // Overlay sur P2
       const char *p2Text = (winner == 2) ? "GAGNANT!" : "PERDU";
       Color p2Col = (winner == 2) ? GREEN : RED;
-      DrawRectangle(SPLIT_WIDTH, 0, SPLIT_WIDTH, SPLIT_HEIGHT, Fade(BLACK, 0.5f));
+      DrawRectangle(SPLIT_WIDTH, 0, SPLIT_WIDTH, SPLIT_HEIGHT,
+                    Fade(BLACK, 0.5f));
       int tw2 = MeasureText(p2Text, 50);
-      DrawText(p2Text, SPLIT_WIDTH + SPLIT_WIDTH / 2 - tw2 / 2, SPLIT_HEIGHT / 2 - 25, 50, p2Col);
+      DrawText(p2Text, SPLIT_WIDTH + SPLIT_WIDTH / 2 - tw2 / 2,
+               SPLIT_HEIGHT / 2 - 25, 50, p2Col);
 
-      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SPLIT_HEIGHT / 2 + 50, 20, WHITE);
+      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SPLIT_HEIGHT / 2 + 50, 20,
+               WHITE);
       EndDrawing();
     } else if (gameOver && winner == 0) {
       // Egalite
@@ -1027,8 +963,10 @@ void DrawGame() {
       DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.5f));
       const char *txt = "EGALITE!";
       int tw = MeasureText(txt, 50);
-      DrawText(txt, SCREEN_WIDTH / 2 - tw / 2, SCREEN_HEIGHT / 2 - 25, 50, YELLOW);
-      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 + 50, 20, WHITE);
+      DrawText(txt, SCREEN_WIDTH / 2 - tw / 2, SCREEN_HEIGHT / 2 - 25, 50,
+               YELLOW);
+      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 + 50,
+               20, WHITE);
       EndDrawing();
     }
 
@@ -1045,7 +983,8 @@ void DrawGame() {
       const char *txt = "GAME OVER";
       int tw = MeasureText(txt, 50);
       DrawText(txt, SCREEN_WIDTH / 2 - tw / 2, SCREEN_HEIGHT / 2 - 25, 50, RED);
-      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 + 50, 20, WHITE);
+      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 + 50,
+               20, WHITE);
     }
 
     EndDrawing();
@@ -1075,26 +1014,31 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
   // Allocation dynamique seulement si on ne reprend pas une partie
   if (!resume) {
     // Securite : on libere si jamais il restait quelque chose
-    if (enemies) free(enemies);
-    if (bullets) free(bullets);
-    if (bonuses) free(bonuses);
-    if (trainee) free(trainee);
-    if (missiles) free(missiles);
+    if (enemies)
+      free(enemies);
+    if (bullets)
+      free(bullets);
+    if (bonuses)
+      free(bonuses);
+    if (trainee)
+      free(trainee);
 
     enemies = (Enemy *)calloc(MAX_ENEMIES, sizeof(Enemy));
     bullets = (Bullet *)calloc(MAX_BULLETS, sizeof(Bullet));
     bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
     trainee = (Trainee *)calloc(MAX_trainee, sizeof(Trainee));
-    missiles = (Missile *)calloc(MAX_MISSILES, sizeof(Missile));
 
     if (enemies == NULL || bullets == NULL || bonuses == NULL ||
-        trainee == NULL || missiles == NULL) {
+        trainee == NULL) {
       printf("Erreur d'allocation memoire !\n");
-      if (enemies) free(enemies);
-      if (bullets) free(bullets);
-      if (bonuses) free(bonuses);
-      if (trainee) free(trainee);
-      if (missiles) free(missiles);
+      if (enemies)
+        free(enemies);
+      if (bullets)
+        free(bullets);
+      if (bonuses)
+        free(bonuses);
+      if (trainee)
+        free(trainee);
       UnloadSplitScreen(&splitCtx);
       *game_active = false;
       return;
@@ -1201,7 +1145,8 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
     if (elapsed_time < start_delay ||
         (timeout_seconds > 0 && (timeout_seconds - elapsed_time) < 0.5f)) {
       camera1.zoom = current_zoom;
-      if (currentMode == DEUX_JOUEURS) camera2.zoom = current_zoom;
+      if (currentMode == DEUX_JOUEURS)
+        camera2.zoom = current_zoom;
     }
 
     // Appliquer le shake
@@ -1250,12 +1195,9 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
       free(bonuses);
     if (trainee)
       free(trainee);
-    if (missiles)
-      free(missiles);
     enemies = NULL;
     bullets = NULL;
     bonuses = NULL;
     trainee = NULL;
-    missiles = NULL;
   }
 }
