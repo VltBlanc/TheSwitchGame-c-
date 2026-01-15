@@ -5,50 +5,50 @@
 #include <stdbool.h>
 #include "menu.h"
 
-// Split-screen dimensions (vertical split)
+// Dimensions du split-screen (séparation verticale)
 #define SPLIT_WIDTH 640
 #define SPLIT_HEIGHT 720
 #define FULL_WIDTH 1280
 #define FULL_HEIGHT 720
 
-// Split-screen rendering context
+// Contexte de rendu pour le split-screen
 typedef struct {
     RenderTexture2D player1_target;
     RenderTexture2D player2_target;
     bool is_split_screen;
-    int active_viewport;  // Currently rendering to: 1 or 2
+    int active_viewport;  // Zone actuellement utilisée pour le rendu : 1 ou 2
 } SplitScreenContext;
 
-// Initialize split-screen rendering context
-// For DEUX_JOUEURS: creates two 640x720 render targets
-// For UN_JOUEUR: creates one 1280x720 render target
+// Initialise le contexte de rendu du split-screen
+// Pour DEUX_JOUEURS : crée deux cibles de rendu de 640x720
+// Pour UN_JOUEUR   : crée une seule cible de rendu de 1280x720
 SplitScreenContext InitSplitScreen(ModeJoueur mode);
 
-// Begin rendering to a player's viewport
-// player_id: 1 for left viewport, 2 for right viewport
+// Démarre le rendu dans la zone du joueur
+// player_id : 1 pour la zone de gauche, 2 pour la zone de droite
 void BeginPlayerViewport(SplitScreenContext *ctx, int player_id);
 
-// End rendering to the current viewport
+// Termine le rendu dans la zone actuelle
 void EndPlayerViewport(SplitScreenContext *ctx);
 
-// Composite both viewports to screen with separator line
-// Call this after rendering both viewports
+// Affiche les deux zones à l’écran avec une ligne de séparation
+// À appeler après avoir rendu les deux zones
 void DrawSplitScreen(SplitScreenContext *ctx);
 
-// Draw player labels (P1, P2) on viewports
+// Affiche les étiquettes des joueurs (P1, P2) dans leurs zones respectives
 void DrawPlayerLabels(SplitScreenContext *ctx);
 
-// Draw winner/loser overlay on viewports
-// winner: 1 = P1 wins, 2 = P2 wins
+// Affiche une surcouche indiquant le gagnant et le perdant
+// winner : 1 = P1 gagne, 2 = P2 gagne
 void DrawWinOverlay(SplitScreenContext *ctx, int winner);
 
-// Cleanup render textures
+// Libère les textures de rendu
 void UnloadSplitScreen(SplitScreenContext *ctx);
 
-// Helper to get viewport dimensions based on mode
+// Renvoie les dimensions de la zone d’affichage selon le mode de jeu
 Vector2 GetViewportSize(ModeJoueur mode);
 
-// Helper to get camera offset for split-screen
+// Renvoie le décalage de la caméra pour le split-screen
 Vector2 GetCameraOffset(ModeJoueur mode);
 
 #endif // SPLITSCREEN_H
