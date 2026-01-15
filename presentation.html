@@ -307,25 +307,26 @@
             </section>
 
             <!-- SLIDE 2.5: Phase 3 - Multiplayer & Polish -->
-            <section>
-                <h2>2.5 Phase 3 : Multijoueur & Polish</h2>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; font-size: 0.65em;">
-                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px;">
-                        <h5 style="color: var(--neon-blue); margin: 0 0 10px 0;">Split-Screen</h5>
-                        <p style="margin: 0; font-size: 0.9em;">Dual viewports avec RenderTextures</p>
-                    </div>
-                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px;">
+            <section style="height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 20px;">
+                <h2 style="color: var(--neon-blue); margin-bottom: 25px; font-family: 'Orbitron', sans-serif;">2.5 Phase 3 : Multijoueur & Polish</h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 800px; margin: 0 auto;">
+                    
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
                         <h5 style="color: var(--neon-pink); margin: 0 0 10px 0;">Modes Joueur</h5>
-                        <p style="margin: 0; font-size: 0.9em;">Solo / Co-op / Versus</p>
+                        <p style="margin: 0; font-size: 0.9em; opacity: 0.9;">Solo / Co-op / Versus</p>
                     </div>
-                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px;">
+            
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
                         <h5 style="color: var(--neon-green); margin: 0 0 10px 0;">Persistance</h5>
-                        <p style="margin: 0; font-size: 0.9em;">High scores CSV</p>
+                        <p style="margin: 0; font-size: 0.9em; opacity: 0.9;">High scores CSV</p>
                     </div>
+            
                 </div>
-                <div class="fragment" style="margin-top: 20px; font-size: 0.65em;">
-                    <h4 style="color: var(--neon-green);">Polish Final</h4>
-                    <ul style="margin: 5px 0;">
+            
+                <div class="fragment" style="margin-top: 30px; font-size: 0.65em; text-align: center; width: 100%;">
+                    <h4 style="color: var(--neon-green); margin-bottom: 10px;">Polish Final</h4>
+                    <ul style="display: inline-block; text-align: left; list-style-position: inside; margin: 0; padding: 0;">
                         <li>Thème espace unifié (particules, visuels)</li>
                         <li>Menu principal intégré</li>
                         <li>Build automatisé (Makefile)</li>
@@ -333,27 +334,40 @@
                     </ul>
                 </div>
             </section>
-
             <!-- SLIDE 4: Fonctionnalités -->
-            <section>
-                <h2>3. Fonctionnalités Clés</h2>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="fragment arcade-border" style="border-width: 2px;">
-                        <h4>Multijoueur</h4>
-                        <p style="font-size: 0.7em;">Local Split-screen (Co-op / Versus).</p>
+            <section style="height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 20px;">
+                <h2 style="color: var(--neon-blue); margin-bottom: 25px; font-family: 'Orbitron', sans-serif;">3. Fonctionnalites</h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 1000px; margin: auto;">
+                    
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <h4 style="color: var(--neon-pink); margin-bottom: 5px; font-size: 0.8em;">Rendu Multi-View</h4>
+                        <p style="font-size: 0.55em; margin: 0; opacity: 0.9;">
+                            <strong>Split-screen local</strong> via <em>RenderTextures</em>. Caméras indépendantes et isolation des viewports.
+                        </p>
                     </div>
-                    <div class="fragment arcade-border" style="border-width: 2px;">
-                        <h4>Zapping</h4>
-                        <p style="font-size: 0.7em;">Rotation auto ou manuelle des jeux.</p>
+            
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <h4 style="color: var(--neon-green); margin-bottom: 5px; font-size: 0.8em;">Système "Zapping"</h4>
+                        <p style="font-size: 0.55em; margin: 0; opacity: 0.9;">
+                            <strong>Architecture modulaire</strong>. Transition instantanée avec effet <em>Hyperspace</em> temps réel.
+                        </p>
                     </div>
-                    <div class="fragment arcade-border" style="border-width: 2px;">
-                        <h4>Persistance</h4>
-                        <p style="font-size: 0.7em;">High Scores sauvegardés localement.</p>
+            
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <h4 style="color: var(--neon-blue); margin-bottom: 5px; font-size: 0.8em;">Persistance & Data</h4>
+                        <p style="font-size: 0.55em; margin: 0; opacity: 0.9;">
+                            Gestion de fichiers <strong>CSV</strong>. Algorithmes de tri dynamique (Heuristic Ranking) des scores.
+                        </p>
                     </div>
-                    <div class="fragment arcade-border" style="border-width: 2px;">
-                        <h4>Design</h4>
-                        <p style="font-size: 0.7em;">UI unifiée & Particules partagées.</p>
+            
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px; background: rgba(0,0,0,0.4); border-radius: 8px;">
+                        <h4 style="color: #ffcc00; margin-bottom: 5px; font-size: 0.8em;">Abstraction Input</h4>
+                        <p style="font-size: 0.55em; margin: 0; opacity: 0.9;">
+                            Unification <strong>AZERTY</strong> par macros. Code découplé facilitant l'intégration de nouveaux jeux.
+                        </p>
                     </div>
+            
                 </div>
             </section>
 
