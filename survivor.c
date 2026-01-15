@@ -994,7 +994,7 @@ void DrawGame() {
 void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                      bool *game_active, const char *playerName,
                      float timeout_seconds, float *total_time,
-                     float start_delay) {
+                     float start_delay, bool *restart) {
   // Stocker le mode et le pointeur vers le temps global
   currentMode = mode;
   globalTotalTime = total_time;
@@ -1123,7 +1123,12 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
     }
 
     if (gameOver) {
-      // Only Escape allows to quit, handled at the top of the loop
+      if (IsKeyPressed(KEY_R)) {
+        if (restart)
+          *restart = true;
+        *game_active = true;
+        break;
+      }
     }
 
     // Si le jeu est actif et PAS en transition d'intro (start_delay), on met à

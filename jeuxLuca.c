@@ -93,7 +93,7 @@ void UpdateGridPhase(Joueur *Joueur1, Joueur *Joueur2, float deltaTime);
 void DessinePartie();
 void DessineJoueur(Joueur Joueur, int player_id);
 void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
-             float *total_time, float start_delay);
+             float *total_time, float start_delay, bool *restart);
 
 //---FONCTIONS---
 void InitGrid() {
@@ -472,7 +472,7 @@ void DessineJoueur(Joueur Joueur, int player_id) {
 }
 
 void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
-             float *total_time, float start_delay) {
+             float *total_time, float start_delay, bool *restart) {
   srand((unsigned int)time(NULL));
 
   SetWindowSize(LARGEUR_FENETRE, HAUTEUR_FENETRE);
@@ -635,9 +635,17 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
                  (screenWidth / 2) - MeasureText("GAME OVER!", 60) / 2,
                  screenHeight / 3, 60, RED);
       }
-      DrawText("ESCAPE: Menu",
-               (screenWidth / 2) - MeasureText("ESCAPE: Menu", 20) / 2,
+      DrawText("ESCAPE: Menu / R: Restart",
+               (screenWidth / 2) -
+                   MeasureText("ESCAPE: Menu / R: Restart", 20) / 2,
                screenHeight / 2, 20, RAYWHITE);
+
+      if (IsKeyPressed(KEY_R)) {
+        if (restart)
+          *restart = true;
+        *game_active = true;
+        break;
+      }
     }
 
     EndTextureMode();
@@ -701,10 +709,12 @@ void InitDifficulte(Difficulte version) {
 // Fonction wrapper avec signature standard
 void RunLucaGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                  bool *game_active, const char *playerName,
-                 float timeout_seconds, float *total_time, float start_delay) {
+                 float timeout_seconds, float *total_time, float start_delay,
+                 bool *restart) {
   (void)playerName;
 
   modeActuel = mode;
   InitDifficulte(difficulty);
-  JeuLuca(game_active, timeout_seconds, resume, total_time, start_delay);
+  JeuLuca(game_active, timeout_seconds, resume, total_time, start_delay,
+          restart);
 }

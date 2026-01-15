@@ -60,7 +60,7 @@ int main(void) {
       srand((unsigned int)time(NULL)); // Initialiser le générateur aléatoire
       GameSelection current_game =
           (GameSelection)(rand() % 4); // Jeu de départ aléatoire
-      bool should_continue = true;
+      // bool should_continue = true; // Unused
 
       // Temps global partagé entre tous les jeux
       float total_game_time = 0.0f;
@@ -82,31 +82,49 @@ int main(void) {
         bool resume = game_started[current_game];
 
         float start_delay = 0.7f;
+        bool restart = false;
+
         switch (current_game) {
         case GAME_SURVIVOR:
           RunSurvivorGame(menu->niveau, menu->mode, resume,
                           &menu->partie_en_cours, menu->playerName,
-                          game_duration, &total_game_time, start_delay);
+                          game_duration, &total_game_time, start_delay,
+                          &restart);
           break;
         case GAME_SNAKE:
           RunSnakeGame(menu->niveau, menu->mode, resume, &menu->partie_en_cours,
                        menu->playerName, game_duration, &total_game_time,
-                       start_delay);
+                       start_delay, &restart);
           break;
         case GAME_LUCA:
           RunLucaGame(menu->niveau, menu->mode, resume, &menu->partie_en_cours,
                       menu->playerName, game_duration, &total_game_time,
-                      start_delay);
+                      start_delay, &restart);
           break;
         case GAME_VALENTIN:
           RunValentinGame(menu->niveau, menu->mode, resume,
                           &menu->partie_en_cours, menu->playerName,
-                          game_duration, &total_game_time, start_delay);
+                          game_duration, &total_game_time, start_delay,
+                          &restart);
           break;
         }
 
         // Marquer le jeu comme déjà initialisé pour la prochaine fois
         game_started[current_game] = true;
+
+        if (restart) {
+          printf("=== GLOBAL RESTART TRIGGERED ===\n");
+          // Reset Time
+          total_game_time = 0.0f;
+          // Reset Game States
+          for (int i = 0; i < 4; i++) {
+            game_started[i] = false;
+          }
+          // Pick new random game
+          current_game = (GameSelection)(rand() % 4);
+          printf("Restarting with game: %s\n", game_names[current_game]);
+          continue;
+        }
 
         printf("Après jeu: partie_en_cours = %s, temps global = %.1f\n",
                menu->partie_en_cours ? "true" : "false", total_game_time);
@@ -132,7 +150,7 @@ int main(void) {
             if (rankPoints > 0)
               printf(">>> NOUVEAU RECORD POINTS! Rang #%d <<<\n", rankPoints);
           }
-          should_continue = false;
+          // should_continue = false; // Unused
           break;
         }
 

@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-
 // --- CONFIGURATION ET ÉQUILIBRAGE ---
 #define LARGEUR_JEU 800
 #define HAUTEUR_JEU 600
@@ -504,7 +503,7 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
 void RunValentinGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                      bool *game_active, const char *playerName,
                      float timeout_seconds, float *total_time,
-                     float start_delay) {
+                     float start_delay, bool *restart) {
   valentinGlobalTime = total_time;
   modeActuel = mode;
 
@@ -575,7 +574,12 @@ void RunValentinGame(Difficulte difficulty, ModeJoueur mode, bool resume,
 
     // Si le jeu est fini, gestion R (Rejouer) / ESPACE (Quitter)
     if (jeuFini) {
-      // Only Escape allows to quit, handled at the top of the loop
+      if (IsKeyPressed(KEY_R)) {
+        if (restart)
+          *restart = true;
+        *game_active = true;
+        break;
+      }
     }
 
     // Gestion des transitions (Zoom/Shake)

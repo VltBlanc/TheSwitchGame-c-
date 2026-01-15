@@ -1154,7 +1154,8 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
 
 void RunSnakeGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                   bool *game_active, const char *playerName,
-                  float timeout_seconds, float *total_time, float start_delay) {
+                  float timeout_seconds, float *total_time, float start_delay,
+                  bool *restart) {
   snakeGlobalTime = total_time;
   modeActuel = mode;
 

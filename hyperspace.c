@@ -2,7 +2,6 @@
 #include <math.h> // For powf
 #include <raymath.h>
 
-
 #define STAR_COUNT 420
 
 void PlayHyperspaceEffect(float duration, Texture2D shipTexture) {
@@ -101,7 +100,7 @@ void PlayHyperspaceEffect(float duration, Texture2D shipTexture) {
     }
 
     // Draw Ship with Animation
-    float scale = 0.3f; // Adjust scale as needed
+    // float scale = 0.3f; // Adjust scale as needed (unused)
 
     Rectangle shipSource = {0.0f, 399.0f, 331.0f, 399.0f};
 

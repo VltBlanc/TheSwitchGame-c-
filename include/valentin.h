@@ -8,6 +8,6 @@
 void RunValentinGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                      bool *game_active, const char *playerName,
                      float timeout_seconds, float *total_time,
-                     float start_delay);
+                     float start_delay, bool *restart);
 
 #endif
