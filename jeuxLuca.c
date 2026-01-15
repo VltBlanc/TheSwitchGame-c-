@@ -201,8 +201,10 @@ void UpdateJoueurMouvement(Joueur *Joueur, float deltaTime, int player_id) {
   }
 
   float vitesseActuel = Vitesse_Marche;
-  // Sprint avec shift (pour J1 seulement en mode 1 joueur, ou toujours en mode 2J)
-  if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+  // Sprint avec shift (J1: LEFT_SHIFT, J2: RIGHT_SHIFT)
+  if (player_id == 1 && IsKeyDown(KEY_LEFT_SHIFT)) {
+    vitesseActuel *= CoefCourse;
+  } else if (player_id == 2 && IsKeyDown(KEY_RIGHT_SHIFT)) {
     vitesseActuel *= CoefCourse;
   }
 
