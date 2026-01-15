@@ -1,6 +1,6 @@
-# Makefile for Retro Game Menu
-# Requires Raylib to be installed
-# Works on Linux, macOS, and Windows (MinGW)
+# Makefile pour The Switch Game
+# Raylib requis pour compiler
+# Fonctionne sur Linux, macOS, et Windows (MinGW)
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -O2 -Iinclude
@@ -27,7 +27,6 @@ else
     EXE_EXT =
     RM_CMD = rm -rf
     MKDIR_CMD = mkdir -p
-
     ifeq ($(UNAME_S),Darwin)
         # macOS
         RAYLIB_PATH := $(shell brew --prefix raylib 2>/dev/null)

@@ -281,21 +281,31 @@
                             <li>Pilote la rotation aléatoire des jeux.</li>
                         </ul>
                     </div>
-                    <div class="code-block" style="font-size: 0.5em;">
+                    <div class="code-block" style="font-size: 0.55em;">
                         <pre><code class="c">
-// main.c
-while (menu->partie_en_cours) {
-    // 1. Sélection Aléatoire
-    float duration = 5.0f + (rand() % 7);
-    
-    // 2. Lancement du Module
-    switch(current_game) {
-        case GAME_SURVIVOR:
-           RunSurvivorGame(..., &total_time);
-           break;
-        case GAME_SNAKE:
-           RunSnakeGame(..., &total_time);
-           break;
+while (!WindowShouldClose()) {
+    update_menu(menu); // 1. Gestion des Inputs
+
+    if (menu->etat == MENU_DEMARRAGE) {
+        while (menu->partie_en_cours) {
+            // 2. Durée Aléatoire (5s - 12s)
+            float t = 5.0f + (rand() % 7);
+            
+            // 3. Exécution du Module 
+            switch (current_game) {
+                case SURVIVOR: RunSurvivor(..., t, &rst); break;
+                case SNAKE:    RunSnake(..., t, &rst);    break;
+                case LUCA:     RunLuca(..., t, &rst);     break;
+                case VALENTIN: RunValentin(..., t, &rst); break;
+            }
+
+            // 4. Logique de Restart & Rotation
+            if (rst) { 
+                ResetAll(); current_game = rand()%4; continue; 
+            }
+            current_game = (current_game + 1) % 4; // Suivant
+        }
+        menu->etat = MENU_PRINCIPAL; // Fin de session
     }
 }
 </code></pre>
@@ -362,6 +372,48 @@ void RunGame(
                 </div>
             </section>
 
+            <!-- SLIDE 4.3: Build System -->
+            <section>
+                <h3>4.3 Système de Build</h3>
+                <h4>Automatisation & Portabilité</h4>
+
+                <div style="display: grid; grid-template-columns: 40% 60%; gap: 15px; align-items: center;">
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong style="color:var(--neon-green)">Makefile :</strong> L'outil de construction
+                            universel.</p>
+                        <ul>
+                            <li><strong>Automatisation :</strong> Compilation incrémentale (`.o`) et lancement rapide
+                                (`make run`).</li>
+                            <li><strong>Multi-plateforme :</strong> Détection dynamique de l'OS (Linux / macOS / Windows
+                                MinGW).</li>
+                            <li><strong>Dépendances :</strong> Gestion automatique des flags Raylib et Math (`-lm`).
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="code-block" style="font-size: 0.5em;">
+                        <pre><code class="makefile">
+# Détection Auto de l'OS
+UNAME_S := $(shell uname -s)
+
+# Compilation (Wall = Warning All)
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99 -O2
+
+# Cible Principale
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+# Targets Utilitaires
+clean:
+	rm -rf build $(TARGET)
+
+run: $(TARGET)
+	./$(TARGET)
+</code></pre>
+                    </div>
+                </div>
+            </section>
+
             <!-- SLIDE 6: Démo -->
             <section data-background-color="#000">
                 <h1 style="font-size: 4em;">DEMO TIME</h1>
@@ -369,134 +421,114 @@ void RunGame(
                 <p style="font-size: 0.5em; margin-top: 50px;">(Menu -> Solo -> Split-screen -> Rotation)</p>
             </section>
 
-            <!-- SLIDE 7: Mécanique Rotation 1 - Orchestrator -->
+            <!-- SLIDE 5: Module de Transition (Part 1) -->
             <section>
-                <h3>5. Mécanique de Rotation : L'Orchestre</h3>
-                <h4>Hasard & Rythme</h4>
+                <h3>5.1 Mécanique de Rotation : L'Orchestre</h3>
+                <h4>L'Imprévisibilité Contrôlée</h4>
 
-                <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
+                <div style="display: grid; grid-template-columns: 50% 50%; gap: 15px; align-items: center;">
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-blue)">Concept :</strong> Créer une urgence constante.</p>
+                        <p><strong style="color:var(--neon-blue)">Le Concept :</strong></p>
                         <ul>
-                            <li><strong>Sélection :</strong> Jeu de départ aléatoire.</li>
-                            <li><strong>Durée :</strong> Imprévisible (5 à 12 secondes).</li>
-                            <li><strong>Cycle :</strong> Rotation séquentielle assurée <code>(i + 1) % 4</code>.</li>
+                            <li>Le <code>main.c</code> agit comme un <strong>Orchestrateur</strong> aveugle.</li>
+                            <li>Il ne connaît pas l'état interne des jeux, il gère uniquement le <strong>Temps</strong>
+                                et le <strong>Zapping</strong>.</li>
+                            <li><strong>Boucle de rotation :</strong>
+                                <ul>
+                                    <li>Sélection aléatoire du premier jeu.</li>
+                                    <li>Durée aléatoire (stress).</li>
+                                    <li>Rotation séquentielle <code>(i+1)%4</code> ensuite.</li>
+                                </ul>
+                            </li>
                         </ul>
                     </div>
-                    <div class="code-block" style="font-size: 0.45em;">
+                    <div class="code-block" style="font-size: 0.5em;">
                         <pre><code class="c">
 // main.c : La boucle de décision
 GameSelection current_game = (rand() % 4);
 
 while (menu->partie_en_cours) {
-    // Durée stressante et aléatoire
-    float game_duration = 5.0f + (float)(rand() % 7);
+    // 1. Durée stressante (5 à 12s)
+    float duration = 5.0f + (rand() % 7);
     
-    // Passage au suivant
-    current_game = (GameSelection)((current_game + 1) % 4);
+    // 2. Exécution du module (Bloquant)
+    RunGameDispatch(current_game, duration, ...);
+
+    // 3. Passage au suivant (Force brute)
+    current_game = (current_game + 1) % 4;
 }
 </code></pre>
                     </div>
                 </div>
             </section>
 
-            <!-- SLIDE 8: Mécanique Rotation 2 - Persistance -->
+            <!-- SLIDE 5: Module de Transition (Part 2) -->
             <section>
-                <h3>6. Persistance d'État (Resume)</h3>
-                <h4>Gestion Mémoire Avancée</h4>
+                <h3>5.2 Le Contrat de Transition</h3>
+                <h4>L'Interface Standardisée</h4>
 
                 <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
                     <div class="code-block" style="font-size: 0.45em;">
                         <pre><code class="c">
-// survivor.c : Allocation conditionnelle
-void RunSurvivorGame(..., bool resume, ...) {
-    
-    // Si reprise, ON NE RÉINITIALISE PAS les entités
-    if (!resume) {
-        enemies = (Enemy *)calloc(MAX_ENEMIES, ...);
-        InitGame(difficulty);
-    }
-    
-    // Le jeu reprend exactement là où les pointeurs
-    // globaux (static) s'étaient arrêtés.
-}
+// Signature unique pour TOUS les jeux
+void RunSurvivorGame(
+    Difficulte diff, 
+    bool resume,         // <--- LA CLEF
+    bool *active,        // Contrôle boucle
+    float duration,      // Timeout
+    float *total_time,   // Temps global
+    bool *restart        // Trigger Game Over
+);
 </code></pre>
                     </div>
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-pink)">Le défi :</strong> Changer de jeu sans perdre la
-                            progression.</p>
+                        <p><strong style="color:var(--neon-pink)">Le Paramètre `resume` :</strong></p>
                         <ul>
-                            <li><span style="color:var(--neon-green)">State Preservation :</span> Utilisation de
-                                variables <code>static</code> et de pointeurs <code>Heap</code> non libérés entre les
-                                tours.</li>
-                            <li><span style="color:var(--neon-green)">Optimisation :</span> Pas de double allocation
-                                coûteuse (<code>malloc</code>) à chaque switch.</li>
-                            <li><span style="color:var(--neon-green)">Cleanup :</span> <code>free()</code> uniquement au
-                                Game Over final.</li>
+                            <li>C'est le pivot de l'architecture de transition.</li>
+                            <li><strong>Si `false` :</strong> C'est le tout premier lancement. On alloue `malloc` et on
+                                `Init()`.</li>
+                            <li><strong>Si `true` :</strong> Le jeu a déjà tourné. On ignore l'init et on reprend
+                                directement la boucle de rendu.</li>
+                            <li>Permet de simuler le "Pause/Resume" sans sauvegarder sur disque.</li>
                         </ul>
                     </div>
                 </div>
             </section>
 
-            <!-- SLIDE 9: Mécanique Rotation 3 - Transitions -->
+            <!-- SLIDE 5: Module de Transition (Part 3) -->
             <section>
-                <h3>7. Transitions Visuelles</h3>
-                <h4>Zoom & Shake (Diegetic UI)</h4>
+                <h3>5.3 Subtilité : Persistance "Zero-Cost"</h3>
+                <h4>Gestion de la Mémoire (Heap Preservation)</h4>
 
                 <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p>Les transitions sont gérées <strong>dans la boucle de jeu</strong> pour fluidifier
-                            l'expérience.</p>
+                        <p>Comment changer de jeu instantanément sans recharger ?</p>
                         <ul>
-                            <li><strong>Entrée (Zoom In) :</strong> Lerp progressif de 0.1x à 1.0x.</li>
-                            <li><strong>Sortie (Shake) :</strong> 0.5s avant la fin, la caméra tremble pour signaler
-                                l'instabilité dimensionnelle.</li>
+                            <li>Utilisation de variables <strong>`static`</strong> et de pointeurs globaux dans chaque
+                                module `.c`.</li>
+                            <li>La mémoire (Ennemis, Serpents, Balles) <strong>reste allouée</strong> dans la RAM
+                                pendant que les autres jeux tournent.</li>
+                            <li><strong>Avantage :</strong> Transition 1 frame (pas de `free` / `malloc` intempestifs).
+                            </li>
+                            <li><strong>Nettoyage :</strong> Uniquement lorsque le joueur perd (`restart = true`) ou
+                                quitte.</li>
                         </ul>
                     </div>
-                    <div class="code-block" style="font-size: 0.45em;">
+                    <div class="code-block" style="font-size: 0.5em;">
                         <pre><code class="c">
-// survivor.c : Boucle de rendu
-if (elapsed < start_delay) {
-    // Zoom d'entrée
-    cam.zoom = Lerp(0.1f, 1.0f, elapsed / start_delay);
-} 
-else if (remaining < 0.5f) {
-    // Shake de sortie
-    cam.target.x += Random(-1, 1) * intensity;
-    cam.zoom = Lerp(1.0f, 0.1f, inv_factor);
-}
-</code></pre>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SLIDE 10: Mécanique Rotation 4 - Global State -->
-            <section>
-                <h3>8. Continuité Globale</h3>
-                <h4>Un Temps pour les gouverner tous</h4>
-
-                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
-                    <div class="code-block" style="font-size: 0.45em;">
-                        <pre><code class="c">
-// main.c
-float total_game_time = 0.0f; // Temps accumulé
-
 // survivor.c
-void UpdateGame(float dt) {
-    // Mise à jour du pointeur partagé
-    if (globalTotalTime != NULL)
-        *globalTotalTime += dt;
+static Enemy *enemies = NULL; // Persistant !
+
+void RunSurvivor(..., bool resume, ...) {
+    if (!resume) {
+        // Alloué UNE SEULE FOIS au début
+        if (!enemies) enemies = calloc(...);
+        InitGame(); 
+    }
+    // Si resume=true, on utilise 'enemies'
+    // tel qu'on l'a laissé il y a 10 secondes.
 }
 </code></pre>
-                    </div>
-                    <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-blue)">Cohérence :</strong></p>
-                        <ul>
-                            <li>Le joueur a l'impression d'une seule session continue.</li>
-                            <li>Le <strong>Score Final</strong> est basé sur ce temps global accumulé à travers tous les
-                                mini-jeux.</li>
-                            <li>Permet de classer les joueurs sur leur endurance totale, pas juste sur un jeu.</li>
-                        </ul>
                     </div>
                 </div>
             </section>
