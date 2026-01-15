@@ -1,19 +1,23 @@
+#include "include/menu.h"
+#include "include/scores.h"
 #include <math.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <stdlib.h>
 #include <time.h>
-
-// Niveaux de difficulté
-typedef enum {
-    FACILE,
-    MOYEN,
-    DIFFICILE
-} Difficulte;
 
 // Taille de la grille (plus petite pour elements plus gros)
 #define LARGEUR_GRILLE 15
 #define HAUTEUR_GRILLE 15
 #define TAILLE_CASE 32
+
+// Dimensions de l'aire de jeu native et de la fenetre standard
+#define LARGEUR_JEU (LARGEUR_GRILLE * TAILLE_CASE)
+#define HAUTEUR_JEU (HAUTEUR_GRILLE * TAILLE_CASE + 50) // +50 pour l'UI
+#define LARGEUR_FENETRE 1280
+#define HAUTEUR_FENETRE 720
+#define OFFSET_X ((LARGEUR_FENETRE - LARGEUR_JEU) / 2)
+#define OFFSET_Y ((HAUTEUR_FENETRE - HAUTEUR_JEU) / 2)
 
 // Directions possibles
 #define HAUT 0
@@ -49,11 +53,15 @@ double carburant; // temps restant avant panne seche (5 secondes max)
 #define CARBURANT_MAX 5.0
 
 // Obstacles (trous noirs qui apparaissent)
-Position murs[15];  // Maximum pour le mode difficile
+Position murs[15]; // Maximum pour le mode difficile
 int nombre_murs;
 
 // Difficulté du jeu
+// Difficulté du jeu
 Difficulte difficulte_actuelle;
+
+// Temps global pour affichage
+static float *snakeGlobalTime = NULL;
 
 // --- NOUVEAU: Systemes visuels ---
 // Etoiles pour le fond
@@ -83,63 +91,27 @@ Particle particles[MAX_PARTICLES];
 // Screen Shake
 float shake_intensity = 0.0f;
 
+// RenderTexture pour le rendu centré
+static RenderTexture2D snakeRenderTarget;
+
 // --- Fin Nouveaux Systemes ---
 
 // Fonction pour obtenir le nombre maximum de trous noirs selon la difficulté
-int getMaxBlackHoles() {
-    switch (difficulte_actuelle) {
-        case FACILE: return 5;
-        case MOYEN: return 10;
-        case DIFFICILE: return 30;
-        default: return 10;
-    }
-}
-
-// Fonction pour afficher le menu de difficulté
-void AfficherMenuDifficulte() {
-    BeginDrawing();
-    ClearBackground((Color){10, 10, 30, 255});
-
-    // Dessiner les étoiles
-    for (int i = 0; i < MAX_STARS; i++) {
-        Color starColor = {255, 255, 255, (unsigned char)(stars[i].brightness * 255)};
-        DrawPixel(stars[i].x, stars[i].y, starColor);
-    }
-
-    // Titre
-    DrawText("SNAKE GAME", LARGEUR_GRILLE * TAILLE_CASE / 2 - 100, 100, 40, WHITE);
-    DrawText("Select Difficulty", LARGEUR_GRILLE * TAILLE_CASE / 2 - 130, 160, 30, WHITE);
-
-    // Options de difficulté
-    DrawText("1. EASY (5 black holes)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 220, 20, WHITE);
-    DrawText("2. MEDIUM (10 black holes)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 260, 20, WHITE);
-    DrawText("3. HARD (10 holes at start)", LARGEUR_GRILLE * TAILLE_CASE / 2 - 140, 300, 20, WHITE);
-
-    DrawText("Press 1, 2, or 3 to start", LARGEUR_GRILLE * TAILLE_CASE / 2 - 130, 360, 18, LIGHTGRAY);
-
-    EndDrawing();
-}
-
-// Fonction pour gerer la sélection de difficulté
-bool GererSelectionDifficulte() {
-    if (IsKeyPressed(KEY_ONE)) {
-        difficulte_actuelle = FACILE;
-        return true;
-    }
-    if (IsKeyPressed(KEY_TWO)) {
-        difficulte_actuelle = MOYEN;
-        return true;
-    }
-    if (IsKeyPressed(KEY_THREE)) {
-        difficulte_actuelle = DIFFICILE;
-        return true;
-    }
-    return false;
+static int getMaxBlackHoles() {
+  switch (difficulte_actuelle) {
+  case FACILE:
+    return 5;
+  case MOYEN:
+    return 10;
+  case DIFFICILE:
+    return 30;
+  default:
+    return 10;
+  }
 }
 
 // Fonction pour generer une pomme a une position aleatoire
-// Fonction pour generer une pomme a une position aleatoire
-void GenererPomme() {
+static void GenererPomme() {
   bool position_valide = false;
 
   while (!position_valide) {
@@ -168,7 +140,7 @@ void GenererPomme() {
 }
 
 // Initialiser les etoiles
-void InitStars() {
+static void InitStars() {
   for (int i = 0; i < MAX_STARS; i++) {
     stars[i].x = GetRandomValue(0, LARGEUR_GRILLE * TAILLE_CASE);
     stars[i].y = GetRandomValue(0, HAUTEUR_GRILLE * TAILLE_CASE);
@@ -178,7 +150,7 @@ void InitStars() {
 }
 
 // Mettre a jour les etoiles
-void UpdateStars() {
+static void UpdateStars() {
   for (int i = 0; i < MAX_STARS; i++) {
     stars[i].y += stars[i].speed;
     if (stars[i].y > HAUTEUR_GRILLE * TAILLE_CASE) {
@@ -189,14 +161,15 @@ void UpdateStars() {
 }
 
 // Initialiser les particules
-void InitParticles() {
+static void InitParticles() {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     particles[i].active = false;
   }
 }
 
 // Ajouter une particule
-void AddParticle(Vector2 pos, Vector2 vel, Color col, float size, float decay) {
+static void AddParticle(Vector2 pos, Vector2 vel, Color col, float size,
+                        float decay) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (!particles[i].active) {
       particles[i].active = true;
@@ -212,7 +185,7 @@ void AddParticle(Vector2 pos, Vector2 vel, Color col, float size, float decay) {
 }
 
 // Mettre a jour les particules
-void UpdateParticles() {
+static void UpdateParticles() {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (particles[i].active) {
       particles[i].position.x += particles[i].velocity.x;
@@ -227,7 +200,7 @@ void UpdateParticles() {
 }
 
 // Fonction pour initialiser le jeu
-void InitialiserJeu() {
+static void InitialiserJeu() {
   longueur_serpent = 3;
   direction = DROITE;
   direction_suivante = DROITE;
@@ -309,7 +282,7 @@ void InitialiserJeu() {
 }
 
 // Fonction pour ajouter un mur aleatoire
-void AjouterMur() {
+static void AjouterMur() {
   int max_holes = getMaxBlackHoles();
   if (nombre_murs >= max_holes) {
     // FIFO: Remove oldest black hole by shifting all holes forward
@@ -376,7 +349,7 @@ void AjouterMur() {
 }
 
 // Fonction pour verifier si le serpent se mord lui-meme
-bool VerifierCollisionCorps() {
+static bool VerifierCollisionCorps() {
   for (int i = 1; i < longueur_serpent; i++) {
     if (serpent[0].x == serpent[i].x && serpent[0].y == serpent[i].y) {
       return true;
@@ -386,7 +359,7 @@ bool VerifierCollisionCorps() {
 }
 
 // Fonction pour deplacer le serpent
-void DeplacerSerpent() {
+static void DeplacerSerpent() {
   // Consommer la prochaine direction de la file si disponible
   if (file_tete != file_queue) {
     int nouvelle_dir = file_directions[file_tete];
@@ -490,7 +463,7 @@ void DeplacerSerpent() {
 }
 
 // Fonction pour dessiner un vaisseau detaille
-void DessinerVaisseau(int x, int y, int dir) {
+static void DessinerVaisseau(int x, int y, int dir) {
   int cx = x * TAILLE_CASE + TAILLE_CASE / 2;
   int cy = y * TAILLE_CASE + TAILLE_CASE / 2;
 
@@ -567,7 +540,7 @@ void DessinerVaisseau(int x, int y, int dir) {
 }
 
 // Fonction pour ajouter une direction a la file
-void AjouterDirectionFile(int dir) {
+static void AjouterDirectionFile(int dir) {
   int prochaine_queue = (file_queue + 1) % TAILLE_FILE;
   if (prochaine_queue != file_tete) { // File pas pleine
     file_directions[file_queue] = dir;
@@ -576,7 +549,7 @@ void AjouterDirectionFile(int dir) {
 }
 
 // Fonction pour gerer les entrees clavier
-void GererEntrees() {
+static void GererEntrees() {
   // Determiner la derniere direction dans la file (ou la direction actuelle)
   int derniere_dir = direction;
   if (file_tete != file_queue) {
@@ -603,11 +576,12 @@ void GererEntrees() {
 }
 
 // Fonction pour dessiner le jeu
-void DessinerJeu() {
-  BeginDrawing();
+static void DessinerJeu(float scale, Vector2 shake_offset) {
+  // Rendu dans la texture à la taille native du jeu
+  BeginTextureMode(snakeRenderTarget);
   ClearBackground((Color){10, 10, 30, 255});
 
-  // Camera Shake
+  // Camera Shake (INTERNE AU JEU, distinct de la transition)
   Camera2D camera = {0};
   camera.zoom = 1.0f;
   if (shake_intensity > 0) {
@@ -740,12 +714,14 @@ void DessinerJeu() {
   DrawText(TextFormat("Score: %d", score), 10, HAUTEUR_GRILLE * TAILLE_CASE + 2,
            14, WHITE);
 
-  const char* diff_text = (difficulte_actuelle == FACILE) ? "EASY" :
-                          (difficulte_actuelle == MOYEN) ? "MEDIUM" : "HARD";
-  Color diff_color = (difficulte_actuelle == FACILE) ? GREEN :
-                     (difficulte_actuelle == MOYEN) ? YELLOW : RED;
-  DrawText(TextFormat("%s (%d holes)", diff_text, getMaxBlackHoles()),
-           150, HAUTEUR_GRILLE * TAILLE_CASE + 2, 14, diff_color);
+  const char *diff_text = (difficulte_actuelle == FACILE)  ? "EASY"
+                          : (difficulte_actuelle == MOYEN) ? "MEDIUM"
+                                                           : "HARD";
+  Color diff_color = (difficulte_actuelle == FACILE)  ? GREEN
+                     : (difficulte_actuelle == MOYEN) ? YELLOW
+                                                      : RED;
+  DrawText(TextFormat("%s (%d holes)", diff_text, getMaxBlackHoles()), 150,
+           HAUTEUR_GRILLE * TAILLE_CASE + 2, 14, diff_color);
 
   // Afficher message de fin si le jeu est termine
   if (jeu_termine) {
@@ -761,72 +737,155 @@ void DessinerJeu() {
     DrawText(TextFormat("Score final: %d", score),
              LARGEUR_GRILLE * TAILLE_CASE / 2 - 90,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 10, 20, WHITE);
-    DrawText("Appuyez sur ESPACE pour rejouer",
-             LARGEUR_GRILLE * TAILLE_CASE / 2 - 150,
+    DrawText("Press ESCAPE to Quit", LARGEUR_GRILLE * TAILLE_CASE / 2 - 100,
              HAUTEUR_GRILLE * TAILLE_CASE / 2 + 40, 20, LIGHTGRAY);
+  }
+
+  EndTextureMode();
+
+  // Dessiner la texture centrée sur l'écran AVEC ZOOM ET SHAKE
+  BeginDrawing();
+  ClearBackground(BLACK);
+
+  // Calcul du rectangle de destination centré et mis à l'échelle
+  float destWidth = LARGEUR_JEU * scale;
+  float destHeight = HAUTEUR_JEU * scale;
+  float destX = (LARGEUR_FENETRE - destWidth) / 2.0f + shake_offset.x;
+  float destY = (HAUTEUR_FENETRE - destHeight) / 2.0f + shake_offset.y;
+
+  // Source (taille réelle du jeu, y négatif pour Render Texture Raylib)
+  Rectangle sourceRec = {0, 0, (float)LARGEUR_JEU, (float)-HAUTEUR_JEU};
+  Rectangle destRec = {destX, destY, destWidth, destHeight};
+  Vector2 origin = {
+      0, 0}; // Le coin haut-gauche de destRec est déjà calculé centré
+
+  DrawTexturePro(snakeRenderTarget.texture, sourceRec, destRec, origin, 0.0f,
+                 WHITE);
+
+  // Afficher le temps global sur le côté (dans la zone noire)
+  // On ne l'affiche que si on est proche de l'échelle 1 (pas trop petit)
+  if (snakeGlobalTime != NULL && scale > 0.8f) {
+    DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
+    DrawText(TextFormat("%.1fs", *snakeGlobalTime), 20, HAUTEUR_FENETRE / 2 + 5,
+             30, WHITE);
   }
 
   EndDrawing();
 }
 
-int main(void) {
-  // Initialiser la fenetre
-  InitWindow(LARGEUR_GRILLE * TAILLE_CASE, HAUTEUR_GRILLE * TAILLE_CASE + 50,
-             "Snake Game");
+void RunSnakeGame(Difficulte difficulty, bool resume, bool *game_active,
+                  const char *playerName, ScoreList *scores,
+                  float timeout_seconds, float *total_time, float start_delay) {
+  snakeGlobalTime = total_time;
 
+  // Configurer la fenetre (pas de InitWindow, la fenetre appartient au main)
+  SetWindowSize(LARGEUR_FENETRE, HAUTEUR_FENETRE);
+  SetWindowTitle("Snake");
   SetTargetFPS(60);
 
+  // Créer la render texture pour le rendu centré
+  snakeRenderTarget = LoadRenderTexture(LARGEUR_JEU, HAUTEUR_JEU);
+
+  // Utiliser la difficulte passee par le menu
+  difficulte_actuelle = difficulty;
+
   // Initialiser le generateur de nombres aleatoires
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
 
-  // Initialiser les étoiles pour le menu
+  // Initialiser les étoiles et les particules (toujours necessaire)
   InitStars();
+  InitParticles();
 
-  // Menu de sélection de difficulté
-  bool difficulte_choisie = false;
-  while (!WindowShouldClose() && !difficulte_choisie) {
-    UpdateStars();
-    AfficherMenuDifficulte();
-    difficulte_choisie = GererSelectionDifficulte();
+  // Initialiser SEULEMENT si on ne reprend pas une partie
+  if (!resume) {
+    InitialiserJeu();
   }
 
-  if (WindowShouldClose()) {
-    CloseWindow();
-    return 0;
-  }
-
-  InitialiserJeu();
+  *game_active = true;
+  float elapsed_time = 0.0f; // Timer pour le timeout
 
   // Boucle principale du jeu
   while (!WindowShouldClose()) {
-    UpdateStars();
-    UpdateParticles();
+    float dt = GetFrameTime();
+    elapsed_time += dt;
 
-    if (!jeu_termine) {
-      GererEntrees();
+    // Gestion des transitions (Zoom/Shake)
+    float current_scale = 1.0f;
+    Vector2 shake_transition = {0.0f, 0.0f};
 
-      // Consommer le carburant
-      carburant -= GetFrameTime();
-      if (carburant <= 0) {
-        jeu_termine = true;
-      }
+    // 1. Zoom In au début (pendant start_delay)
+    if (elapsed_time < start_delay) {
+      float factor = elapsed_time / start_delay;
+      current_scale = Lerp(0.1f, 1.0f, factor);
+    }
+    // 2. Shake + Zoom Out à la fin (0.5s avant fin)
+    else if (!jeu_termine && timeout_seconds > 0 &&
+             (timeout_seconds - elapsed_time) < 0.5f) {
+      float remaining = timeout_seconds - elapsed_time;
+      float factor = remaining / 0.5f;          // Va de 1.0 -> 0.0
+      current_scale = Lerp(0.1f, 1.0f, factor); // Zoom out
 
-      // Mettre a jour le jeu selon la vitesse
-      temps_derniere_maj += GetFrameTime();
-      if (temps_derniere_maj >= vitesse_jeu) {
-        DeplacerSerpent();
-        temps_derniere_maj = 0;
-      }
-    } else {
-      // Rejouer si on appuie sur espace
-      if (IsKeyPressed(KEY_SPACE)) {
-        InitialiserJeu();
-      }
+      // Shake scale
+      float shake_amount = (1.0f - factor) * 10.0f;
+      shake_transition.x =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.y =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
     }
 
-    DessinerJeu();
+    // Accumuler le temps dans le temps global (si disponible)
+    if (total_time != NULL && !jeu_termine) {
+      *total_time += dt;
+    }
+
+    // Vérifier timeout (si > 0)
+    if (!jeu_termine && timeout_seconds > 0 &&
+        elapsed_time >= timeout_seconds) {
+      break; // Sortir automatiquement après le timeout
+    }
+
+    // Retour au menu avec Escape
+    if (IsKeyPressed(KEY_ESCAPE)) {
+      // Attendre que la touche soit relâchée
+      while (IsKeyDown(KEY_ESCAPE)) {
+        BeginDrawing();
+        EndDrawing();
+      }
+      *game_active = false; // Signaler que le joueur veut quitter
+      break;
+    }
+
+    if (jeu_termine) {
+      // Only Escape allows to quit, handled at the top of the loop
+    }
+
+    if (!jeu_termine) {
+      // Mise à jour de la logique SEULEMENT si pas en intro pause
+      if (elapsed_time >= start_delay) {
+        GererEntrees(); // Allow inputs only after start_delay? Or collect but
+                        // apply only? Usually pause = no update.
+
+        // Timer de jeu
+        temps_derniere_maj += dt;
+        if (temps_derniere_maj >= vitesse_jeu) {
+          temps_derniere_maj = 0;
+          DeplacerSerpent();
+        }
+
+        // Gestion de la consommation de carburant
+        carburant -= dt;
+        if (carburant <= 0) {
+          jeu_termine = true;
+          shake_intensity = 5.0f; // Petit shake quand panne sèche
+        }
+      }
+      UpdateStars();
+      UpdateParticles();
+    }
+
+    DessinerJeu(current_scale, shake_transition);
   }
 
-  CloseWindow();
-  return 0;
+  // Libérer la render texture
+  UnloadRenderTexture(snakeRenderTarget);
 }

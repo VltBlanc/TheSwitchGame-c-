@@ -3,19 +3,30 @@
 # Works on Linux, macOS, and Windows (MinGW)
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -O2
+CFLAGS = -Wall -Wextra -std=c99 -O2 -Iinclude
 
 # Detect operating system
 UNAME_S := $(shell uname -s)
 
-# Platform-specific libraries
+# Build directory
+BUILD_DIR = build
+
+# Platform-specific libraries and commands
+# Override OS detection for WSL
+ifeq ($(UNAME_S),Linux)
+    OS = Linux
+endif
 ifeq ($(OS),Windows_NT)
     # Windows (MinGW)
     LDFLAGS = -lraylib -lwinmm -lgdi32 -lopengl32
     EXE_EXT = .exe
+    RM_CMD = rmdir /s /q
+    MKDIR_CMD = mkdir
 else
     # Unix-like systems (Linux, macOS)
     EXE_EXT =
+    RM_CMD = rm -rf
+    MKDIR_CMD = mkdir -p
 
     ifeq ($(UNAME_S),Darwin)
         # macOS
@@ -43,8 +54,9 @@ else
 endif
 
 # Source files
-SOURCES = main.c menu.c scores.c
-OBJECTS = $(SOURCES:.c=.o)
+SOURCES = main.c menu.c scores.c survivor.c hyperspace.c snake.c jeuxLuca.c
+VALENTIN_SOURCES = Jeu_Valentin/jeu_valentin.c Jeu_Valentin/etoile.c
+OBJS = $(addprefix $(BUILD_DIR)/, $(SOURCES:.c=.o)) $(BUILD_DIR)/jeu_valentin.o $(BUILD_DIR)/etoile.o
 TARGET = the_switch_game$(EXE_EXT)
 
 # Default target
@@ -54,8 +66,15 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-# Compile object files
+# Compile object files from main directory
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile Valentin game files from subdirectory
+$(BUILD_DIR)/jeu_valentin.o: Jeu_Valentin/jeu_valentin.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/etoile.o: Jeu_Valentin/etoile.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Create build directory
@@ -68,13 +87,14 @@ run: $(TARGET)
 
 # Clean build artifacts
 clean:
-	$(RM_CMD) $(BUILD_DIR) $(TARGET)
+	-rm -rf $(BUILD_DIR) $(TARGET)
 
 # Show build info
 info:
 	@echo "Detected OS: $(UNAME_S)"
 	@echo "Target executable: $(TARGET)"
 	@echo "Linker flags: $(LDFLAGS)"
+
 
 # Platform-specific installation help
 help-platform:

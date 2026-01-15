@@ -1,154 +1,84 @@
+// ============================================================================
+// SURVIVOR GAME
+// ============================================================================
+
+#include "include/survivor.h"
+
 #include <math.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "include/hyperspace.h"
 #include "include/menu.h"
 
-// --- Constantes ---
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
-#define MAP_WIDTH 3000
-#define MAP_HEIGHT 3000
+// ============================================================================
+// CONSTANTES LOCALES
+// ============================================================================
 
-#define MAX_ENEMIES 300
-#define MAX_BULLETS 1000
-#define MAX_BONUSES 50
-#define MAX_trainee 20
-#define MAX_MISSILES 10
+#define SCREEN_WIDTH SURVIVOR_SCREEN_WIDTH
+#define SCREEN_HEIGHT SURVIVOR_SCREEN_HEIGHT
+#define MAP_WIDTH SURVIVOR_MAP_WIDTH
+#define MAP_HEIGHT SURVIVOR_MAP_HEIGHT
 
-// --- STRUCTURES ---
-typedef struct {
-  // personnage
-  Vector2 position;
-  float radius;
-  float speed;
-  int health;
-  int maxHealth;
-  bool isAlive;
-  float rotation; // Rotation en degrés
+// Pour compatibilité avec l'ancien code
+#define MAX_trainee MAX_TRAINEE
+typedef SurvivorPlayer Player;
+typedef SurvivorEnemy Enemy;
+typedef SurvivorBullet Bullet;
+typedef SurvivorBonus Bonus;
+typedef SurvivorTrainee Trainee;
+typedef SurvivorMissile Missile;
 
-  // Animation
-  Rectangle frameRec;
-  int currentFrame;
-  float frameTimer;
+// ============================================================================
+// VARIABLES GLOBALES - ENTITÉS
+// ============================================================================
 
-  // variables pour le tir
-  float fireRate;
-  float shootTimer;
-  float damage;
-  float bulletSpeed;
-  float bulletSize;
+static Player player;
+static Enemy *enemies = NULL;
+static Bullet *bullets = NULL;
+static Bonus *bonuses = NULL;
+static Trainee *trainee = NULL;
+static Missile *missiles = NULL;
 
-  // dash
-  bool isDashing;
-  float dashTimer;
-  float dashCooldown;
-  float dashSpeed;
-  float dashDuration;
+// ============================================================================
+// VARIABLES GLOBALES - SCORE & SESSION
+// ============================================================================
 
-  // missile
-  float missileCooldown;
-  float missileMaxCooldown;
-  float missileCooldownTimer; // Timer actuel
+static ScoreList *currentScores = NULL;
+static char currentPlayerName[32] = "Unknown";
+static bool scoreSaved = false;
 
-} Player;
+// ============================================================================
+// VARIABLES GLOBALES - TEXTURES
+// ============================================================================
 
-typedef enum { ENEMY_NORMAL, ENEMY_TANK, ENEMY_FAST } EnemyType;
-// ennemis
-typedef struct {
-  bool active;
-  Vector2 position;
-  EnemyType type;
-  float radius;
-  float speed;
-  int health;
-  int maxHealth;
-  Color color;
-  // Animation
-  Rectangle frameRec;
-  int currentFrame;
-  float frameTimer;
-  float rotation;
-} Enemy;
+static Texture2D background;
+static Texture2D spaceshipTexture;
+static Texture2D chasseurTexture;
+static Texture2D tankTexture;
 
-typedef struct {
-  bool active;
-  Vector2 position;
-  Vector2 velocity;
-  float radius;
-  float lifeTime;
-  int damage;
-} Bullet;
+// ============================================================================
+// VARIABLES GLOBALES - CAMÉRA & ÉTAT DU JEU
+// ============================================================================
 
-typedef enum {
-  BONUS_DAMAGE,
-  BONUS_HEALTH,
-  BONUS_SPEED,
-  BONUS_TIR_RAPIDE,
-  BONUS_MISSILE_CD
-} BonusType;
+static Camera2D camera = {0};
 
-typedef struct {
-  bool active;
-  Vector2 position;
-  float radius;
-  BonusType type;
-  Color color;
-} Bonus;
+static float gameTime = 0.0f;
+static float *globalTotalTime = NULL; // Pointeur vers le temps global
+static float spawnTimer = 0.0f;
+static float bonusSpawnTimer = 0.0f;
+static float timeToSpawn = 1.0f;
+static int score = 0;
+static bool gameOver = false;
+static Difficulte currentDifficulty = MOYEN;
 
-typedef struct {
-  bool active;
-  Vector2 position;
-  float rotation;
-  Rectangle frameRec;
-  float alpha;
-} Trainee;
-
-typedef struct {
-  bool active;
-  Vector2 position;
-  Vector2 velocity;
-  float radius;
-  float damage;
-  float explosionRadius;
-} Missile;
-
-// --- GLOBALS ---
-Player player;
-// on stock les enemis dans un tableau
-Enemy *enemies = NULL;
-// de même pour les balles tirées et les bonus
-Bullet *bullets = NULL;
-Bonus *bonuses = NULL;
-// de même pour les traces (indiquant les bonus)
-// de même pour les traces (indiquant les bonus)
-Trainee *trainee = NULL;
-Missile *missiles = NULL;
-
-ScoreList *currentScores = NULL;
-char currentPlayerName[32] = "Unknown";
-bool scoreSaved = false;
-
-Texture2D background;
-Texture2D spaceshipTexture;
-Texture2D chasseurTexture;
-Texture2D tankTexture;
-
-Camera2D camera = {0};
-
-float gameTime = 0.0f;
-float spawnTimer = 0.0f;
-float bonusSpawnTimer = 0.0f;
-float timeToSpawn = 1.0f; // le spawn rate est de 1 par frame
-int score = 0;
-bool gameOver = false;
-Difficulte currentDifficulty = MOYEN;
-
-// Logique de jeu
+// ============================================================================
+// FONCTIONS - INITIALISATION
+// ============================================================================
 
 void InitGame(Difficulte difficulty) {
   currentDifficulty = difficulty;
@@ -226,6 +156,10 @@ void InitGame(Difficulte difficulty) {
   for (int i = 0; i < MAX_MISSILES; i++)
     missiles[i].active = false;
 }
+
+// ============================================================================
+// FONCTIONS - SPAWN
+// ============================================================================
 
 void SpawnBonus() {
   int slot = -1;
@@ -367,6 +301,10 @@ void SpawnEnemy() {
   enemies[slot].health = enemies[slot].maxHealth;
 }
 
+// ============================================================================
+// FONCTIONS - UTILITAIRES
+// ============================================================================
+
 int FindNearestEnemy() {
   int nearest = -1;
   float minDistSq = 99999999.0f;
@@ -385,19 +323,26 @@ int FindNearestEnemy() {
   return nearest;
 }
 
+// ============================================================================
+// FONCTIONS - LOGIQUE DE JEU
+// ============================================================================
+
 void UpdateGame(float dt) {
   if (gameOver) {
-    if (!scoreSaved && currentScores != NULL) {
-      add_score(currentScores, currentPlayerName, score);
-      save_scores(currentScores);
-      scoreSaved = true;
-    }
-    if (IsKeyPressed(KEY_R))
-      InitGame(currentDifficulty);
+    // Le score est maintenant géré par le menu principal à la fin de la
+    // rotation N'importe quelle touche met fin au jeu (géré dans
+    // RunSurvivorGame)
+    return;
+    // N'importe quelle touche met fin au jeu (géré dans RunSurvivorGame)
     return;
   }
 
   gameTime += dt;
+
+  // Accumuler le temps dans le temps global (si disponible)
+  if (globalTotalTime != NULL) {
+    *globalTotalTime += dt;
+  }
 
   // --- MOUVEMENT DU JOUEUR ---
   Vector2 move = {0};
@@ -536,8 +481,8 @@ void UpdateGame(float dt) {
           break;
         }
       }
-      //test
-      // si on a une balle de disponible
+      // test
+      //  si on a une balle de disponible
       if (bSlot != -1) {
         Vector2 dir = {enemies[targetIdx].position.x - player.position.x,
                        enemies[targetIdx].position.y - player.position.y};
@@ -716,8 +661,13 @@ void UpdateGame(float dt) {
 
   // --- APPARITION ---
   // Le taux d'apparition augmente rapidement
+  // Le taux d'apparition augmente rapidement
+  // Utilise le temps GLOBAL pour que la difficulté augmente même en rotation
+  // MODIFICATION: On utilise gameTime (local) pour le spawn rate pour éviter
+  // que le jeu ne devienne impossible après une rotation
+  float difficultyTime = gameTime;
   // Base 0.8s, diminue de 0.05s toutes les 10s, min 0.1s
-  float currentSpawnRate = 0.8f - (gameTime / 10.0f) * 0.05f;
+  float currentSpawnRate = 0.8f - (difficultyTime / 10.0f) * 0.05f;
   if (currentSpawnRate < 0.1f)
     currentSpawnRate = 0.1f;
 
@@ -822,6 +772,10 @@ void UpdateGame(float dt) {
     }
   }
 }
+
+// ============================================================================
+// FONCTIONS - RENDU
+// ============================================================================
 
 void DrawGame() {
   BeginDrawing();
@@ -954,7 +908,9 @@ void DrawGame() {
 
   // Header Stats (Score & Time) - Top Center, Large, Space Blue
   const char *scoreText = TextFormat("SCORE: %d", score);
-  const char *timeText = TextFormat("TIME: %.1fs", gameTime);
+  // Afficher le temps global si disponible
+  float displayTime = (globalTotalTime != NULL) ? *globalTotalTime : gameTime;
+  const char *timeText = TextFormat("TIME: %.1fs", displayTime);
   int scoreW = MeasureText(scoreText, 40);
   int timeW = MeasureText(timeText, 40);
 
@@ -1052,27 +1008,33 @@ void DrawGame() {
   // Controls Display
   DrawText("WASD/Arrows: Move", screenW - 200, 20, 20, DARKGRAY);
   DrawText("SPACE: Dash", screenW - 200, 45, 20, DARKGRAY);
-  DrawText("R: Restart", screenW - 200, 70, 20, DARKGRAY);
 
   if (gameOver) {
     DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
-    DrawText("Appuyez sur R pour recommencer", screenW / 2 - 100,
-             screenH / 2 + 10, 20, DARKGRAY);
+    DrawText("ESCAPE: Menu", screenW / 2 - 80, screenH / 2 + 10, 20, DARKGRAY);
   }
 
   EndDrawing();
 }
 
-#include "include/survivor.h"
+// ============================================================================
+// FONCTION PUBLIQUE - POINT D'ENTRÉE DU JEU
+// ============================================================================
 
 void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
-                     const char *playerName, ScoreList *scores) {
-  // On ajuste la fenêtre au lieu de la recréer
-  SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+                     const char *playerName, ScoreList *scores,
+                     float timeout_seconds, float *total_time,
+                     float start_delay) {
+  // Stocker le pointeur vers le temps global
+  globalTotalTime = total_time;
+
+  // On ajuste la fenêtre à la taille standard
+  SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);
   SetWindowTitle("survivor");
   SetTargetFPS(60);
 
-  // Allocation dynamique seulement si on ne reprend pas une partie
+  // Allocation dynamique seulement si on ne reprend pas une partie (nouvelle
+  // partie)
   if (!resume) {
     // Sécurité : on libère si jamais il restait quelque chose
     if (enemies)
@@ -1112,12 +1074,9 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
   }
 
   // Stocker les pointeurs globaux pour l'accès dans UpdateGame
-  // Stocker les pointeurs globaux pour l'accès dans UpdateGame
   currentScores = scores;
-
   // Reset name content first
   memset(currentPlayerName, 0, sizeof(currentPlayerName));
-
   if (playerName && strlen(playerName) > 0) {
     strncpy(currentPlayerName, playerName, 31);
     currentPlayerName[31] = '\0';
@@ -1127,30 +1086,68 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
 
   printf("RunSurvivorGame started for: '%s'\n", currentPlayerName);
 
+  // Charger les textures AVANT l'effet hyperspace
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
   chasseurTexture = LoadTexture("assets/sprite-chasseur.png");
   tankTexture = LoadTexture("assets/sprite-tank.png");
 
   // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
-  // partie)
-  if (!resume) {
+  // partie et pas en mode rotation)
+  if (!resume && timeout_seconds <= 0) {
     PlayHyperspaceEffect(1.0f, spaceshipTexture);
   }
 
+  // Activer le jeu après l'effet hyperspace
   *game_active = true;
+  float elapsed_time = 0.0f; // Timer pour le timeout
+  printf("jeu survivor lancé\n");
 
   while (!WindowShouldClose()) {
-    // Si on appuie sur Echap, on met en pause ou on quitte
-    if (IsKeyPressed(KEY_ESCAPE)) {
-      if (gameOver) {
-        *game_active = false;
-      } else {
-        *game_active = true; // Pause
-      }
+    float dt = GetFrameTime();
+    elapsed_time += dt;
 
+    // Gestion des transitions (Zoom/Shake)
+    bool in_transition = false;
+    float current_zoom = 1.0f;
+    Vector2 shake_offset = {0.0f, 0.0f};
+
+    // 1. Zoom In au début (pendant start_delay)
+    if (elapsed_time < start_delay) {
+      in_transition = true;
+      float factor = elapsed_time / start_delay;
+      current_zoom = Lerp(0.1f, 1.0f, factor); // Zoom progressif de 0.1 à 1.0
+    }
+    // 2. Shake + Zoom Out à la fin (0.5s avant fin)
+    else if (!gameOver && timeout_seconds > 0 &&
+             (timeout_seconds - elapsed_time) < 0.5f) {
+      float remaining = timeout_seconds - elapsed_time;
+      float factor = remaining / 0.5f;         // Va de 1.0 -> 0.0
+      current_zoom = Lerp(0.1f, 1.0f, factor); // Zoom out vers 0.1
+
+      // Shake effect
+      float shake_amount =
+          (1.0f - factor) * 10.0f; // Augmente quand le temps diminue
+      shake_offset.x = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_offset.y = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+    }
+
+    // Appliquer le zoom et shake à la caméra
+    // Sauvegarder l'offset original/target original car UpdateGame le modifie
+    Vector2 original_target = camera.target;
+    // Note: UpdateGame met à jour camera.target sur le joueur.
+    // On doit appliquer le shake APRES UpdateGame mais AVANT DrawGame,
+    // ou alors manipuler camera.zoom ici.
+
+    // Vérifier timeout (si > 0)
+    if (!gameOver && timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
+      break; // Sortir automatiquement après le timeout
+    }
+
+    // Si on appuie sur Echap ou n'importe quelle touche en game over, on sort
+    if (IsKeyPressed(KEY_ESCAPE)) {
+      *game_active = false; // Toujours signaler qu'on veut quitter
       // Attendre que la touche soit relâchée pour éviter de fermer le menu
-      // aussi
       while (IsKeyDown(KEY_ESCAPE)) {
         BeginDrawing();
         EndDrawing();
@@ -1158,9 +1155,39 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       break;
     }
 
-    float dt = GetFrameTime();
-    UpdateGame(dt);
+    if (gameOver) {
+      // Only Escape allows to quit, handled at the top of the loop
+    }
+
+    // Si le jeu est actif et PAS en transition d'intro (start_delay), on met à
+    // jour la logique Pendant l'intro, on pause la logique pour voir l'état
+    // sans bouger
+    if (*game_active && elapsed_time >= start_delay) {
+      UpdateGame(dt);
+    }
+
+    // Application des effets de caméra pour le rendu
+    // UpdateGame a mis à jour camera.target sur le joueur.
+    // On applique ici le shake et le zoom d'animation.
+
+    // Appliquer le Zoom d'animation
+    // Attention: UpdateGame fait aussi du zoom (effet dash), on va multiplier
+    // ou écraser ? UpdateGame fait: camera.zoom += (target - camera.zoom) * dt;
+    // Ici on force le zoom de transition qui est prioritaire
+    if (elapsed_time < start_delay ||
+        (timeout_seconds > 0 && (timeout_seconds - elapsed_time) < 0.5f)) {
+      camera.zoom = current_zoom;
+    }
+
+    camera.target.x += shake_offset.x;
+    camera.target.y += shake_offset.y;
+
+    // Dessiner le jeu à chaque frame
     DrawGame();
+
+    // Restaurer target (le shake ne doit pas dériver)
+    camera.target.x -= shake_offset.x;
+    camera.target.y -= shake_offset.y;
   }
 
   // Si la fenêtre est fermée par la croix, on ne sauvegarde pas forcément
@@ -1194,6 +1221,4 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     trainee = NULL;
     missiles = NULL;
   }
-
-  // Ne pas fermer la fenêtre ici !
 }

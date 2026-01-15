@@ -32,7 +32,7 @@ ScoreList *load_scores(void) {
       if (newline)
         *newline = '\0';
 
-      scores->entries[scores->count].score = atoi(score_str);
+      scores->entries[scores->count].time = atof(score_str);
       scores->count++;
     }
   }
@@ -51,7 +51,12 @@ void free_scores(ScoreList *scores) {
 int compare_scores(const void *a, const void *b) {
   const ScoreEntry *entry_a = (const ScoreEntry *)a;
   const ScoreEntry *entry_b = (const ScoreEntry *)b;
-  return entry_b->score - entry_a->score; // Descending order
+  // Descending order (Longer time is better)
+  if (entry_b->time > entry_a->time)
+    return 1;
+  if (entry_b->time < entry_a->time)
+    return -1;
+  return 0;
 }
 
 void sort_scores(ScoreList *scores) {
@@ -79,10 +84,10 @@ void print_scores(ScoreList *scores) {
     return;
   }
 
-  printf("=== HIGH SCORES ===\n");
+  printf("=== BEST TIMES ===\n");
   for (int i = 0; i < scores->count && i < 10; i++) {
-    printf("%d. %s - %d\n", i + 1, scores->entries[i].playername,
-           scores->entries[i].score);
+    printf("%d. %s - %.2fs\n", i + 1, scores->entries[i].playername,
+           scores->entries[i].time);
   }
 }
 
@@ -95,18 +100,18 @@ bool save_scores(ScoreList *scores) {
     return false;
 
   // En-tête
-  fprintf(file, "Player,Score\n");
+  fprintf(file, "Player,Time\n");
 
   for (int i = 0; i < scores->count; i++) {
-    fprintf(file, "%s,%d\n", scores->entries[i].playername,
-            scores->entries[i].score);
+    fprintf(file, "%s,%.2f\n", scores->entries[i].playername,
+            scores->entries[i].time);
   }
 
   fclose(file);
   return true;
 }
 
-void add_score(ScoreList *scores, const char *name, int score) {
+void add_score(ScoreList *scores, const char *name, float time) {
   if (!scores || !name)
     return;
 
@@ -115,19 +120,18 @@ void add_score(ScoreList *scores, const char *name, int score) {
     strncpy(scores->entries[scores->count].playername, name,
             MAX_NAME_LENGTH - 1);
     scores->entries[scores->count].playername[MAX_NAME_LENGTH - 1] = '\0';
-    scores->entries[scores->count].score = score;
+    scores->entries[scores->count].time = time;
     scores->count++;
   } else {
     // Si la liste est pleine, on vérifie si le nouveau score est meilleur que
-    // le pire On suppose que la liste est triée (ce qui devrait être le cas) Le
-    // pire score est à la fin
-    if (score > scores->entries[MAX_SCORES - 1].score) {
+    // le pire (le dernier car trié décroissant)
+    if (time > scores->entries[MAX_SCORES - 1].time) {
       strncpy(scores->entries[MAX_SCORES - 1].playername, name,
               MAX_NAME_LENGTH - 1);
       scores->entries[MAX_SCORES - 1].playername[MAX_NAME_LENGTH - 1] = '\0';
-      scores->entries[MAX_SCORES - 1].score = score;
+      scores->entries[MAX_SCORES - 1].time = time;
     } else {
-      // Score trop faible pour entrer dans le top
+      // Temps trop court pour entrer dans le top
       return;
     }
   }
