@@ -1,15 +1,16 @@
 #include "include/scores.h"
 
-ScoreList *load_scores(void) {
-  FILE *file = fopen(SCORES_FILE, "r");
-  if (!file) {
-    return NULL;
-  }
-
+ScoreList *load_scores(const char *filename) {
   ScoreList *scores = (ScoreList *)malloc(sizeof(ScoreList));
   if (!scores) {
-    fclose(file);
     return NULL;
+  }
+  scores->count = 0;
+
+  FILE *file = fopen(filename, "r");
+  if (!file) {
+    // File doesn't exist yet, return empty list so we can add to it later
+    return scores;
   }
 
   scores->count = 0;
@@ -19,26 +20,43 @@ ScoreList *load_scores(void) {
   fgets(line, sizeof(line), file);
 
   while (fgets(line, sizeof(line), file) && scores->count < MAX_SCORES) {
-    char *comma = strchr(line, ',');
-    if (comma) {
-      *comma = '\0';
-      strncpy(scores->entries[scores->count].playername, line,
+    // Format: Player,Time,Difficulty,Score
+    char *token = strtok(line, ",");
+    if (token) {
+      strncpy(scores->entries[scores->count].playername, token,
               MAX_NAME_LENGTH - 1);
       scores->entries[scores->count].playername[MAX_NAME_LENGTH - 1] = '\0';
 
-      // Remove trailing newline from score
-      char *score_str = comma + 1;
-      char *newline = strchr(score_str, '\n');
-      if (newline)
-        *newline = '\0';
+      token = strtok(NULL, ",");
+      if (token)
+        scores->entries[scores->count].time = atof(token);
 
-      scores->entries[scores->count].time = atof(score_str);
+      token = strtok(NULL, ",");
+      if (token)
+        scores->entries[scores->count].difficulty = atoi(token);
+      else
+        scores->entries[scores->count].difficulty = 1; // Default Medium
+
+      token = strtok(NULL, "\n"); // Score is last
+      if (token)
+        scores->entries[scores->count].score = atoi(token);
+      else {
+        // Recalculate if missing (legacy support)
+        int multipliers[] = {1, 3, 5};
+        int diff = scores->entries[scores->count].difficulty;
+        if (diff < 0)
+          diff = 0;
+        if (diff > 2)
+          diff = 2;
+        scores->entries[scores->count].score =
+            (int)(scores->entries[scores->count].time * multipliers[diff]);
+      }
+
       scores->count++;
     }
   }
 
   fclose(file);
-  sort_scores(scores);
   return scores;
 }
 
@@ -48,10 +66,9 @@ void free_scores(ScoreList *scores) {
   }
 }
 
-int compare_scores(const void *a, const void *b) {
+int compare_scores_time(const void *a, const void *b) {
   const ScoreEntry *entry_a = (const ScoreEntry *)a;
   const ScoreEntry *entry_b = (const ScoreEntry *)b;
-  // Descending order (Longer time is better)
   if (entry_b->time > entry_a->time)
     return 1;
   if (entry_b->time < entry_a->time)
@@ -59,83 +76,168 @@ int compare_scores(const void *a, const void *b) {
   return 0;
 }
 
-void sort_scores(ScoreList *scores) {
+int compare_scores_points(const void *a, const void *b) {
+  const ScoreEntry *entry_a = (const ScoreEntry *)a;
+  const ScoreEntry *entry_b = (const ScoreEntry *)b;
+  return (entry_b->score - entry_a->score);
+}
+
+void sort_scores_by_time(ScoreList *scores) {
   if (scores && scores->count > 0) {
-    qsort(scores->entries, scores->count, sizeof(ScoreEntry), compare_scores);
+    qsort(scores->entries, scores->count, sizeof(ScoreEntry),
+          compare_scores_time);
   }
 }
 
-int get_high_scores(ScoreList *scores, ScoreEntry *top_scores, int max_count) {
-  if (!scores || !top_scores || max_count <= 0) {
-    return 0;
+void sort_scores_by_points(ScoreList *scores) {
+  if (scores && scores->count > 0) {
+    qsort(scores->entries, scores->count, sizeof(ScoreEntry),
+          compare_scores_points);
   }
+}
+
+int get_top_scores_by_time(ScoreList *scores, ScoreEntry *top_scores,
+                           int max_count) {
+  if (!scores || !top_scores || max_count <= 0)
+    return 0;
+
+  // Create a temporary copy to sort without messing up the original order (if
+  // that matters) or just sort the main list. Let's make a copy to be
+  // safe/clean if we want multiple views. Actually, sorting the main list is
+  // fine, but we need to support two views. So we should copy the data to a
+  // temp array, sort that, and return top N.
+
+  ScoreEntry *temp = malloc(sizeof(ScoreEntry) * scores->count);
+  if (!temp)
+    return 0;
+
+  memcpy(temp, scores->entries, sizeof(ScoreEntry) * scores->count);
+  qsort(temp, scores->count, sizeof(ScoreEntry), compare_scores_time);
 
   int count = (scores->count < max_count) ? scores->count : max_count;
   for (int i = 0; i < count; i++) {
-    top_scores[i] = scores->entries[i];
+    top_scores[i] = temp[i];
   }
 
+  free(temp);
+  return count;
+}
+
+int get_top_scores_by_points(ScoreList *scores, ScoreEntry *top_scores,
+                             int max_count) {
+  if (!scores || !top_scores || max_count <= 0)
+    return 0;
+
+  ScoreEntry *temp = malloc(sizeof(ScoreEntry) * scores->count);
+  if (!temp)
+    return 0;
+
+  memcpy(temp, scores->entries, sizeof(ScoreEntry) * scores->count);
+  qsort(temp, scores->count, sizeof(ScoreEntry), compare_scores_points);
+
+  int count = (scores->count < max_count) ? scores->count : max_count;
+  for (int i = 0; i < count; i++) {
+    top_scores[i] = temp[i];
+  }
+
+  free(temp);
   return count;
 }
 
 void print_scores(ScoreList *scores) {
-  if (!scores) {
-    printf("No scores loaded\n");
-    return;
-  }
-
-  printf("=== BEST TIMES ===\n");
-  for (int i = 0; i < scores->count && i < 10; i++) {
-    printf("%d. %s - %.2fs\n", i + 1, scores->entries[i].playername,
-           scores->entries[i].time);
-  }
+  // Deprecated for debug primarily
+  (void)scores;
 }
 
-bool save_scores(ScoreList *scores) {
-  if (!scores)
+bool save_scores(ScoreList *scores, const char *filename) {
+  if (!scores || !filename)
     return false;
 
-  FILE *file = fopen(SCORES_FILE, "w");
+  FILE *file = fopen(filename, "w");
   if (!file)
     return false;
 
-  // En-tête
-  fprintf(file, "Player,Time\n");
+  fprintf(file, "Player,Time,Difficulty,Score\n");
 
   for (int i = 0; i < scores->count; i++) {
-    fprintf(file, "%s,%.2f\n", scores->entries[i].playername,
-            scores->entries[i].time);
+    fprintf(file, "%s,%.2f,%d,%d\n", scores->entries[i].playername,
+            scores->entries[i].time, scores->entries[i].difficulty,
+            scores->entries[i].score);
   }
 
   fclose(file);
   return true;
 }
 
-void add_score(ScoreList *scores, const char *name, float time) {
+// Returns rank (1-based), or -1 if not added/ranked
+int add_score(ScoreList *scores, const char *name, float time, int difficulty,
+              ScoreType type) {
   if (!scores || !name)
-    return;
+    return -1;
 
-  // Si on n'a pas atteint le max, on ajoute à la fin
+  int multipliers[] = {1, 3, 5};
+  int diffInfo = difficulty;
+  if (diffInfo < 0)
+    diffInfo = 0;
+  if (diffInfo > 2)
+    diffInfo = 2;
+
+  int scoreVal = (int)(time * multipliers[diffInfo]);
+
+  int newIndex = -1;
+
   if (scores->count < MAX_SCORES) {
-    strncpy(scores->entries[scores->count].playername, name,
-            MAX_NAME_LENGTH - 1);
-    scores->entries[scores->count].playername[MAX_NAME_LENGTH - 1] = '\0';
-    scores->entries[scores->count].time = time;
+    newIndex = scores->count;
     scores->count++;
   } else {
-    // Si la liste est pleine, on vérifie si le nouveau score est meilleur que
-    // le pire (le dernier car trié décroissant)
-    if (time > scores->entries[MAX_SCORES - 1].time) {
-      strncpy(scores->entries[MAX_SCORES - 1].playername, name,
-              MAX_NAME_LENGTH - 1);
-      scores->entries[MAX_SCORES - 1].playername[MAX_NAME_LENGTH - 1] = '\0';
-      scores->entries[MAX_SCORES - 1].time = time;
+    // Find worst
+    int worstIdx = -1;
+    if (type == SCORE_BY_TIME) {
+      float minTime = 999999999.0f;
+      for (int i = 0; i < scores->count; i++) {
+        if (scores->entries[i].time < minTime) {
+          minTime = scores->entries[i].time;
+          worstIdx = i;
+        }
+      }
+      // Only replace if strictly better
+      if (worstIdx != -1 && time > minTime)
+        newIndex = worstIdx;
     } else {
-      // Temps trop court pour entrer dans le top
-      return;
+      int minScore = 2147483647;
+      for (int i = 0; i < scores->count; i++) {
+        if (scores->entries[i].score < minScore) {
+          minScore = scores->entries[i].score;
+          worstIdx = i;
+        }
+      }
+      if (worstIdx != -1 && scoreVal > minScore)
+        newIndex = worstIdx;
     }
   }
 
-  // On re-trie la liste
-  sort_scores(scores);
+  if (newIndex != -1) {
+    strncpy(scores->entries[newIndex].playername, name, MAX_NAME_LENGTH - 1);
+    scores->entries[newIndex].playername[MAX_NAME_LENGTH - 1] = '\0';
+    scores->entries[newIndex].time = time;
+    scores->entries[newIndex].difficulty = difficulty;
+    scores->entries[newIndex].score = scoreVal;
+
+    // Sort immediately
+    if (type == SCORE_BY_TIME)
+      sort_scores_by_time(scores);
+    else
+      sort_scores_by_points(scores);
+
+    // Find rank of newly added score
+    for (int i = 0; i < scores->count; i++) {
+      if (strcmp(scores->entries[i].playername, name) == 0 &&
+          scores->entries[i].time == time &&
+          scores->entries[i].score == scoreVal) {
+        return i + 1; // 1-based rank
+      }
+    }
+  }
+
+  return -1;
 }

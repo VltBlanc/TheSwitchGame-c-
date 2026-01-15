@@ -183,16 +183,24 @@ void UpdateJoueurMouvement(Joueur *Joueur, float deltaTime, int player_id) {
 
   if (player_id == 1) {
     // Joueur 1: ZQSD
-    if (IS_P1_RIGHT()) mouvement.x += 1.0f;
-    if (IS_P1_LEFT()) mouvement.x -= 1.0f;
-    if (IS_P1_DOWN()) mouvement.y += 1.0f;
-    if (IS_P1_UP()) mouvement.y -= 1.0f;
+    if (IS_P1_RIGHT())
+      mouvement.x += 1.0f;
+    if (IS_P1_LEFT())
+      mouvement.x -= 1.0f;
+    if (IS_P1_DOWN())
+      mouvement.y += 1.0f;
+    if (IS_P1_UP())
+      mouvement.y -= 1.0f;
   } else {
     // Joueur 2: Fleches
-    if (IS_P2_RIGHT()) mouvement.x += 1.0f;
-    if (IS_P2_LEFT()) mouvement.x -= 1.0f;
-    if (IS_P2_DOWN()) mouvement.y += 1.0f;
-    if (IS_P2_UP()) mouvement.y -= 1.0f;
+    if (IS_P2_RIGHT())
+      mouvement.x += 1.0f;
+    if (IS_P2_LEFT())
+      mouvement.x -= 1.0f;
+    if (IS_P2_DOWN())
+      mouvement.y += 1.0f;
+    if (IS_P2_UP())
+      mouvement.y -= 1.0f;
   }
 
   if (mouvement.x != 0.0f || mouvement.y != 0.0f) {
@@ -449,13 +457,16 @@ void DessineJoueur(Joueur Joueur, int player_id) {
       }
     }
 
-    DrawTexturePro(playerTexture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, tint);
+    DrawTexturePro(playerTexture, sourceRec, destRec, (Vector2){0, 0}, 0.0f,
+                   tint);
 
     // Etiquette joueur en mode 2 joueurs
     if (modeActuel == DEUX_JOUEURS) {
       const char *label = (player_id == 1) ? "P1" : "P2";
-      Color labelColor = (player_id == 1) ? (Color){0, 150, 255, 255} : (Color){255, 100, 100, 255};
-      DrawText(label, (int)Joueur.position.x - 8, (int)Joueur.position.y - 35, 16, labelColor);
+      Color labelColor = (player_id == 1) ? (Color){0, 150, 255, 255}
+                                          : (Color){255, 100, 100, 255};
+      DrawText(label, (int)Joueur.position.x - 8, (int)Joueur.position.y - 35,
+               16, labelColor);
     }
   }
 }
@@ -543,8 +554,10 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
       float factor = remaining / 0.5f;
       current_scale = Lerp(0.1f, 1.0f, factor);
       float shake_amount = (1.0f - factor) * 10.0f;
-      shake_transition.x = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
-      shake_transition.y = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.x =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.y =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
     }
 
     if (!game_over && !jeuEnPause && elapsed_time >= start_delay) {
@@ -568,7 +581,8 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
       }
 
       // Verifier egalite (les deux morts en meme temps)
-      if (modeActuel == DEUX_JOUEURS && !Joueur1.vivant && !Joueur2.vivant && winner == 0) {
+      if (modeActuel == DEUX_JOUEURS && !Joueur1.vivant && !Joueur2.vivant &&
+          winner == 0) {
         winner = -1; // Egalite
       }
 
@@ -587,13 +601,15 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
     }
 
     // Pause (seulement si pas game over)
-    bool anyAlive = Joueur1.vivant || (modeActuel == DEUX_JOUEURS && Joueur2.vivant);
+    bool anyAlive =
+        Joueur1.vivant || (modeActuel == DEUX_JOUEURS && Joueur2.vivant);
     if (jeuEnPause && anyAlive) {
       DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.5f));
       DrawText("PAUSE", (screenWidth / 2) - MeasureText("PAUSE", 40) / 2,
                screenHeight / 2 - 20, 40, RAYWHITE);
       DrawText("Appuyez sur P pour reprendre",
-               (screenWidth / 2) - MeasureText("Appuyez sur P pour reprendre", 20) / 2,
+               (screenWidth / 2) -
+                   MeasureText("Appuyez sur P pour reprendre", 20) / 2,
                screenHeight / 2 + 30, 20, LIGHTGRAY);
     }
 
@@ -607,15 +623,20 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
         DrawText(tie_text, (screenWidth / 2) - MeasureText(tie_text, 60) / 2,
                  screenHeight / 3, 60, YELLOW);
       } else if (modeActuel == DEUX_JOUEURS && (winner == 1 || winner == 2)) {
-        const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
-        Color winner_color = (winner == 1) ? (Color){0, 150, 255, 255} : (Color){255, 100, 100, 255};
-        DrawText(winner_text, (screenWidth / 2) - MeasureText(winner_text, 60) / 2,
+        const char *winner_text =
+            (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
+        Color winner_color = (winner == 1) ? (Color){0, 150, 255, 255}
+                                           : (Color){255, 100, 100, 255};
+        DrawText(winner_text,
+                 (screenWidth / 2) - MeasureText(winner_text, 60) / 2,
                  screenHeight / 3, 60, winner_color);
       } else {
-        DrawText("GAME OVER!", (screenWidth / 2) - MeasureText("GAME OVER!", 60) / 2,
+        DrawText("GAME OVER!",
+                 (screenWidth / 2) - MeasureText("GAME OVER!", 60) / 2,
                  screenHeight / 3, 60, RED);
       }
-      DrawText("ESCAPE: Menu", (screenWidth / 2) - MeasureText("ESCAPE: Menu", 20) / 2,
+      DrawText("ESCAPE: Menu",
+               (screenWidth / 2) - MeasureText("ESCAPE: Menu", 20) / 2,
                screenHeight / 2, 20, RAYWHITE);
     }
 
@@ -633,11 +654,13 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
     Rectangle sourceRec = {0, 0, (float)screenWidth, (float)-screenHeight};
     Rectangle destRec = {destX, destY, destWidth, destHeight};
 
-    DrawTexturePro(lucaRenderTarget.texture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
+    DrawTexturePro(lucaRenderTarget.texture, sourceRec, destRec,
+                   (Vector2){0, 0}, 0.0f, WHITE);
 
     if (total_time != NULL && current_scale > 0.8f) {
       DrawText("TOTAL TIME", 20, HAUTEUR_FENETRE / 2 - 20, 20, GRAY);
-      DrawText(TextFormat("%.1fs", *total_time), 20, HAUTEUR_FENETRE / 2 + 5, 30, WHITE);
+      DrawText(TextFormat("%.1fs", *total_time), 20, HAUTEUR_FENETRE / 2 + 5,
+               30, WHITE);
     }
 
     EndDrawing();
@@ -655,7 +678,8 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
   UnloadTexture(solFissureTexture);
 
   // Si tous les joueurs sont morts, nettoyer l'etat
-  bool allDead = !Joueur1.vivant && (modeActuel != DEUX_JOUEURS || !Joueur2.vivant);
+  bool allDead =
+      !Joueur1.vivant && (modeActuel != DEUX_JOUEURS || !Joueur2.vivant);
   if (allDead) {
     FreeGrid();
     hasGameState = false;
@@ -675,11 +699,10 @@ void InitDifficulte(Difficulte version) {
 }
 
 // Fonction wrapper avec signature standard
-void RunLucaGame(Difficulte difficulty, ModeJoueur mode, bool resume, bool *game_active,
-                 const char *playerName, ScoreList *scores,
+void RunLucaGame(Difficulte difficulty, ModeJoueur mode, bool resume,
+                 bool *game_active, const char *playerName,
                  float timeout_seconds, float *total_time, float start_delay) {
   (void)playerName;
-  (void)scores;
 
   modeActuel = mode;
   InitDifficulte(difficulty);

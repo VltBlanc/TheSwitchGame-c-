@@ -148,7 +148,7 @@ void DrawGame(void);
 // start_delay: temps d'attente avant le début du jeu (animation zoom in)
 void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                      bool *game_active, const char *playerName,
-                     ScoreList *scores, float timeout_seconds,
-                     float *total_time, float start_delay);
+                     float timeout_seconds, float *total_time,
+                     float start_delay);
 
 #endif // SURVIVOR_H

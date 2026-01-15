@@ -49,7 +49,6 @@ static Trainee *trainee = NULL;
 // VARIABLES GLOBALES - SCORE & SESSION
 // ============================================================================
 
-static ScoreList *currentScores = NULL;
 static char currentPlayerName[32] = "Unknown";
 static bool scoreSaved = false;
 
@@ -656,12 +655,17 @@ void UpdateGame(float dt) {
       // En 2P, l'ennemi chasse le joueur le plus proche
       Vector2 targetPos = player1.position;
       if (currentMode == DEUX_JOUEURS) {
-        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position, player1.position) : 999999999.0f;
-        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position, player2.position) : 999999999.0f;
+        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position,
+                                                        player1.position)
+                                   : 999999999.0f;
+        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position,
+                                                        player2.position)
+                                   : 999999999.0f;
         targetPos = (d1 <= d2) ? player1.position : player2.position;
       }
 
-      Vector2 dir = {targetPos.x - enemies[i].position.x, targetPos.y - enemies[i].position.y};
+      Vector2 dir = {targetPos.x - enemies[i].position.x,
+                     targetPos.y - enemies[i].position.y};
       float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
       if (dirLen > 0.001f) {
         dir.x /= dirLen;
@@ -698,7 +702,9 @@ void UpdateGame(float dt) {
       }
 
       // Collision avec P1
-      if (player1.isAlive && CheckCollisionCircles(player1.position, player1.radius, enemies[i].position, enemies[i].radius)) {
+      if (player1.isAlive &&
+          CheckCollisionCircles(player1.position, player1.radius,
+                                enemies[i].position, enemies[i].radius)) {
         player1.health--;
         enemies[i].active = false;
         if (player1.health <= 0) {
@@ -707,7 +713,9 @@ void UpdateGame(float dt) {
       }
 
       // Collision avec P2
-      if (currentMode == DEUX_JOUEURS && player2.isAlive && enemies[i].active && CheckCollisionCircles(player2.position, player2.radius, enemies[i].position, enemies[i].radius)) {
+      if (currentMode == DEUX_JOUEURS && player2.isAlive && enemies[i].active &&
+          CheckCollisionCircles(player2.position, player2.radius,
+                                enemies[i].position, enemies[i].radius)) {
         player2.health--;
         enemies[i].active = false;
         if (player2.health <= 0) {
@@ -985,8 +993,8 @@ void DrawGame() {
 
 void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                      bool *game_active, const char *playerName,
-                     ScoreList *scores, float timeout_seconds,
-                     float *total_time, float start_delay) {
+                     float timeout_seconds, float *total_time,
+                     float start_delay) {
   // Stocker le mode et le pointeur vers le temps global
   currentMode = mode;
   globalTotalTime = total_time;
@@ -1036,7 +1044,7 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
   }
 
   // Stocker les pointeurs globaux pour l'accès dans UpdateGame
-  currentScores = scores;
+  // currentScores = scores; // Removed
   // Reset name content first
   memset(currentPlayerName, 0, sizeof(currentPlayerName));
   if (playerName && strlen(playerName) > 0) {

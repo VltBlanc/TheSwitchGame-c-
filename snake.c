@@ -1,11 +1,12 @@
 #include "include/menu.h"
-#include "include/scores.h"
 #include "include/player_input.h"
+#include "include/scores.h"
 #include <math.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <stdlib.h>
 #include <time.h>
+
 
 // Taille de la grille (plus petite pour elements plus gros)
 #define LARGEUR_GRILLE 15
@@ -49,8 +50,8 @@ int score2;
 bool jeu_termine2;
 
 // Variables partagees
-Position pomme;         // jerrican de carburant
-Position pomme2;        // deuxieme jerrican (mode 2 joueurs)
+Position pomme;  // jerrican de carburant
+Position pomme2; // deuxieme jerrican (mode 2 joueurs)
 double temps_derniere_maj;
 double vitesse_jeu;
 
@@ -340,7 +341,8 @@ static void InitialiserJeu() {
   serpent1[2].x = serpent1[1].x - 1;
   serpent1[2].y = serpent1[1].y;
 
-  // Placer le serpent 2 (cote droit, va vers la gauche) - seulement en 2 joueurs
+  // Placer le serpent 2 (cote droit, va vers la gauche) - seulement en 2
+  // joueurs
   if (modeActuel == DEUX_JOUEURS) {
     serpent2[0].x = LARGEUR_GRILLE * 3 / 4;
     serpent2[0].y = HAUTEUR_GRILLE / 2;
@@ -460,10 +462,14 @@ static void AjouterMur() {
     for (int d = 1; d <= 2; d++) {
       int fx = serpent1[0].x;
       int fy = serpent1[0].y;
-      if (direction1 == DROITE) fx += d;
-      else if (direction1 == GAUCHE) fx -= d;
-      else if (direction1 == HAUT) fy -= d;
-      else if (direction1 == BAS) fy += d;
+      if (direction1 == DROITE)
+        fx += d;
+      else if (direction1 == GAUCHE)
+        fx -= d;
+      else if (direction1 == HAUT)
+        fy -= d;
+      else if (direction1 == BAS)
+        fy += d;
 
       if (nx == fx && ny == fy) {
         position_valide = false;
@@ -471,15 +477,20 @@ static void AjouterMur() {
       }
     }
 
-    // Verifier que ce n'est pas sur les 2 blocs devant le vaisseau 2 (mode 2 joueurs)
+    // Verifier que ce n'est pas sur les 2 blocs devant le vaisseau 2 (mode 2
+    // joueurs)
     if (position_valide && modeActuel == DEUX_JOUEURS) {
       for (int d = 1; d <= 2; d++) {
         int fx = serpent2[0].x;
         int fy = serpent2[0].y;
-        if (direction2 == DROITE) fx += d;
-        else if (direction2 == GAUCHE) fx -= d;
-        else if (direction2 == HAUT) fy -= d;
-        else if (direction2 == BAS) fy += d;
+        if (direction2 == DROITE)
+          fx += d;
+        else if (direction2 == GAUCHE)
+          fx -= d;
+        else if (direction2 == HAUT)
+          fy -= d;
+        else if (direction2 == BAS)
+          fy += d;
 
         if (nx == fx && ny == fy) {
           position_valide = false;
@@ -508,7 +519,8 @@ static bool VerifierCollisionCorps(Position *serpent, int longueur) {
 }
 
 // Verifier collision entre deux serpents (tete de s1 contre corps de s2)
-static bool VerifierCollisionEntreSerpents(Position *s1, Position *s2, int longueur2) {
+static bool VerifierCollisionEntreSerpents(Position *s1, Position *s2,
+                                           int longueur2) {
   for (int i = 0; i < longueur2; i++) {
     if (s1[0].x == s2[i].x && s1[0].y == s2[i].y) {
       return true;
@@ -518,11 +530,14 @@ static bool VerifierCollisionEntreSerpents(Position *s1, Position *s2, int longu
 }
 
 // Fonction helper pour deplacer un serpent individuel
-static void DeplacerSerpentIndividuel(Position *serpent, int *longueur, int *direction,
-                                      int *file_directions, int *file_tete, int *file_queue,
-                                      int *score, double *carburant, bool *jeu_termine,
+static void DeplacerSerpentIndividuel(Position *serpent, int *longueur,
+                                      int *direction, int *file_directions,
+                                      int *file_tete, int *file_queue,
+                                      int *score, double *carburant,
+                                      bool *jeu_termine,
                                       Color couleur_particule) {
-  if (*jeu_termine) return;
+  if (*jeu_termine)
+    return;
 
   // Consommer la prochaine direction de la file si disponible
   if (*file_tete != *file_queue) {
@@ -540,10 +555,14 @@ static void DeplacerSerpentIndividuel(Position *serpent, int *longueur, int *dir
   // Particules de trainee (exhaust)
   Vector2 tailPos = {(float)serpent[0].x * TAILLE_CASE + TAILLE_CASE / 2,
                      (float)serpent[0].y * TAILLE_CASE + TAILLE_CASE / 2};
-  if (*direction == HAUT) tailPos.y += 10;
-  else if (*direction == BAS) tailPos.y -= 10;
-  else if (*direction == GAUCHE) tailPos.x += 10;
-  else if (*direction == DROITE) tailPos.x -= 10;
+  if (*direction == HAUT)
+    tailPos.y += 10;
+  else if (*direction == BAS)
+    tailPos.y -= 10;
+  else if (*direction == GAUCHE)
+    tailPos.x += 10;
+  else if (*direction == DROITE)
+    tailPos.x -= 10;
 
   AddParticle(tailPos,
               (Vector2){(float)GetRandomValue(-10, 10) / 10.0f,
@@ -556,14 +575,18 @@ static void DeplacerSerpentIndividuel(Position *serpent, int *longueur, int *dir
   }
 
   // Deplacer la tete selon la direction
-  if (*direction == HAUT) serpent[0].y--;
-  else if (*direction == BAS) serpent[0].y++;
-  else if (*direction == GAUCHE) serpent[0].x--;
-  else if (*direction == DROITE) serpent[0].x++;
+  if (*direction == HAUT)
+    serpent[0].y--;
+  else if (*direction == BAS)
+    serpent[0].y++;
+  else if (*direction == GAUCHE)
+    serpent[0].x--;
+  else if (*direction == DROITE)
+    serpent[0].x++;
 
   // Verifier collision avec les bords
-  if (serpent[0].x < 0 || serpent[0].x >= LARGEUR_GRILLE ||
-      serpent[0].y < 0 || serpent[0].y >= HAUTEUR_GRILLE) {
+  if (serpent[0].x < 0 || serpent[0].x >= LARGEUR_GRILLE || serpent[0].y < 0 ||
+      serpent[0].y >= HAUTEUR_GRILLE) {
     *jeu_termine = true;
     shake_intensity = 10.0f;
     for (int k = 0; k < 20; k++) {
@@ -609,7 +632,8 @@ static void DeplacerSerpentIndividuel(Position *serpent, int *longueur, int *dir
     GenererPomme();
     AjouterMur();
 
-    // Augmenter la vitesse (score1 pour mode 1 joueur, score total pour 2 joueurs)
+    // Augmenter la vitesse (score1 pour mode 1 joueur, score total pour 2
+    // joueurs)
     int total_score = (modeActuel == DEUX_JOUEURS) ? score1 + score2 : score1;
     if (vitesse_jeu > 0.05 && total_score < 100) {
       vitesse_jeu -= 0.005;
@@ -617,7 +641,8 @@ static void DeplacerSerpentIndividuel(Position *serpent, int *longueur, int *dir
   }
 
   // Verifier si le serpent prend le jerrican 2 (mode 2 joueurs)
-  if (modeActuel == DEUX_JOUEURS && serpent[0].x == pomme2.x && serpent[0].y == pomme2.y) {
+  if (modeActuel == DEUX_JOUEURS && serpent[0].x == pomme2.x &&
+      serpent[0].y == pomme2.y) {
     (*longueur)++;
     *score += 10;
     *carburant = CARBURANT_MAX;
@@ -644,27 +669,29 @@ static void DeplacerSerpentIndividuel(Position *serpent, int *longueur, int *dir
 static void DeplacerSerpents() {
   // Deplacer serpent 1
   DeplacerSerpentIndividuel(serpent1, &longueur_serpent1, &direction1,
-                             file_directions1, &file_tete1, &file_queue1,
-                             &score1, &carburant1, &jeu_termine1,
-                             (Color){0, 200, 255, 200}); // Cyan pour J1
+                            file_directions1, &file_tete1, &file_queue1,
+                            &score1, &carburant1, &jeu_termine1,
+                            (Color){0, 200, 255, 200}); // Cyan pour J1
 
   // Deplacer serpent 2 (mode 2 joueurs)
   if (modeActuel == DEUX_JOUEURS && !jeu_termine2) {
     DeplacerSerpentIndividuel(serpent2, &longueur_serpent2, &direction2,
-                               file_directions2, &file_tete2, &file_queue2,
-                               &score2, &carburant2, &jeu_termine2,
-                               (Color){255, 100, 100, 200}); // Rouge pour J2
+                              file_directions2, &file_tete2, &file_queue2,
+                              &score2, &carburant2, &jeu_termine2,
+                              (Color){255, 100, 100, 200}); // Rouge pour J2
   }
 
   // Verifier collision entre serpents (mode 2 joueurs)
   if (modeActuel == DEUX_JOUEURS) {
     // Tete de J1 contre corps de J2
-    if (!jeu_termine1 && VerifierCollisionEntreSerpents(serpent1, serpent2, longueur_serpent2)) {
+    if (!jeu_termine1 &&
+        VerifierCollisionEntreSerpents(serpent1, serpent2, longueur_serpent2)) {
       jeu_termine1 = true;
       shake_intensity = 10.0f;
     }
     // Tete de J2 contre corps de J1
-    if (!jeu_termine2 && VerifierCollisionEntreSerpents(serpent2, serpent1, longueur_serpent1)) {
+    if (!jeu_termine2 &&
+        VerifierCollisionEntreSerpents(serpent2, serpent1, longueur_serpent1)) {
       jeu_termine2 = true;
       shake_intensity = 10.0f;
     }
@@ -767,7 +794,8 @@ static void DessinerVaisseau(int x, int y, int dir, int player_id) {
 }
 
 // Fonction pour ajouter une direction a la file d'un joueur
-static void AjouterDirectionFile(int dir, int *file_directions, int *file_tete, int *file_queue) {
+static void AjouterDirectionFile(int dir, int *file_directions, int *file_tete,
+                                 int *file_queue) {
   int prochaine_queue = (*file_queue + 1) % TAILLE_FILE;
   if (prochaine_queue != *file_tete) { // File pas pleine
     file_directions[*file_queue] = dir;
@@ -903,9 +931,12 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
       int centre_x = serpent1[i].x * TAILLE_CASE + TAILLE_CASE / 2;
       int centre_y = serpent1[i].y * TAILLE_CASE + TAILLE_CASE / 2;
 
-      DrawCircle(centre_x, centre_y, 12, Fade((Color){0, 200, 255, 80}, opacite));
-      DrawCircle(centre_x, centre_y, 8, Fade((Color){50, 220, 255, 150}, opacite));
-      DrawCircle(centre_x, centre_y, 5, Fade((Color){150, 240, 255, 220}, opacite));
+      DrawCircle(centre_x, centre_y, 12,
+                 Fade((Color){0, 200, 255, 80}, opacite));
+      DrawCircle(centre_x, centre_y, 8,
+                 Fade((Color){50, 220, 255, 150}, opacite));
+      DrawCircle(centre_x, centre_y, 5,
+                 Fade((Color){150, 240, 255, 220}, opacite));
       DrawCircle(centre_x, centre_y, 2, Fade(WHITE, opacite));
     }
   }
@@ -920,9 +951,12 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
       int centre_x = serpent2[i].x * TAILLE_CASE + TAILLE_CASE / 2;
       int centre_y = serpent2[i].y * TAILLE_CASE + TAILLE_CASE / 2;
 
-      DrawCircle(centre_x, centre_y, 12, Fade((Color){255, 100, 100, 80}, opacite));
-      DrawCircle(centre_x, centre_y, 8, Fade((Color){255, 150, 150, 150}, opacite));
-      DrawCircle(centre_x, centre_y, 5, Fade((Color){255, 200, 200, 220}, opacite));
+      DrawCircle(centre_x, centre_y, 12,
+                 Fade((Color){255, 100, 100, 80}, opacite));
+      DrawCircle(centre_x, centre_y, 8,
+                 Fade((Color){255, 150, 150, 150}, opacite));
+      DrawCircle(centre_x, centre_y, 5,
+                 Fade((Color){255, 200, 200, 220}, opacite));
       DrawCircle(centre_x, centre_y, 2, Fade(WHITE, opacite));
     }
   }
@@ -971,7 +1005,8 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
                        (Color){255, 220, 180, 255});
     // Goulot
     DrawRectangle(jer2_x - 3, jer2_y - 12, 6, 8, (Color){150, 80, 20, 255});
-    DrawRectangleLines(jer2_x - 3, jer2_y - 12, 6, 8, (Color){255, 220, 180, 255});
+    DrawRectangleLines(jer2_x - 3, jer2_y - 12, 6, 8,
+                       (Color){255, 220, 180, 255});
     // Poignee
     DrawRectangle(jer2_x + 5, jer2_y - 10, 6, 4, (Color){80, 80, 80, 255});
     // Bandes de danger
@@ -990,39 +1025,51 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
 
     // Barre J1 (gauche - cyan)
     float ratio1 = (float)carburant1 / CARBURANT_MAX;
-    if (ratio1 < 0) ratio1 = 0;
+    if (ratio1 < 0)
+      ratio1 = 0;
     DrawText("P1", 5, barre_y, 16, (Color){0, 200, 255, 255});
     DrawRectangle(30, barre_y, barre_largeur, 16, (Color){50, 50, 50, 255});
-    Color couleur1 = (ratio1 > 0.3f) ? (Color){0, 200, 255, 255} : (Color){200, 50, 50, 255};
+    Color couleur1 =
+        (ratio1 > 0.3f) ? (Color){0, 200, 255, 255} : (Color){200, 50, 50, 255};
     DrawRectangle(30, barre_y, (int)(barre_largeur * ratio1), 16, couleur1);
     DrawRectangleLines(30, barre_y, barre_largeur, 16, WHITE);
-    DrawText(TextFormat("%d", score1), 30 + barre_largeur + 5, barre_y, 16, (Color){0, 200, 255, 255});
+    DrawText(TextFormat("%d", score1), 30 + barre_largeur + 5, barre_y, 16,
+             (Color){0, 200, 255, 255});
 
     // Barre J2 (droite - rouge)
     int barre_x2 = LARGEUR_GRILLE * TAILLE_CASE / 2 + 20;
     float ratio2 = (float)carburant2 / CARBURANT_MAX;
-    if (ratio2 < 0) ratio2 = 0;
+    if (ratio2 < 0)
+      ratio2 = 0;
     DrawText("P2", barre_x2 - 25, barre_y, 16, (Color){255, 100, 100, 255});
-    DrawRectangle(barre_x2, barre_y, barre_largeur, 16, (Color){50, 50, 50, 255});
-    Color couleur2 = (ratio2 > 0.3f) ? (Color){255, 100, 100, 255} : (Color){200, 50, 50, 255};
-    DrawRectangle(barre_x2, barre_y, (int)(barre_largeur * ratio2), 16, couleur2);
+    DrawRectangle(barre_x2, barre_y, barre_largeur, 16,
+                  (Color){50, 50, 50, 255});
+    Color couleur2 = (ratio2 > 0.3f) ? (Color){255, 100, 100, 255}
+                                     : (Color){200, 50, 50, 255};
+    DrawRectangle(barre_x2, barre_y, (int)(barre_largeur * ratio2), 16,
+                  couleur2);
     DrawRectangleLines(barre_x2, barre_y, barre_largeur, 16, WHITE);
-    DrawText(TextFormat("%d", score2), barre_x2 + barre_largeur + 5, barre_y, 16, (Color){255, 100, 100, 255});
+    DrawText(TextFormat("%d", score2), barre_x2 + barre_largeur + 5, barre_y,
+             16, (Color){255, 100, 100, 255});
   } else {
     // Mode 1 joueur - barre unique
     int barre_largeur = LARGEUR_GRILLE * TAILLE_CASE - 120;
     int barre_x = 110;
     float ratio_carburant = (float)carburant1 / CARBURANT_MAX;
-    if (ratio_carburant < 0) ratio_carburant = 0;
+    if (ratio_carburant < 0)
+      ratio_carburant = 0;
 
-    DrawRectangle(barre_x, barre_y, barre_largeur, 16, (Color){50, 50, 50, 255});
+    DrawRectangle(barre_x, barre_y, barre_largeur, 16,
+                  (Color){50, 50, 50, 255});
     Color couleur_fuel = (ratio_carburant > 0.3f) ? (Color){50, 200, 50, 255}
                                                   : (Color){200, 50, 50, 255};
-    DrawRectangle(barre_x, barre_y, (int)(barre_largeur * ratio_carburant), 16, couleur_fuel);
+    DrawRectangle(barre_x, barre_y, (int)(barre_largeur * ratio_carburant), 16,
+                  couleur_fuel);
     DrawRectangleLines(barre_x, barre_y, barre_largeur, 16, WHITE);
     DrawText("FUEL:", 60, barre_y, 16, WHITE);
 
-    DrawText(TextFormat("Score: %d", score1), 10, HAUTEUR_GRILLE * TAILLE_CASE + 2, 14, WHITE);
+    DrawText(TextFormat("Score: %d", score1), 10,
+             HAUTEUR_GRILLE * TAILLE_CASE + 2, 14, WHITE);
   }
 
   const char *diff_text = (difficulte_actuelle == FACILE)  ? "EASY"
@@ -1049,14 +1096,18 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
       const char *tie_text = "EGALITE!";
       int text_width = MeasureText(tie_text, 40);
       DrawText(tie_text, (LARGEUR_GRILLE * TAILLE_CASE - text_width) / 2,
-               HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40, ColorAlpha(YELLOW, 0.5f + pulse * 0.5f));
+               HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40,
+               ColorAlpha(YELLOW, 0.5f + pulse * 0.5f));
     } else if (modeActuel == DEUX_JOUEURS && (winner == 1 || winner == 2)) {
       // Afficher le gagnant
-      const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
-      Color winner_color = (winner == 1) ? (Color){0, 200, 255, 255} : (Color){255, 100, 100, 255};
+      const char *winner_text =
+          (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
+      Color winner_color = (winner == 1) ? (Color){0, 200, 255, 255}
+                                         : (Color){255, 100, 100, 255};
       int text_width = MeasureText(winner_text, 40);
       DrawText(winner_text, (LARGEUR_GRILLE * TAILLE_CASE - text_width) / 2,
-               HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40, ColorAlpha(winner_color, 0.5f + pulse * 0.5f));
+               HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40,
+               ColorAlpha(winner_color, 0.5f + pulse * 0.5f));
     } else {
       // Mode 1 joueur - Game Over classique
       Color pulseColor = ColorAlpha(RED, 0.5f + pulse * 0.5f);
@@ -1102,8 +1153,8 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
   EndDrawing();
 }
 
-void RunSnakeGame(Difficulte difficulty, ModeJoueur mode, bool resume, bool *game_active,
-                  const char *playerName, ScoreList *scores,
+void RunSnakeGame(Difficulte difficulty, ModeJoueur mode, bool resume,
+                  bool *game_active, const char *playerName,
                   float timeout_seconds, float *total_time, float start_delay) {
   snakeGlobalTime = total_time;
   modeActuel = mode;
@@ -1164,8 +1215,10 @@ void RunSnakeGame(Difficulte difficulty, ModeJoueur mode, bool resume, bool *gam
       current_scale = Lerp(0.1f, 1.0f, factor);
 
       float shake_amount = (1.0f - factor) * 10.0f;
-      shake_transition.x = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
-      shake_transition.y = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.x =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
+      shake_transition.y =
+          (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
     }
 
     // Accumuler le temps global

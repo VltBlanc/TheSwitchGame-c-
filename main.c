@@ -9,8 +9,9 @@
 #include <stdlib.h>
 #include <time.h>
 
+
 int main(void) {
-  
+
   printf("Démarrage du jeu...\n");
   // Initialisation de la fenêtre Raylib
   InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Jeu de Menu - Projet C");
@@ -86,26 +87,22 @@ int main(void) {
         case GAME_SURVIVOR:
           RunSurvivorGame(menu->niveau, menu->mode, resume,
                           &menu->partie_en_cours, menu->playerName,
-                          menu->scores, game_duration, &total_game_time,
-                          start_delay);
+                          game_duration, &total_game_time, start_delay);
           break;
         case GAME_SNAKE:
-          RunSnakeGame(menu->niveau, menu->mode, resume,
-                       &menu->partie_en_cours, menu->playerName,
-                       menu->scores, game_duration, &total_game_time,
+          RunSnakeGame(menu->niveau, menu->mode, resume, &menu->partie_en_cours,
+                       menu->playerName, game_duration, &total_game_time,
                        start_delay);
           break;
         case GAME_LUCA:
-          RunLucaGame(menu->niveau, menu->mode, resume,
-                      &menu->partie_en_cours, menu->playerName,
-                      menu->scores, game_duration, &total_game_time,
+          RunLucaGame(menu->niveau, menu->mode, resume, &menu->partie_en_cours,
+                      menu->playerName, game_duration, &total_game_time,
                       start_delay);
           break;
         case GAME_VALENTIN:
           RunValentinGame(menu->niveau, menu->mode, resume,
                           &menu->partie_en_cours, menu->playerName,
-                          menu->scores, game_duration, &total_game_time,
-                          start_delay);
+                          game_duration, &total_game_time, start_delay);
           break;
         }
 
@@ -119,11 +116,22 @@ int main(void) {
         if (!menu->partie_en_cours || WindowShouldClose()) {
           printf("!!! ARRÊT DE LA ROTATION !!!\n");
           // Sauvegarder le score final (Temps Total)
-          if (menu->scores) {
-            add_score(menu->scores, menu->playerName, total_game_time);
-            save_scores(menu->scores);
-            printf("Score sauvegardé: %.2fs pour %s\n", total_game_time,
-                   menu->playerName);
+          // Sauvegarder (Temps et Points)
+          if (menu->scores_time) {
+            int rankTime =
+                add_score(menu->scores_time, menu->playerName, total_game_time,
+                          menu->niveau, SCORE_BY_TIME);
+            save_scores(menu->scores_time, SCORES_TIME_FILE);
+            if (rankTime > 0)
+              printf(">>> NOUVEAU RECORD TEMPS! Rang #%d <<<\n", rankTime);
+          }
+          if (menu->scores_points) {
+            int rankPoints =
+                add_score(menu->scores_points, menu->playerName,
+                          total_game_time, menu->niveau, SCORE_BY_POINTS);
+            save_scores(menu->scores_points, SCORES_POINTS_FILE);
+            if (rankPoints > 0)
+              printf(">>> NOUVEAU RECORD POINTS! Rang #%d <<<\n", rankPoints);
           }
           should_continue = false;
           break;
@@ -142,9 +150,16 @@ int main(void) {
         menu->etat = MENU_PRINCIPAL;
       }
       // Rafraîchir les meilleurs scores affichés dans le menu
-      if (menu->scores) {
-        menu->nombre_scores = get_high_scores(
-            menu->scores, menu->meilleurs_scores, NOMBRE_MEILLEURS_SCORES);
+      if (menu->scores_time) {
+        sort_scores_by_time(menu->scores_time);
+        menu->count_time_scores = get_top_scores_by_time(
+            menu->scores_time, menu->top_time_scores, NOMBRE_MEILLEURS_SCORES);
+      }
+      if (menu->scores_points) {
+        sort_scores_by_points(menu->scores_points);
+        menu->count_point_scores = get_top_scores_by_points(
+            menu->scores_points, menu->top_point_scores,
+            NOMBRE_MEILLEURS_SCORES);
       }
 
       // Restaurer la fenêtre du menu

@@ -1,5 +1,5 @@
-#include "../include/valentin.h"
 #include "../include/player_input.h"
+#include "../include/valentin.h"
 #include "etoile.h"
 #include <math.h>
 #include <raylib.h>
@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
 
 // --- CONFIGURATION ET ÉQUILIBRAGE ---
 #define LARGEUR_JEU 800
@@ -154,22 +155,47 @@ static void ActualiseJoueurIndividuel(int player_id) {
     jeuFini_joueur = &jeuFini2;
   }
 
-  if (*jeuFini_joueur) return;
+  if (*jeuFini_joueur)
+    return;
 
   bool isMoving = false;
 
   if (player_id == 1) {
     // Joueur 1: ZQSD
-    if (IS_P1_LEFT_PRESSED()) { (*voieX)--; isMoving = true; }
-    if (IS_P1_RIGHT_PRESSED()) { (*voieX)++; isMoving = true; }
-    if (IS_P1_DOWN_PRESSED()) { (*voieY)--; isMoving = true; }
-    if (IS_P1_UP_PRESSED()) { (*voieY)++; isMoving = true; }
+    if (IS_P1_LEFT_PRESSED()) {
+      (*voieX)--;
+      isMoving = true;
+    }
+    if (IS_P1_RIGHT_PRESSED()) {
+      (*voieX)++;
+      isMoving = true;
+    }
+    if (IS_P1_DOWN_PRESSED()) {
+      (*voieY)--;
+      isMoving = true;
+    }
+    if (IS_P1_UP_PRESSED()) {
+      (*voieY)++;
+      isMoving = true;
+    }
   } else {
     // Joueur 2: Fleches
-    if (IS_P2_LEFT_PRESSED()) { (*voieX)--; isMoving = true; }
-    if (IS_P2_RIGHT_PRESSED()) { (*voieX)++; isMoving = true; }
-    if (IS_P2_DOWN_PRESSED()) { (*voieY)--; isMoving = true; }
-    if (IS_P2_UP_PRESSED()) { (*voieY)++; isMoving = true; }
+    if (IS_P2_LEFT_PRESSED()) {
+      (*voieX)--;
+      isMoving = true;
+    }
+    if (IS_P2_RIGHT_PRESSED()) {
+      (*voieX)++;
+      isMoving = true;
+    }
+    if (IS_P2_DOWN_PRESSED()) {
+      (*voieY)--;
+      isMoving = true;
+    }
+    if (IS_P2_UP_PRESSED()) {
+      (*voieY)++;
+      isMoving = true;
+    }
   }
 
   *voieX = LimiteEspace(*voieX, 0, NB_VOIES_X - 1);
@@ -274,10 +300,9 @@ static void VerifieCollisions(void) {
 
   for (int i = 0; i < MAX_OBSTACLES; i++) {
     if (tableauObstacles[i].actif) {
-      Vector3 positionAsteroide = {
-          positionsXVoies[tableauObstacles[i].Voie_X],
-          positionsYVoies[tableauObstacles[i].Voie_Y],
-          tableauObstacles[i].z_distance};
+      Vector3 positionAsteroide = {positionsXVoies[tableauObstacles[i].Voie_X],
+                                   positionsYVoies[tableauObstacles[i].Voie_Y],
+                                   tableauObstacles[i].z_distance};
 
       // Collision Joueur 1
       if (!jeuFini1 && tableauObstacles[i].Voie_X == voieJoueur1X &&
@@ -371,12 +396,14 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
 
   // Rendu du vaisseau Joueur 1 (si vivant)
   if (!jeuFini1) {
-    Color couleur1 = (modeActuel == DEUX_JOUEURS) ? (Color){100, 180, 255, 255} : WHITE;
+    Color couleur1 =
+        (modeActuel == DEUX_JOUEURS) ? (Color){100, 180, 255, 255} : WHITE;
     if (modelCharge) {
       float echelleVaisseau = 0.005f;
-      DrawModelEx(
-          vaisseauModel, positionJoueur1, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
-          (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, couleur1);
+      DrawModelEx(vaisseauModel, positionJoueur1, (Vector3){0.0f, 1.0f, 0.0f},
+                  180.0f,
+                  (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau},
+                  couleur1);
     } else {
       DrawCube(positionJoueur1, 1.5f, 1.5f, 2.0f, BLUE);
       DrawCubeWires(positionJoueur1, 1.5f, 1.5f, 2.0f, DARKBLUE);
@@ -388,9 +415,10 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
     Color couleur2 = (Color){255, 120, 120, 255};
     if (modelCharge) {
       float echelleVaisseau = 0.005f;
-      DrawModelEx(
-          vaisseauModel, positionJoueur2, (Vector3){0.0f, 1.0f, 0.0f}, 180.0f,
-          (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau}, couleur2);
+      DrawModelEx(vaisseauModel, positionJoueur2, (Vector3){0.0f, 1.0f, 0.0f},
+                  180.0f,
+                  (Vector3){echelleVaisseau, echelleVaisseau, echelleVaisseau},
+                  couleur2);
     } else {
       DrawCube(positionJoueur2, 1.5f, 1.5f, 2.0f, RED);
       DrawCubeWires(positionJoueur2, 1.5f, 1.5f, 2.0f, MAROON);
@@ -429,8 +457,10 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
       DrawText(tie_text, LARGEUR_JEU / 2 - MeasureText(tie_text, 40) / 2,
                HAUTEUR_JEU / 2 - 50, 40, YELLOW);
     } else if (modeActuel == DEUX_JOUEURS && (winner == 1 || winner == 2)) {
-      const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
-      Color winner_color = (winner == 1) ? (Color){100, 180, 255, 255} : (Color){255, 120, 120, 255};
+      const char *winner_text =
+          (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
+      Color winner_color = (winner == 1) ? (Color){100, 180, 255, 255}
+                                         : (Color){255, 120, 120, 255};
       DrawText(winner_text, LARGEUR_JEU / 2 - MeasureText(winner_text, 40) / 2,
                HAUTEUR_JEU / 2 - 50, 40, winner_color);
     } else {
@@ -473,14 +503,13 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
 
 void RunValentinGame(Difficulte difficulty, ModeJoueur mode, bool resume,
                      bool *game_active, const char *playerName,
-                     ScoreList *scores, float timeout_seconds,
-                     float *total_time, float start_delay) {
+                     float timeout_seconds, float *total_time,
+                     float start_delay) {
   valentinGlobalTime = total_time;
   modeActuel = mode;
 
   (void)difficulty; // Non utilisé pour l'instant
   (void)playerName;
-  (void)scores;
 
   // Utiliser la taille de fenêtre standard
   SetWindowSize(LARGEUR_FENETRE, HAUTEUR_FENETRE);

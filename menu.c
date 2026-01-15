@@ -35,15 +35,29 @@ MenuJeu *init_menu(void) {
   printf("Menu initialisé avec succès!\n");
 
   // Charger les meilleurs scores
-  menu->scores = load_scores();
-  if (menu->scores) {
-    menu->nombre_scores = get_high_scores(menu->scores, menu->meilleurs_scores,
-                                          NOMBRE_MEILLEURS_SCORES);
-    printf("Chargé %d scores\n", menu->nombre_scores);
-  } else {
-    menu->nombre_scores = 0;
-    printf("Aucun score trouvé\n");
-  }
+  // Charger les meilleurs scores
+  menu->scores_time = load_scores(SCORES_TIME_FILE);
+  menu->scores_points = load_scores(SCORES_POINTS_FILE);
+
+  // Initial sort
+  if (menu->scores_time)
+    sort_scores_by_time(menu->scores_time);
+  if (menu->scores_points)
+    sort_scores_by_points(menu->scores_points);
+
+  if (menu->scores_time) {
+    menu->count_time_scores = get_top_scores_by_time(
+        menu->scores_time, menu->top_time_scores, NOMBRE_MEILLEURS_SCORES);
+  } else
+    menu->count_time_scores = 0;
+
+  if (menu->scores_points) {
+    menu->count_point_scores = get_top_scores_by_points(
+        menu->scores_points, menu->top_point_scores, NOMBRE_MEILLEURS_SCORES);
+  } else
+    menu->count_point_scores = 0;
+
+  printf("Scores chargés.\n");
 
   return menu;
 }
@@ -51,7 +65,8 @@ MenuJeu *init_menu(void) {
 void free_menu(MenuJeu *menu) {
   if (menu) {
     printf("Libération du menu...\n");
-    free_scores(menu->scores);
+    free_scores(menu->scores_time);
+    free_scores(menu->scores_points);
     free(menu);
     printf("Menu libéré!\n");
   }
@@ -63,13 +78,15 @@ void update_menu(MenuJeu *menu) {
     int max_options = menu->partie_en_cours ? 4 : 3;
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
       menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
-    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_Z) || IsKeyPressed(KEY_W)) {
+    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_Z) ||
+               IsKeyPressed(KEY_W)) {
       menu->option_selectionnee =
           (menu->option_selectionnee - 1 + max_options) % max_options;
     }
   } else if (menu->etat == MENU_NAME_INPUT || menu->etat == MENU_NAME_INPUT_2) {
     // Determiner quel nom on edite
-    char *currentName = (menu->etat == MENU_NAME_INPUT) ? menu->playerName : menu->playerName2;
+    char *currentName =
+        (menu->etat == MENU_NAME_INPUT) ? menu->playerName : menu->playerName2;
 
     // Gestion de la saisie de texte
     int key = GetCharPressed();
@@ -146,14 +163,16 @@ void update_menu(MenuJeu *menu) {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       if (CheckCollisionPointRec(position_souris, nomBox1)) {
         menu->etat = MENU_NAME_INPUT;
-      } else if (menu->mode == DEUX_JOUEURS && CheckCollisionPointRec(position_souris, nomBox2)) {
+      } else if (menu->mode == DEUX_JOUEURS &&
+                 CheckCollisionPointRec(position_souris, nomBox2)) {
         menu->etat = MENU_NAME_INPUT_2;
       }
     }
   } else if (menu->etat == MENU_NAME_INPUT || menu->etat == MENU_NAME_INPUT_2) {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       bool clickedBox1 = CheckCollisionPointRec(position_souris, nomBox1);
-      bool clickedBox2 = menu->mode == DEUX_JOUEURS && CheckCollisionPointRec(position_souris, nomBox2);
+      bool clickedBox2 = menu->mode == DEUX_JOUEURS &&
+                         CheckCollisionPointRec(position_souris, nomBox2);
 
       if (clickedBox1) {
         menu->etat = MENU_NAME_INPUT;
@@ -217,17 +236,13 @@ void update_menu(MenuJeu *menu) {
       menu->etat = MENU_DEMARRAGE;
     }
 
-    // 5. Sélection Score (Droit)
-    int centerRight = 600;
-    for (int i = 0; i < menu->nombre_scores; i++) {
-      int scoreY = 180 + i * 30;
-      Rectangle scoreRec = {centerRight - 100, scoreY, 200, 25};
-      if (CheckCollisionPointRec(position_souris, scoreRec)) {
-        // Copier le nom
-        strncpy(menu->playerName, menu->meilleurs_scores[i].playername, 15);
-        menu->playerName[15] = '\0';
-      }
-    }
+    // 5. Sélection Score (Selection disabled for brevity, or need to pick which
+    // one?) For now, let's just create hitboxes for the TIME list on the left
+    // side of the right panel centerTable1 = 600, centerTable2 = 900 ? No
+    // space. Let's split the right area. We will handle clicks in
+    // draw_high_scores mainly or just disable name copy for now to simplify. If
+    // we want copy, we need to know layout. Let's assume layout in
+    // draw_high_scores.
   }
 }
 
@@ -253,7 +268,8 @@ void draw_menu(const MenuJeu *menu) {
 
     // Joueur 1
     Color boxColor1 = editing1 ? COULEUR_SURBRILL : (Color){100, 180, 255, 255};
-    DrawText("P1:", nomBox1.x - 35, nomBox1.y + 5, 20, (Color){100, 180, 255, 255});
+    DrawText("P1:", nomBox1.x - 35, nomBox1.y + 5, 20,
+             (Color){100, 180, 255, 255});
     DrawRectangleRec(nomBox1, boxColor1);
     DrawRectangleLinesEx(nomBox1, 2, COULEUR_TEXTE);
     int nameWidth1 = MeasureText(menu->playerName, 18);
@@ -262,7 +278,8 @@ void draw_menu(const MenuJeu *menu) {
 
     // Joueur 2
     Color boxColor2 = editing2 ? COULEUR_SURBRILL : (Color){255, 120, 120, 255};
-    DrawText("P2:", nomBox2.x - 35, nomBox2.y + 5, 20, (Color){255, 120, 120, 255});
+    DrawText("P2:", nomBox2.x - 35, nomBox2.y + 5, 20,
+             (Color){255, 120, 120, 255});
     DrawRectangleRec(nomBox2, boxColor2);
     DrawRectangleLinesEx(nomBox2, 2, COULEUR_TEXTE);
     int nameWidth2 = MeasureText(menu->playerName2, 18);
@@ -279,8 +296,9 @@ void draw_menu(const MenuJeu *menu) {
     Rectangle nomBox = {centerLeft - 100, 150, 200, 30};
     Color boxColor = editing1 ? COULEUR_SURBRILL : COULEUR_BOUTON;
 
-    DrawText("NOM DU JOUEUR:", centerLeft - MeasureText("NOM DU JOUEUR:", 20) / 2,
-             125, 20, COULEUR_TEXTE);
+    DrawText(
+        "NOM DU JOUEUR:", centerLeft - MeasureText("NOM DU JOUEUR:", 20) / 2,
+        125, 20, COULEUR_TEXTE);
     DrawRectangleRec(nomBox, boxColor);
     DrawRectangleLinesEx(nomBox, 2, COULEUR_TEXTE);
     int nameWidth = MeasureText(menu->playerName, 20);
@@ -299,7 +317,12 @@ void draw_menu(const MenuJeu *menu) {
   draw_difficulty_selection(menu);
   draw_start_button(menu);
 
-  // Colonne Droite: Scores (Centre ~ x=600)
+  // Colonne Droite: Scores (Centre ~ x=640 to end)
+  // Divide remaining space (approx 600 to 1280) into two columns?
+  // Center Left: 250. Line at 425.
+  // Space: 425 -> 1280. Center: 852.
+  // Let's put Time Scores at 640 and Point Scores at 960.
+
   draw_high_scores(menu);
 
   // Séparateur vertical
@@ -313,40 +336,60 @@ void draw_menu(const MenuJeu *menu) {
 }
 
 void draw_high_scores(const MenuJeu *menu) {
-  int centerRight = 600;
-  DrawText("MEILLEURS SCORES",
-           centerRight - MeasureText("MEILLEURS SCORES", 30) / 2, 130, 30,
-           COULEUR_TEXTE);
+  int xTime = 640;
+  int xPoints = 960;
+  int startY = 130;
+  int titleSize = 24;
+  int itemSize = 18;
 
-  if (menu->nombre_scores > 0) {
-    for (int i = 0; i < menu->nombre_scores; i++) {
-      char texte_score[64];
-      sprintf(texte_score, "%d. %s - %.2fs", i + 1,
-              menu->meilleurs_scores[i].playername,
-              menu->meilleurs_scores[i].time);
+  // --- TIME BOARD ---
+  DrawText("MEILLEURS TEMPS",
+           xTime - MeasureText("MEILLEURS TEMPS", titleSize) / 2, startY,
+           titleSize, COULEUR_TEXTE);
 
-      // Hitbox pour le clic (visualisation implicite)
-      int scoreY = 180 + i * 30;
-
-      Color scoreColor = COULEUR_SCORE;
-      // Petit effet de survol si on veut (optionnel, géré dans update serait
-      // mieux mais ici pour simple feedback visuel)
-      if (CheckCollisionPointRec(
-              GetMousePosition(),
-              (Rectangle){centerRight - 100, scoreY, 200, 25})) {
-        scoreColor = COULEUR_SURVOL;
-      }
-
-      DrawText(texte_score, centerRight - MeasureText(texte_score, 20) / 2,
-               scoreY, 20, scoreColor);
+  if (menu->count_time_scores > 0) {
+    for (int i = 0; i < menu->count_time_scores; i++) {
+      char texte[64];
+      sprintf(texte, "%d. %s - %.1fs", i + 1,
+              menu->top_time_scores[i].playername,
+              menu->top_time_scores[i].time);
+      int y = 170 + i * 30;
+      int w = MeasureText(texte, itemSize);
+      DrawText(texte, xTime - w / 2, y, itemSize, COULEUR_SCORE);
     }
-    DrawText("(Cliquez pour copier)",
-             centerRight - MeasureText("(Cliquez pour copier)", 14) / 2,
-             180 + menu->nombre_scores * 30 + 10, 14, GRAY);
   } else {
-    DrawText("Aucun score disponible",
-             centerRight - MeasureText("Aucun score disponible", 18) / 2, 170,
-             18, COULEUR_TEXTE);
+    DrawText("Aucun...", xTime - MeasureText("Aucun...", itemSize) / 2, 170,
+             itemSize, GRAY);
+  }
+
+  // --- SCORE BOARD ---
+  DrawText("MEILLEURS SCORES",
+           xPoints - MeasureText("MEILLEURS SCORES", titleSize) / 2, startY,
+           titleSize, COULEUR_TEXTE);
+
+  if (menu->count_point_scores > 0) {
+    for (int i = 0; i < menu->count_point_scores; i++) {
+      char texte[64];
+      // Format: Rank. Name - Pts (Diff)
+      // Diff: F=0, M=1, D=2
+      char diffChar = '?';
+      if (menu->top_point_scores[i].difficulty == 0)
+        diffChar = 'E';
+      else if (menu->top_point_scores[i].difficulty == 1)
+        diffChar = 'M';
+      else if (menu->top_point_scores[i].difficulty == 2)
+        diffChar = 'H';
+
+      sprintf(texte, "%d. %s - %d (%c)", i + 1,
+              menu->top_point_scores[i].playername,
+              menu->top_point_scores[i].score, diffChar);
+      int y = 170 + i * 30;
+      int w = MeasureText(texte, itemSize);
+      DrawText(texte, xPoints - w / 2, y, itemSize, COULEUR_SCORE);
+    }
+  } else {
+    DrawText("Aucun...", xPoints - MeasureText("Aucun...", itemSize) / 2, 170,
+             itemSize, GRAY);
   }
 }
 
@@ -369,7 +412,8 @@ void draw_player_selection(const MenuJeu *menu) {
 
   // Bouton 1 joueur
   Rectangle bouton_1j = {startX, yPos + 40, btnWidth, 30};
-  Color couleur_1j = (menu->mode == UN_JOUEUR) ? COULEUR_SURBRILL : COULEUR_BOUTON;
+  Color couleur_1j =
+      (menu->mode == UN_JOUEUR) ? COULEUR_SURBRILL : COULEUR_BOUTON;
   DrawRectangleRec(bouton_1j, couleur_1j);
   DrawRectangleLinesEx(bouton_1j, 2, COULEUR_TEXTE);
   int text1jWidth = MeasureText("1 JOUEUR", 16);
@@ -378,7 +422,8 @@ void draw_player_selection(const MenuJeu *menu) {
 
   // Bouton 2 joueurs
   Rectangle bouton_2j = {startX + btnWidth + gap, yPos + 40, btnWidth, 30};
-  Color couleur_2j = (menu->mode == DEUX_JOUEURS) ? COULEUR_SURBRILL : COULEUR_BOUTON;
+  Color couleur_2j =
+      (menu->mode == DEUX_JOUEURS) ? COULEUR_SURBRILL : COULEUR_BOUTON;
   DrawRectangleRec(bouton_2j, couleur_2j);
   DrawRectangleLinesEx(bouton_2j, 2, COULEUR_TEXTE);
   int text2jWidth = MeasureText("2 JOUEURS", 16);
