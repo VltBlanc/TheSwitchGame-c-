@@ -85,7 +85,6 @@ static SplitScreenContext splitCtx = {0};
 // FONCTIONS - INITIALISATION
 // ============================================================================
 
-// Helper to initialize a single player with given position
 static void InitPlayer(Player *p, Vector2 position, Difficulte difficulty) {
   p->position = position;
   p->radius = 20.0f;
@@ -128,7 +127,7 @@ static void InitPlayer(Player *p, Vector2 position, Difficulte difficulty) {
 void InitGame(Difficulte difficulty) {
   currentDifficulty = difficulty;
 
-  // Initialize Player 1 (center-left in 2P, center in 1P)
+  // Initialisation des joueurs, en fonction du mode
   Vector2 camOffset = GetCameraOffset(currentMode);
   Vector2 p1Pos;
   if (currentMode == DEUX_JOUEURS) {
@@ -144,13 +143,13 @@ void InitGame(Difficulte difficulty) {
   }
   InitPlayer(&player1, p1Pos, difficulty);
 
-  // Initialize Camera 1
+  // Initialisation de la camera
   camera1.target = player1.position;
   camera1.offset = camOffset;
   camera1.rotation = 0.0f;
   camera1.zoom = 1.0f;
 
-  // Reset global variables
+  // Reset des variables globales
   gameTime = 0.0f;
   spawnTimer = 0.0f;
   timeToSpawn = 2.0f;
@@ -657,17 +656,12 @@ void UpdateGame(float dt) {
       // En 2P, l'ennemi chasse le joueur le plus proche
       Vector2 targetPos = player1.position;
       if (currentMode == DEUX_JOUEURS) {
-        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position,
-                                                        player1.position)
-                                   : 999999999.0f;
-        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position,
-                                                        player2.position)
-                                   : 999999999.0f;
+        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position, player1.position) : 999999999.0f;
+        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position, player2.position) : 999999999.0f;
         targetPos = (d1 <= d2) ? player1.position : player2.position;
       }
 
-      Vector2 dir = {targetPos.x - enemies[i].position.x,
-                     targetPos.y - enemies[i].position.y};
+      Vector2 dir = {targetPos.x - enemies[i].position.x, targetPos.y - enemies[i].position.y};
       float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
       if (dirLen > 0.001f) {
         dir.x /= dirLen;
@@ -704,9 +698,7 @@ void UpdateGame(float dt) {
       }
 
       // Collision avec P1
-      if (player1.isAlive &&
-          CheckCollisionCircles(player1.position, player1.radius,
-                                enemies[i].position, enemies[i].radius)) {
+      if (player1.isAlive && CheckCollisionCircles(player1.position, player1.radius, enemies[i].position, enemies[i].radius)) {
         player1.health--;
         enemies[i].active = false;
         if (player1.health <= 0) {
@@ -715,9 +707,7 @@ void UpdateGame(float dt) {
       }
 
       // Collision avec P2
-      if (currentMode == DEUX_JOUEURS && player2.isAlive && enemies[i].active &&
-          CheckCollisionCircles(player2.position, player2.radius,
-                                enemies[i].position, enemies[i].radius)) {
+      if (currentMode == DEUX_JOUEURS && player2.isAlive && enemies[i].active && CheckCollisionCircles(player2.position, player2.radius, enemies[i].position, enemies[i].radius)) {
         player2.health--;
         enemies[i].active = false;
         if (player2.health <= 0) {
@@ -754,10 +744,8 @@ void UpdateGame(float dt) {
 // Dessine le monde (background, entites, effets) - appele pour chaque viewport
 static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
   BeginMode2D(*cam);
-
   // Fond
   DrawTexture(background, 0, 0, WHITE);
-
   // Trainees (effet de dash)
   for (int i = 0; i < MAX_trainee; i++) {
     if (trainee[i].active) {
