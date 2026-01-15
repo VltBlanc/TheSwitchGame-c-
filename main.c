@@ -10,8 +10,8 @@
 #include <time.h>
 
 int main(void) {
+  
   printf("Démarrage du jeu...\n");
-
   // Initialisation de la fenêtre Raylib
   InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Jeu de Menu - Projet C");
   SetTargetFPS(60);
@@ -69,7 +69,7 @@ int main(void) {
       menu->partie_en_cours = true;
       while (menu->partie_en_cours && !WindowShouldClose()) {
         // Délai aléatoire entre 4 et 10 secondes
-        float game_duration = 4.0f + (float)(rand() % 7); // 4 à 10 secondes
+        float game_duration = 5.0f + (float)(rand() % 7); // 4 à 10 secondes
 
         const char *game_names[] = {"SURVIVOR", "SNAKE", "LUCA", "VALENTIN"};
         printf("\n=== ROTATION: Lancement de %s pour %.0f secondes ===\n",
