@@ -347,144 +347,133 @@ void RunGame(
                 <p style="font-size: 0.5em; margin-top: 50px;">(Menu -> Solo -> Split-screen -> Rotation)</p>
             </section>
 
-            <!-- SLIDE 7: Focus Tech 1 - Split Screen -->
+            <!-- SLIDE 7: Mécanique Rotation 1 - Orchestrator -->
             <section>
-                <h3>5. Focus Tech : Rendu Split-Screen</h3>
-                <h4>Virtualisation de l'affichage</h4>
+                <h3>5. Mécanique de Rotation : L'Orchestre</h3>
+                <h4>Hasard & Rythme</h4>
 
                 <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-blue)">Problème :</strong> Comment gérer 1 ou 2 vues sans
-                            réécrire le code de rendu ?</p>
-                        <p><strong>Solution :</strong> Utilisation de <code>RenderTexture2D</code>.</p>
+                        <p><strong style="color:var(--neon-blue)">Concept :</strong> Créer une urgence constante.</p>
                         <ul>
-                            <li><strong>Étape 1 :</strong> Chaque vue (P1, P2) dessine dans une texture hors-écran
-                                (640x720).</li>
-                            <li><strong>Étape 2 :</strong> <code>splitscreen.c</code> composite ces textures sur l'écran
-                                final.</li>
+                            <li><strong>Sélection :</strong> Jeu de départ aléatoire.</li>
+                            <li><strong>Durée :</strong> Imprévisible (5 à 12 secondes).</li>
+                            <li><strong>Cycle :</strong> Rotation séquentielle assurée <code>(i + 1) % 4</code>.</li>
                         </ul>
                     </div>
                     <div class="code-block" style="font-size: 0.45em;">
                         <pre><code class="c">
-// splitscreen.c
-void DrawSplitScreen(SplitScreenContext *ctx) {
-    if (ctx->is_split_screen) {
-        // Collage P1 à gauche (src -> dest)
-        Rectangle src1 = {0, 0, SPLIT_WIDTH, -SPLIT_HEIGHT};
-        Rectangle dst1 = {0, 0, SPLIT_WIDTH, SPLIT_HEIGHT};
-        DrawTexturePro(ctx->target1, src1, dst1, ...);
+// main.c : La boucle de décision
+GameSelection current_game = (rand() % 4);
 
-        // Collage P2 à droite (Offset X)
-        Rectangle dst2 = {SPLIT_WIDTH, 0, SPLIT_WIDTH, ...};
-        DrawTexturePro(ctx->target2, src2, dst2, ...);
-    }
-}
-</code></pre>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SLIDE 8: Focus Tech 2 - Input Abstraction -->
-            <section>
-                <h3>6. Focus Tech : Abstraction Inputs</h3>
-                <h4>Mapping Physique & Macros</h4>
-
-                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
-                    <div class="code-block" style="font-size: 0.45em;">
-                        <pre><code class="c">
-// player_input.h
-// Mapping physique (W = Z sur Azerty)
-#define IS_P1_UP()     (IsKeyDown(KEY_W))
-#define IS_P1_LEFT()   (IsKeyDown(KEY_A))
-
-// Structure de config (extensible)
-typedef struct {
-    int key_up;
-    int key_action;
-} PlayerControls;
-
-static const PlayerControls P2_CONTROLS = {
-    .key_up = KEY_UP,
-    .key_action = KEY_RIGHT_CONTROL
-};
-</code></pre>
-                    </div>
-                    <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-pink)">Avantages :</strong></p>
-                        <ul>
-                            <li><span style="color:var(--neon-green)">Lisibilité :</span> Les jeux utilisent
-                                <code>IS_P1_UP()</code> au lieu de <code>IsKeyDown(KEY_W)</code>.</li>
-                            <li><span style="color:var(--neon-green)">Portabilité :</span> Si on change les touches (ex:
-                                support Manette), on modifie un seul fichier header.</li>
-                            <li><span style="color:var(--neon-green)">Zéro Coût :</span> Les macros sont résolues à la
-                                compilation.</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SLIDE 9: Focus Tech 3 - Hyperspace -->
-            <section>
-                <h3>7. Focus Tech : Animations 3D</h3>
-                <h4>L'Effet Hyperspace</h4>
-
-                <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
-                    <div style="font-size: 0.6em; text-align: left;">
-                        <p>Simule un vol spatial en utilisant la projection 3D vers 2D simple (Perspective).</p>
-                        <ul>
-                            <li><strong>Maths :</strong> Projection <code>x_screen = x / z</code>.</li>
-                            <li><strong>Animation :</strong> Lerp (Linear Interpolation) pour l'entrée du vaisseau.</li>
-                            <li><strong>Performance :</strong> Array statique de 420 étoiles recyclées.</li>
-                        </ul>
-                    </div>
-                    <div class="code-block" style="font-size: 0.45em;">
-                        <pre><code class="c">
-// hyperspace.c
-// Projection 3D -> 2D
-starsScreenPos[i] = (Vector2){
-    screenWidth * 0.5f + stars[i].x / stars[i].z,
-    screenHeight * 0.5f + stars[i].y / stars[i].z,
-};
-
-// Lerp pour effet "Dash"
-if (timer < 1.0f) {
-    speed = Lerp(0.1f, 2.0f, timer);
-}
-</code></pre>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SLIDE 10: Focus Module - Scores -->
-            <section>
-                <h3>8. Focus Module : Scores</h3>
-                <h4>Robustesse & IO</h4>
-
-                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
-                    <div class="code-block" style="font-size: 0.45em;">
-                        <pre><code class="c">
-// scores.c : Parsing CSV sécurisé
-while (fgets(line, ..., file)) {
-    char *token = strtok(line, ",");
-    strncpy(entry->name, token, ...);
+while (menu->partie_en_cours) {
+    // Durée stressante et aléatoire
+    float game_duration = 5.0f + (float)(rand() % 7);
     
-    // Conversion Safe
-    token = strtok(NULL, ",");
-    if(token) entry->time = atof(token);
+    // Passage au suivant
+    current_game = (GameSelection)((current_game + 1) % 4);
 }
+</code></pre>
+                    </div>
+                </div>
+            </section>
 
-// Tri via qsort (O(n log n))
-int compare_scores(const void *a, const void *b) {
-    return (entry_b->score - entry_a->score);
+            <!-- SLIDE 8: Mécanique Rotation 2 - Persistance -->
+            <section>
+                <h3>6. Persistance d'État (Resume)</h3>
+                <h4>Gestion Mémoire Avancée</h4>
+
+                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// survivor.c : Allocation conditionnelle
+void RunSurvivorGame(..., bool resume, ...) {
+    
+    // Si reprise, ON NE RÉINITIALISE PAS les entités
+    if (!resume) {
+        enemies = (Enemy *)calloc(MAX_ENEMIES, ...);
+        InitGame(difficulty);
+    }
+    
+    // Le jeu reprend exactement là où les pointeurs
+    // globaux (static) s'étaient arrêtés.
 }
 </code></pre>
                     </div>
                     <div style="font-size: 0.6em; text-align: left;">
-                        <p><strong style="color:var(--neon-blue)">Points Clés :</strong></p>
+                        <p><strong style="color:var(--neon-pink)">Le défi :</strong> Changer de jeu sans perdre la
+                            progression.</p>
                         <ul>
-                            <li>Gestion des erreurs (Fichiers manquants, lignes corrompues).</li>
-                            <li>Indépendance totale (Module autonome sans dépendance Raylib).</li>
-                            <li>Supporte <strong>deux classements parallèles</strong> (Temps vs Points).</li>
+                            <li><span style="color:var(--neon-green)">State Preservation :</span> Utilisation de
+                                variables <code>static</code> et de pointeurs <code>Heap</code> non libérés entre les
+                                tours.</li>
+                            <li><span style="color:var(--neon-green)">Optimisation :</span> Pas de double allocation
+                                coûteuse (<code>malloc</code>) à chaque switch.</li>
+                            <li><span style="color:var(--neon-green)">Cleanup :</span> <code>free()</code> uniquement au
+                                Game Over final.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Mécanique Rotation 3 - Transitions -->
+            <section>
+                <h3>7. Transitions Visuelles</h3>
+                <h4>Zoom & Shake (Diegetic UI)</h4>
+
+                <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p>Les transitions sont gérées <strong>dans la boucle de jeu</strong> pour fluidifier
+                            l'expérience.</p>
+                        <ul>
+                            <li><strong>Entrée (Zoom In) :</strong> Lerp progressif de 0.1x à 1.0x.</li>
+                            <li><strong>Sortie (Shake) :</strong> 0.5s avant la fin, la caméra tremble pour signaler
+                                l'instabilité dimensionnelle.</li>
+                        </ul>
+                    </div>
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// survivor.c : Boucle de rendu
+if (elapsed < start_delay) {
+    // Zoom d'entrée
+    cam.zoom = Lerp(0.1f, 1.0f, elapsed / start_delay);
+} 
+else if (remaining < 0.5f) {
+    // Shake de sortie
+    cam.target.x += Random(-1, 1) * intensity;
+    cam.zoom = Lerp(1.0f, 0.1f, inv_factor);
+}
+</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Mécanique Rotation 4 - Global State -->
+            <section>
+                <h3>8. Continuité Globale</h3>
+                <h4>Un Temps pour les gouverner tous</h4>
+
+                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// main.c
+float total_game_time = 0.0f; // Temps accumulé
+
+// survivor.c
+void UpdateGame(float dt) {
+    // Mise à jour du pointeur partagé
+    if (globalTotalTime != NULL)
+        *globalTotalTime += dt;
+}
+</code></pre>
+                    </div>
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong style="color:var(--neon-blue)">Cohérence :</strong></p>
+                        <ul>
+                            <li>Le joueur a l'impression d'une seule session continue.</li>
+                            <li>Le <strong>Score Final</strong> est basé sur ce temps global accumulé à travers tous les
+                                mini-jeux.</li>
+                            <li>Permet de classer les joueurs sur leur endurance totale, pas juste sur un jeu.</li>
                         </ul>
                     </div>
                 </div>
