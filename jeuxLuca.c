@@ -565,6 +565,11 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
         }
       }
 
+      // Verifier egalite (les deux morts en meme temps)
+      if (modeActuel == DEUX_JOUEURS && !Joueur1.vivant && !Joueur2.vivant && winner == 0) {
+        winner = -1; // Egalite
+      }
+
       // Mise a jour de la grille si au moins un joueur vivant
       UpdateGridPhase(&Joueur1, &Joueur2, deltaTime);
     }
@@ -594,7 +599,12 @@ void JeuLuca(bool *game_active, float timeout_seconds, bool resume,
     if (game_over) {
       DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
 
-      if (modeActuel == DEUX_JOUEURS && winner != 0) {
+      if (modeActuel == DEUX_JOUEURS && winner == -1) {
+        // Egalite
+        const char *tie_text = "EGALITE!";
+        DrawText(tie_text, (screenWidth / 2) - MeasureText(tie_text, 60) / 2,
+                 screenHeight / 3, 60, YELLOW);
+      } else if (modeActuel == DEUX_JOUEURS && (winner == 1 || winner == 2)) {
         const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
         Color winner_color = (winner == 1) ? (Color){0, 150, 255, 255} : (Color){255, 100, 100, 255};
         DrawText(winner_text, (screenWidth / 2) - MeasureText(winner_text, 60) / 2,
