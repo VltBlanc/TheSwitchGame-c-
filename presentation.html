@@ -170,9 +170,24 @@
                 </div>
             </section>
 
-            <!-- SLIDE 2.5: Visual Showcase -->
+            <!-- SLIDE 1.1: Presentation Agenda -->
             <section>
-                <h2>1.1 L'Univers Visuel</h2>
+                <h2>1.1 Plan de la Présentation</h2>
+                <div style="font-size: 0.65em; text-align: left; max-width: 85%; margin: 0 auto;">
+                    <ul style="line-height: 1.4; margin: 0;">
+                        <li class="fragment"><span class="highlight-text">Les Mini-Jeux</span> - Présentation rapide</li>
+                        <li class="fragment"><span class="highlight-text">Organisation & Gestion</span> - Workflow et développement</li>
+                        <li class="fragment"><span class="highlight-text">Fonctionnalités Clés</span> - Features principales</li>
+                        <li class="fragment"><span class="highlight-text">Architecture Logicielle</span> - Structure technique</li>
+                        <li class="fragment"><span class="highlight-text">Demo</span> - Le moment attendu</li>
+                        <li class="fragment"><span class="highlight-text">Module de Switch</span> - Concept phare</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SLIDE 1.2: Visual Showcase -->
+            <section>
+                <h2>1.2 L'Univers Visuel</h2>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
                     <div class="fragment fade-up">
                         <img src="assets/screenshots/jeuHugo.png"
@@ -197,29 +212,125 @@
                 </div>
             </section>
 
-            <!-- SLIDE 3: Gestion de Projet -->
+            <!-- SLIDE 2.1: Team Structure & Roles -->
             <section>
-                <h2>2. Organisation & Workflow</h2>
-                <div class="team-grid">
-                    <div>
-                        <h4>Rôles</h4>
-                        <ul style="font-size: 0.8em;">
-                            <li><span style="color:var(--neon-blue)">Architecture :</span> Intégration, Main, Menu.</li>
-                            <li><span style="color:var(--neon-pink)">Modules Jeux :</span> 1 dev par jeu (Snake,
-                                Survivor...).</li>
+                <h2>2.1 Structure de l'Équipe</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; font-size: 0.7em;">
+                    <div class="fragment" style="text-align: left; background: rgba(0,243,255,0.1); padding: 15px; border-radius: 8px; border: 2px solid var(--neon-blue);">
+                        <h5 style="color: var(--neon-blue); margin: 0 0 8px 0;">HUGO</h5>
+                        <p style="color: white; font-weight: bold; margin: 5px 0;">Survivor</p>
+                        <p style="margin: 0; color: #aaa;">Vagues d'ennemis, mécanique de tir</p>
+                    </div>
+                    <div class="fragment" style="text-align: left; background: rgba(0,255,0,0.1); padding: 15px; border-radius: 8px; border: 2px solid var(--neon-green);">
+                        <h5 style="color: var(--neon-green); margin: 0 0 8px 0;">MAEL</h5>
+                        <p style="color: white; font-weight: bold; margin: 5px 0;">Snake</p>
+                        <p style="margin: 0; color: #aaa;">Arcade classique réinventé</p>
+                    </div>
+                    <div class="fragment" style="text-align: left; background: rgba(255,0,255,0.1); padding: 15px; border-radius: 8px; border: 2px solid var(--neon-pink);">
+                        <h5 style="color: var(--neon-pink); margin: 0 0 8px 0;">LUCA</h5>
+                        <p style="color: white; font-weight: bold; margin: 5px 0;">Platformer</p>
+                        <p style="margin: 0; color: #aaa;">Jeu de plateforme classique</p>
+                    </div>
+                    <div class="fragment" style="text-align: left; background: rgba(255,255,0,0.1); padding: 15px; border-radius: 8px; border: 2px solid yellow;">
+                        <h5 style="color: yellow; margin: 0 0 8px 0;">VALENTIN</h5>
+                        <p style="color: white; font-weight: bold; margin: 5px 0;">Asteroid Smash</p>
+                        <p style="margin: 0; color: #aaa;">Destruction d'astéroïdes spatiales</p>
+                    </div>
+                </div>
+                <div class="fragment" style="margin-top: 25px; font-size: 0.65em; text-align: center; color: #aaa;">
+                    <strong>+ Rôles transversaux :</strong> Architecture (main.c, menu.c), Services partagés (splitscreen, scores)
+                </div>
+            </section>
+
+            <!-- SLIDE 2.2: Git Workflow & Collaboration -->
+            <section>
+                <h2>2.2 Flux de Travail Git & Collaboration</h2>
+                <div style="font-size: 0.75em; text-align: left; max-width: 80%; margin: 0 auto;">
+                    <h4 style="color: var(--neon-green); margin-bottom: 15px;">Stratégie de Branching</h4>
+                    <ul class="fragment" style="margin-bottom: 20px;">
+                        <li><strong>Main :</strong> Code stable et intégré</li>
+                        <li><strong>Feature branches :</strong> 1 branche par développeur</li>
+                        <li><strong>Nommage :</strong> feature/game-name</li>
+                    </ul>
+                    <h4 style="color: var(--neon-pink); margin-bottom: 15px;">Processus de Merge</h4>
+                    <ul class="fragment">
+                        <li>Développement indépendant sur chaque branche</li>
+                        <li>Merge requests pour révision du code</li>
+                        <li>Résolution des conflits si nécessaire</li>
+                        <li>Intégration finale dans main</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SLIDE 2.3: Phase 1 - Individual Development -->
+            <section>
+                <h2>2.3 Phase 1 : Développement Individuel</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px;">
+                    <div class="fragment" style="font-size: 0.7em;">
+                        <h4 style="color: var(--neon-green);">Approche</h4>
+                        <ul>
+                            <li>Développement parallèle</li>
+                            <li>Liberté créative totale</li>
+                            <li>Chacun son univers</li>
                         </ul>
                     </div>
-                    <div>
-                        <h4>Outils</h4>
-                        <ul style="font-size: 0.8em;">
-                            <li>Git / GitHub (Feature branches).</li>
-                            <li>Visual Studio Code, Antigravity.</li>
-                            <li>Normes de code communes.</li>
+                    <div class="fragment" style="font-size: 0.7em;">
+                        <h4 style="color: var(--neon-pink);">Focus Initial</h4>
+                        <ul>
+                            <li>Boucle de jeu (update/draw)</li>
+                            <li>Contrôles joueur</li>
+                            <li>Conditions victoire/défaite</li>
+                            <li>Visuels Raylib</li>
                         </ul>
                     </div>
                 </div>
-                <div style="margin-top: 30px; font-style: italic; font-size: 0.7em; color: #888;">
-                    "Le défi n'était pas le code, mais la fusion."
+                <div class="fragment" style="margin-top: 20px; font-size: 0.65em;">
+                    <h4 style="color: var(--neon-blue);">Défi de cette Phase</h4>
+                    <p style="margin: 5px 0;">Styles de code différents, complexités variables → Nécessite une unification</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 2.4: Phase 2 - Integration & Standardization -->
+            <section>
+                <h2>2.4 Phase 2 : Intégration & Standardisation</h2>
+                <div style="font-size: 0.75em; text-align: left; max-width: 85%; margin: 0 auto;">
+                    <h4 style="color: var(--neon-pink); margin-bottom: 20px;">Le Défi</h4>
+                    <p class="fragment" style="margin-bottom: 30px; color: #ccc;">Unifier 4 jeux indépendants dans un seul système</p>
+
+                    <h4 style="color: var(--neon-green); margin-bottom: 10px;">Solution</h4>
+                    <ul class="fragment" style="margin: 0;">
+                        <li>Interface standardisée : <code style="color: var(--neon-green);">RunXGame(...)</code></li>
+                        <li>Mécanisme "resume" pour persistance</li>
+                        <li>Orchestrateur gérant rotation et timing</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SLIDE 2.5: Phase 3 - Multiplayer & Polish -->
+            <section>
+                <h2>2.5 Phase 3 : Multijoueur & Polish</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; font-size: 0.65em;">
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px;">
+                        <h5 style="color: var(--neon-blue); margin: 0 0 10px 0;">Split-Screen</h5>
+                        <p style="margin: 0; font-size: 0.9em;">Dual viewports avec RenderTextures</p>
+                    </div>
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px;">
+                        <h5 style="color: var(--neon-pink); margin: 0 0 10px 0;">Modes Joueur</h5>
+                        <p style="margin: 0; font-size: 0.9em;">Solo / Co-op / Versus</p>
+                    </div>
+                    <div class="fragment arcade-border" style="border-width: 2px; padding: 15px;">
+                        <h5 style="color: var(--neon-green); margin: 0 0 10px 0;">Persistance</h5>
+                        <p style="margin: 0; font-size: 0.9em;">High scores CSV</p>
+                    </div>
+                </div>
+                <div class="fragment" style="margin-top: 20px; font-size: 0.65em;">
+                    <h4 style="color: var(--neon-green);">Polish Final</h4>
+                    <ul style="margin: 5px 0;">
+                        <li>Thème espace unifié (particules, visuels)</li>
+                        <li>Menu principal intégré</li>
+                        <li>Build automatisé (Makefile)</li>
+                        <li>Gestion des transitions</li>
+                    </ul>
                 </div>
             </section>
 
