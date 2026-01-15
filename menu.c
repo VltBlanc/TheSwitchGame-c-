@@ -74,17 +74,17 @@ void free_menu(MenuJeu *menu) {
 }
 
 void update_menu(MenuJeu *menu) {
-  // Navigation avec les flèches haut/bas
-  if (menu->etat == MENU_PRINCIPAL) {
-    int max_options = menu->partie_en_cours ? 4 : 3;
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-      menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
-    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_Z) ||
-               IsKeyPressed(KEY_W)) {
-      menu->option_selectionnee =
-          (menu->option_selectionnee - 1 + max_options) % max_options;
-    }
-  } else if (menu->etat == MENU_NAME_INPUT || menu->etat == MENU_NAME_INPUT_2) {
+  // --- DEFINITION DES TOUCHES (Navigation unifiée) ---
+  bool kUp = IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_Z) || IsKeyPressed(KEY_W);
+  bool kDown = IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S);
+  bool kLeft =
+      IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_A);
+  bool kRight = IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D);
+  bool kEnter = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) ||
+                IsKeyPressed(KEY_KP_ENTER);
+
+  // --- MENU NAME INPUT (Saisie de texte) ---
+  if (menu->etat == MENU_NAME_INPUT || menu->etat == MENU_NAME_INPUT_2) {
     // Determiner quel nom on edite
     char *currentName =
         (menu->etat == MENU_NAME_INPUT) ? menu->playerName : menu->playerName2;
@@ -108,47 +108,53 @@ void update_menu(MenuJeu *menu) {
       }
     }
 
-    if (IsKeyPressed(KEY_ENTER)) {
+    if (kEnter) {
       menu->etat = MENU_PRINCIPAL; // Valider et retourner au menu
     }
   }
 
-  // --- Gestion Clavier ---
+  // --- MENU PRINCIPAL (Navigation Clavier) ---
   if (menu->etat == MENU_PRINCIPAL) {
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-      switch (menu->option_selectionnee) {
-      case 0: // Mode de jeu
-        if (menu->mode == UN_JOUEUR)
-          menu->mode = DEUX_JOUEURS;
-        else
-          menu->mode = UN_JOUEUR;
-        break;
-      case 1: // Difficulté
+    int max_options = menu->partie_en_cours ? 4 : 3;
+
+    // Navigation Verticale
+    if (kDown) {
+      menu->option_selectionnee = (menu->option_selectionnee + 1) % max_options;
+    } else if (kUp) {
+      menu->option_selectionnee =
+          (menu->option_selectionnee - 1 + max_options) % max_options;
+    }
+
+    // Actions & Navigation Horizontale
+    switch (menu->option_selectionnee) {
+    case 0: // Mode de jeu (1J / 2J)
+      if (kLeft || kRight || kEnter) {
+        menu->mode = (menu->mode == UN_JOUEUR) ? DEUX_JOUEURS : UN_JOUEUR;
+      }
+      break;
+
+    case 1: // Difficulté
+      if (kLeft) {
+        menu->niveau = (menu->niveau - 1 + 3) % 3;
+      } else if (kRight || kEnter) {
         menu->niveau = (menu->niveau + 1) % 3;
-        break;
-      case 2: // Démarrer
+      }
+      break;
+
+    case 2: // Démarrer
+      if (kEnter) {
         menu->etat = MENU_DEMARRAGE;
-        break;
-      case 3: // Restart
+      }
+      break;
+
+    case 3: // Restart (si partie en cours)
+      if (kEnter) {
         if (menu->partie_en_cours) {
           menu->partie_en_cours = false;
           menu->etat = MENU_DEMARRAGE;
         }
-        break;
       }
-    }
-
-    // Flèches gauche/droite
-    // Flèches gauche/droite (Removed Mode Toggle)
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_A)) {
-      if (menu->option_selectionnee == 1) { // Difficulte
-        menu->niveau = (menu->niveau - 1 + 3) % 3;
-      }
-    }
-    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
-      if (menu->option_selectionnee == 1) { // Difficulté
-        menu->niveau = (menu->niveau + 1) % 3;
-      }
+      break;
     }
   }
 

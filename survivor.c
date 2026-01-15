@@ -156,7 +156,7 @@ void InitGame(Difficulte difficulty) {
   gameOver = false;
   scoreSaved = false;
   winner = 0;
-
+  // initialisation des enemis/balles/bonus/dash
   for (int i = 0; i < MAX_ENEMIES; i++)
     enemies[i].active = false;
   for (int i = 0; i < MAX_BULLETS; i++)
@@ -336,36 +336,15 @@ int FindNearestEnemyToPos(Vector2 pos) {
   return nearest;
 }
 
-// Trouve l'ennemi le plus proche (utilise par les missiles pour le homing)
-int FindNearestEnemy() {
-  // En mode 2 joueurs, trouve l'ennemi le plus proche des deux joueurs
-  if (currentMode == DEUX_JOUEURS) {
-    int nearest1 = FindNearestEnemyToPos(player1.position);
-    int nearest2 =
-        player2.isAlive ? FindNearestEnemyToPos(player2.position) : -1;
-
-    if (nearest1 == -1)
-      return nearest2;
-    if (nearest2 == -1)
-      return nearest1;
-
-    // Retourne celui qui est globalement le plus proche
-    float d1 = Vector2DistanceSqr(player1.position, enemies[nearest1].position);
-    float d2 = Vector2DistanceSqr(player2.position, enemies[nearest2].position);
-    return (d1 < d2) ? nearest1 : nearest2;
-  }
-  return FindNearestEnemyToPos(player1.position);
-}
-
 // ============================================================================
 // FONCTIONS - LOGIQUE DE JEU
 // ============================================================================
 
 // Mise a jour du mouvement d'un joueur
-static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed,
-                                 float dt) {
-  if (!p->isAlive)
+static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed, float dt) {
+  if (!p->isAlive){
     return;
+  }
 
   float moveLen = sqrtf(move.x * move.x + move.y * move.y);
   if (moveLen > 0) {
@@ -392,8 +371,12 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed,
     // Effet de trainee
     static float traineeSpawnTimer1 = 0.0f;
     static float traineeSpawnTimer2 = 0.0f;
-    float *traineeTimer =
-        (p == &player1) ? &traineeSpawnTimer1 : &traineeSpawnTimer2;
+    float *traineeTimer;
+    if (p == &player1) {
+        traineeTimer = &traineeSpawnTimer1;
+    } else {
+        traineeTimer = &traineeSpawnTimer2;
+    }
     *traineeTimer += dt;
     if (*traineeTimer >= 0.02f) {
       *traineeTimer = 0.0f;
@@ -438,8 +421,9 @@ static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed,
 
 // Mise a jour du tir automatique d'un joueur
 static void UpdatePlayerShooting(Player *p, float dt) {
-  if (!p->isAlive)
+  if (!p->isAlive){
     return;
+  }
 
   p->shootTimer += dt;
   if (p->shootTimer >= p->fireRate) {
@@ -769,7 +753,7 @@ static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
     }
   }
 
-  // Dessiner P1 si vivant
+  // Dessiner P1 
   if (player1.isAlive) {
     float scale = 0.15f;
     float w = 331.0f * scale;
@@ -780,7 +764,7 @@ static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
                    player1.rotation, WHITE);
   }
 
-  // Dessiner P2 si vivant (mode 2P)
+  // Dessiner P2 (mode 2P)
   if (currentMode == DEUX_JOUEURS && player2.isAlive) {
     float scale = 0.15f;
     float w = 331.0f * scale;
@@ -816,39 +800,47 @@ static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
 
   // Bonus
   for (int i = 0; i < MAX_BONUSES; i++) {
+    // on traite les bonus actifs
     if (bonuses[i].active) {
+
+      // dessin du bonus
       DrawCircleV(bonuses[i].position, bonuses[i].radius, bonuses[i].color);
-      DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y,
-                      bonuses[i].radius, WHITE);
+      DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y,bonuses[i].radius, WHITE);
 
       // Indicateur hors ecran (fleche vers bonus)
+      // On convertit la position du monde (World) vers l'écran (Screen)
+      // pour savoir où le bonus s'affiche par rapport à la caméra.
       Vector2 screenPos = GetWorldToScreen2D(bonuses[i].position, *cam);
-      int viewW = (currentMode == DEUX_JOUEURS) ? SPLIT_WIDTH : SCREEN_WIDTH;
-      int viewH = (currentMode == DEUX_JOUEURS) ? SPLIT_HEIGHT : SCREEN_HEIGHT;
-
-      if (screenPos.x < 0 || screenPos.x > viewW || screenPos.y < 0 ||
-          screenPos.y > viewH) {
-        Vector2 dir =
-            Vector2Subtract(bonuses[i].position, viewPlayer->position);
+      // Définition de la taille de la vue (ViewPort) selon le mode de jeu
+      int viewW, viewH;
+      if (currentMode == DEUX_JOUEURS) {
+        viewW = SPLIT_WIDTH;
+        viewH = SPLIT_HEIGHT;
+      } else {
+        viewW = SCREEN_WIDTH;
+        viewH = SCREEN_HEIGHT;
+      }
+      if (screenPos.x < 0 || screenPos.x > viewW || screenPos.y < 0 || screenPos.y > viewH) {
+        // On calcule le vecteur direction vers le bonus
+        Vector2 dir = Vector2Subtract(bonuses[i].position, viewPlayer->position);
+        // On normalise le vecteur direction
         float length = Vector2Length(dir);
-        if (length > 0)
+        if (length > 0){
           dir = Vector2Scale(dir, 1.0f / length);
+        }
 
         float indicatorRadius = 60.0f;
         float triangleSize = 15.0f;
-
-        Vector2 baseCenter = Vector2Add(viewPlayer->position,
-                                        Vector2Scale(dir, indicatorRadius));
-        Vector2 tip =
-            Vector2Add(viewPlayer->position,
-                       Vector2Scale(dir, indicatorRadius + triangleSize));
-        Vector2 perp = {-dir.y, dir.x};
-        Vector2 baseLeft =
-            Vector2Add(baseCenter, Vector2Scale(perp, -triangleSize * 0.5f));
-        Vector2 baseRight =
-            Vector2Add(baseCenter, Vector2Scale(perp, triangleSize * 0.5f));
-
-        DrawTriangle(tip, baseLeft, baseRight, bonuses[i].color);
+        // On calcule le centre de la base de la fleche
+        Vector2 centrebase = Vector2Add(viewPlayer->position,Vector2Scale(dir, indicatorRadius));
+        // On calcule le sommet de la fleche
+        Vector2 sommet = Vector2Add(viewPlayer->position,Vector2Scale(dir, indicatorRadius + triangleSize));
+        // On calcule les points de la base de la fleche
+        Vector2 pointe = {-dir.y, dir.x};
+        Vector2 baseLeft = Vector2Add(centrebase, Vector2Scale(pointe, -triangleSize * 0.5f));
+        Vector2 baseRight = Vector2Add(centrebase, Vector2Scale(pointe, triangleSize * 0.5f));
+        // On dessine la fleche
+        DrawTriangle(sommet, baseLeft, baseRight, bonuses[i].color);
       }
     }
   }
@@ -872,10 +864,6 @@ static void DrawPlayerUI(Player *p, int playerId, int screenW, int screenH) {
   DrawText(timeText, screenW / 2 - timeW / 2 + 1, 10 + fontSize + 2, fontSize,
            DARKBLUE);
   DrawText(timeText, screenW / 2 - timeW / 2, 10 + fontSize, fontSize, SKYBLUE);
-
-  // Nom du joueur
-  const char *label = (playerId == 1) ? "P1" : "P2";
-  DrawText(label, 10, 10, 30, YELLOW);
 
   // Panel en bas
   int panelHeight = (currentMode == DEUX_JOUEURS) ? 60 : 90;
@@ -1009,7 +997,7 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
 
   // Allocation dynamique seulement si on ne reprend pas une partie
   if (!resume) {
-    // Securite : on libere si jamais il restait quelque chose
+    //on libere si jamais il restait quelque chose
     if (enemies)
       free(enemies);
     if (bullets)
@@ -1056,19 +1044,15 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
 
   printf("RunSurvivorGame started for: '%s'\n", currentPlayerName);
 
-  // Charger les textures AVANT l'effet hyperspace
+  // Charger les textures 
   background = LoadTexture("assets/Space-Background.png");
   spaceshipTexture = LoadTexture("assets/spaceship.png");
   chasseurTexture = LoadTexture("assets/sprite-chasseur.png");
   tankTexture = LoadTexture("assets/sprite-tank.png");
 
-  // Jouer l'effet d'hyperespace avant de commencer (seulement si nouvelle
-  // partie et pas en mode rotation)
-  if (!resume && timeout_seconds <= 0) {
-    PlayHyperspaceEffect(1.0f, spaceshipTexture);
-  }
 
-  // Activer le jeu après l'effet hyperspace
+
+  // Activer le jeu
   *game_active = true;
   float elapsed_time = 0.0f; // Timer pour le timeout
   printf("jeu survivor lancé\n");
@@ -1103,7 +1087,6 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
     }
 
     // Appliquer le zoom et shake aux cameras
-    // Note: UpdateGame met a jour camera.target sur le joueur.
     // On applique le shake APRES UpdateGame mais AVANT DrawGame.
 
     // Vérifier timeout (si > 0)
@@ -1114,7 +1097,6 @@ void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
     // Si on appuie sur Echap ou n'importe quelle touche en game over, on sort
     if (IsKeyPressed(KEY_ESCAPE)) {
       *game_active = false; // Toujours signaler qu'on veut quitter
-      // Attendre que la touche soit relâchée pour éviter de fermer le menu
       while (IsKeyDown(KEY_ESCAPE)) {
         BeginDrawing();
         EndDrawing();

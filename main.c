@@ -58,9 +58,8 @@ int main(void) {
 
       // Boucle de rotation des jeux (délai aléatoire entre 4-10 secondes)
       srand((unsigned int)time(NULL)); // Initialiser le générateur aléatoire
-      GameSelection current_game =
-          (GameSelection)(rand() % 4); // Jeu de départ aléatoire
-      // bool should_continue = true; // Unused
+      // struct GameSelection dans menu.h
+      GameSelection current_game = (GameSelection)(rand() % 4); // Jeu de départ aléatoire
 
       // Temps global partagé entre tous les jeux
       float total_game_time = 0.0f;
@@ -72,16 +71,15 @@ int main(void) {
         float game_duration = 5.0f + (float)(rand() % 7); // 4 à 10 secondes
 
         const char *game_names[] = {"SURVIVOR", "SNAKE", "LUCA", "VALENTIN"};
-        printf("\n=== ROTATION: Lancement de %s pour %.0f secondes ===\n",
-               game_names[current_game], game_duration);
-        printf("Temps global: %.1f secondes | Resume: %s\n", total_game_time,
-               game_started[current_game] ? "OUI" : "NON");
+
+        printf("\n=== ROTATION: Lancement de %s pour %.0f secondes ===\n",game_names[current_game], game_duration);
+        printf("Temps global: %.1f secondes | Resume: %s\n", total_game_time, game_started[current_game] ? "OUI" : "NON");
 
         // Lancer le jeu actuel avec timeout
         // resume = true si le jeu a déjà été lancé (pour préserver l'état)
         bool resume = game_started[current_game];
 
-        float start_delay = 0.7f;
+        float start_delay = 0.8f;
         bool restart = false;
 
         switch (current_game) {
@@ -114,13 +112,10 @@ int main(void) {
 
         if (restart) {
           printf("=== GLOBAL RESTART TRIGGERED ===\n");
-          // Reset Time
           total_game_time = 0.0f;
-          // Reset Game States
           for (int i = 0; i < 4; i++) {
             game_started[i] = false;
           }
-          // Pick new random game
           current_game = (GameSelection)(rand() % 4);
           printf("Restarting with game: %s\n", game_names[current_game]);
           continue;
@@ -132,8 +127,6 @@ int main(void) {
         // Vérifier si on doit quitter (joueur mort ou ESC pressé)
         if (!menu->partie_en_cours || WindowShouldClose()) {
           printf("!!! ARRÊT DE LA ROTATION !!!\n");
-          // Sauvegarder le score final (Temps Total)
-          // Sauvegarder (Temps et Points)
           if (menu->scores_time) {
             int rankTime =
                 add_score(menu->scores_time, menu->playerName, total_game_time,
@@ -150,7 +143,6 @@ int main(void) {
             if (rankPoints > 0)
               printf(">>> NOUVEAU RECORD POINTS! Rang #%d <<<\n", rankPoints);
           }
-          // should_continue = false; // Unused
           break;
         }
 
