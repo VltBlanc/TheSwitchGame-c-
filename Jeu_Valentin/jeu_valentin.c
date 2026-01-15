@@ -45,7 +45,7 @@ typedef struct {
 
 // Prototypes
 static int LimiteEspace(int valeur, int min, int max);
-static void InitGame(void);
+static void InitGame(Difficulte difficulty);
 static void ActualiseJoueur(void);
 static void ApparitionAsteroide(void);
 static void ActualiseAsteroides(void);
@@ -88,42 +88,38 @@ bool asteroidModelCharge = false;
 static RenderTexture2D renderTarget;
 
 // Initialisation ou remise a zero du jeu
-static void InitGame(void) {
+static void InitGame(Difficulte difficulty) {
   srand((unsigned int)time(NULL));
 
-  // Configuration de la perspective
   cameraJeu.position = (Vector3){0.0f, 6.0f, 12.0f};
   cameraJeu.target = (Vector3){0.0f, 0.5f, 0.0f};
   cameraJeu.up = (Vector3){0.0f, 1.0f, 0.0f};
   cameraJeu.fovy = 80.0f;
   cameraJeu.projection = CAMERA_PERSPECTIVE;
 
-  // Joueur 1 - voie gauche/bas par defaut
-  voieJoueur1X = 0;
-  voieJoueur1Y = 0;
+  voieJoueur1X = 0; voieJoueur1Y = 0;
   positionJoueur1.x = positionsXVoies[voieJoueur1X];
   positionJoueur1.y = positionsYVoies[voieJoueur1Y];
   positionJoueur1.z = 0.0f;
   jeuFini1 = false;
 
-  // Joueur 2 - voie droite/haut par defaut (mode 2 joueurs)
-  voieJoueur2X = 2;
-  voieJoueur2Y = 1;
+  voieJoueur2X = 2; voieJoueur2Y = 1;
   positionJoueur2.x = positionsXVoies[voieJoueur2X];
   positionJoueur2.y = positionsYVoies[voieJoueur2Y];
   positionJoueur2.z = 0.0f;
   jeuFini2 = false;
 
   winner = 0;
-
-  // On desactive tous les obstacles au demarrage
-  for (int i = 0; i < MAX_OBSTACLES; i++) {
-    tableauObstacles[i].actif = false;
-  }
-
+  for (int i = 0; i < MAX_OBSTACLES; i++) tableauObstacles[i].actif = false;
   jeuEnPause = false;
-  tempsSurvie = 0.0f;
-  niveauDifficulte = 0;
+
+  // --- MODIFICATION ICI ---
+  if (difficulty == MOYEN) niveauDifficulte = 3;
+  else if (difficulty == DIFFICILE) niveauDifficulte = 5;
+  else niveauDifficulte = 0;
+
+  tempsSurvie = (float)niveauDifficulte * TEMPS_PALIER_DIFFICULTE;
+  // -------------------------
 
   Initialiseretoile(LARGEUR_JEU, HAUTEUR_JEU);
 }
@@ -536,11 +532,12 @@ void RunValentinGame(Difficulte difficulty, ModeJoueur mode, bool resume,
   }
 
   // Resume: ne pas réinitialiser si on reprend une partie
+  // Resume: ne pas réinitialiser si on reprend une partie
   if (!resume || !hasGameState) {
-    InitGame();
+    InitGame(difficulty); // Ajout de la variable difficulty ici
     hasGameState = true;
   }
-
+  
   *game_active = true;
   float elapsed_time = 0.0f; // Timer pour le timeout
 
