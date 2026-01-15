@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-
 int main(void) {
 
   printf("Démarrage du jeu...\n");
@@ -82,7 +81,7 @@ int main(void) {
         // resume = true si le jeu a déjà été lancé (pour préserver l'état)
         bool resume = game_started[current_game];
 
-        float start_delay = 0.4f;
+        float start_delay = 0.7f;
         switch (current_game) {
         case GAME_SURVIVOR:
           RunSurvivorGame(menu->niveau, menu->mode, resume,

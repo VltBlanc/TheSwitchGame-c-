@@ -1,6 +1,7 @@
 #include "include/menu.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Palette de couleurs pour le jeu
 #define COULEUR_FOND (Color){20, 20, 40, 255}      // Fond bleu foncé
@@ -236,13 +237,49 @@ void update_menu(MenuJeu *menu) {
       menu->etat = MENU_DEMARRAGE;
     }
 
-    // 5. Sélection Score (Selection disabled for brevity, or need to pick which
-    // one?) For now, let's just create hitboxes for the TIME list on the left
-    // side of the right panel centerTable1 = 600, centerTable2 = 900 ? No
-    // space. Let's split the right area. We will handle clicks in
-    // draw_high_scores mainly or just disable name copy for now to simplify. If
-    // we want copy, we need to know layout. Let's assume layout in
-    // draw_high_scores.
+    // 5. Sélection Score (Click to copy name)
+    // Check Time Scores
+    int xTime = 640;
+    int xPoints = 960;
+    int startY = 170;
+    int itemHeight = 30;
+    int clickWidth = 250; // Largeur clickable généreuse
+
+    // Which name to update?
+    char *targetName = menu->playerName;
+    if (menu->etat == MENU_NAME_INPUT_2) {
+      targetName = menu->playerName2;
+    }
+
+    // LISTE TEMPS
+    if (menu->scores_time && menu->count_time_scores > 0) {
+      for (int i = 0; i < menu->count_time_scores; i++) {
+        Rectangle hitBox = {xTime - clickWidth / 2, startY + i * itemHeight,
+                            clickWidth, itemHeight};
+        if (CheckCollisionPointRec(position_souris, hitBox)) {
+          strncpy(targetName, menu->scores_time->entries[i].playername, 15);
+          targetName[15] = '\0';
+          // Si on était en MENU_PRINCIPAL, on passe en mode EDITION pour le
+          // voir (optionnel, mais feedback visuel)
+          if (menu->etat == MENU_PRINCIPAL)
+            menu->etat = MENU_NAME_INPUT;
+        }
+      }
+    }
+
+    // LISTE POINTS
+    if (menu->scores_points && menu->count_point_scores > 0) {
+      for (int i = 0; i < menu->count_point_scores; i++) {
+        Rectangle hitBox = {xPoints - clickWidth / 2, startY + i * itemHeight,
+                            clickWidth, itemHeight};
+        if (CheckCollisionPointRec(position_souris, hitBox)) {
+          strncpy(targetName, menu->scores_points->entries[i].playername, 15);
+          targetName[15] = '\0';
+          if (menu->etat == MENU_PRINCIPAL)
+            menu->etat = MENU_NAME_INPUT;
+        }
+      }
+    }
   }
 }
 
