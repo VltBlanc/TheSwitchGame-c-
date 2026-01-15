@@ -736,7 +736,7 @@ void UpdateGame(float dt) {
       winner = 1;
       gameOver = true;
     } else if (!player1.isAlive && !player2.isAlive) {
-      winner = 0; // Egalite
+      winner = -1; // Egalite
       gameOver = true;
     }
   } else {
@@ -957,7 +957,7 @@ void DrawGame() {
       DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SPLIT_HEIGHT / 2 + 50, 20,
                WHITE);
       EndDrawing();
-    } else if (gameOver && winner == 0) {
+    } else if (gameOver && winner == -1) {
       // Egalite
       BeginDrawing();
       DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.5f));

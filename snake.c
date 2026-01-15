@@ -675,7 +675,7 @@ static void DeplacerSerpents() {
     } else if (jeu_termine2 && !jeu_termine1) {
       winner = 1; // J1 gagne
     } else if (jeu_termine1 && jeu_termine2) {
-      winner = 0; // Egalite (les deux morts)
+      winner = -1; // Egalite (les deux morts)
     }
   }
 }
@@ -1044,7 +1044,13 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
 
     float pulse = (sinf((float)GetTime() * 5.0f) + 1.0f) * 0.5f;
 
-    if (modeActuel == DEUX_JOUEURS && winner != 0) {
+    if (modeActuel == DEUX_JOUEURS && winner == -1) {
+      // Egalite
+      const char *tie_text = "EGALITE!";
+      int text_width = MeasureText(tie_text, 40);
+      DrawText(tie_text, (LARGEUR_GRILLE * TAILLE_CASE - text_width) / 2,
+               HAUTEUR_GRILLE * TAILLE_CASE / 2 - 40, 40, ColorAlpha(YELLOW, 0.5f + pulse * 0.5f));
+    } else if (modeActuel == DEUX_JOUEURS && (winner == 1 || winner == 2)) {
       // Afficher le gagnant
       const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
       Color winner_color = (winner == 1) ? (Color){0, 200, 255, 255} : (Color){255, 100, 100, 255};

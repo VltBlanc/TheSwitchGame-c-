@@ -307,6 +307,11 @@ static void VerifieCollisions(void) {
       }
     }
   }
+
+  // Verifier egalite (les deux morts en meme temps)
+  if (modeActuel == DEUX_JOUEURS && jeuFini1 && jeuFini2 && winner == 0) {
+    winner = -1; // Egalite
+  }
 }
 
 // Gere le cycle du jeu (Pause, MiseAjour, Game Over)
@@ -418,7 +423,12 @@ static void DessinerJeu(float scale, Vector2 shake_offset) {
   if (game_over) {
     DrawRectangle(0, 0, LARGEUR_JEU, HAUTEUR_JEU, (Color){0, 0, 0, 200});
 
-    if (modeActuel == DEUX_JOUEURS && winner != 0) {
+    if (modeActuel == DEUX_JOUEURS && winner == -1) {
+      // Egalite
+      const char *tie_text = "EGALITE!";
+      DrawText(tie_text, LARGEUR_JEU / 2 - MeasureText(tie_text, 40) / 2,
+               HAUTEUR_JEU / 2 - 50, 40, YELLOW);
+    } else if (modeActuel == DEUX_JOUEURS && (winner == 1 || winner == 2)) {
       const char *winner_text = (winner == 1) ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!";
       Color winner_color = (winner == 1) ? (Color){100, 180, 255, 255} : (Color){255, 120, 120, 255};
       DrawText(winner_text, LARGEUR_JEU / 2 - MeasureText(winner_text, 40) / 2,
