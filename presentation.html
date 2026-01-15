@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soutenance Neo-Arcade</title>
+    <!-- Reveal.js CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+    <!-- Highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai.min.css">
+
+    <!-- Custom Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff00;
+            --bg-dark: #0a0a12;
+        }
+
+        .reveal {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-dark);
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3,
+        .reveal h4,
+        .reveal h5,
+        .reveal h6 {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .reveal h1 {
+            color: var(--neon-pink);
+            text-shadow: 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink);
+        }
+
+        .reveal h2 {
+            color: var(--neon-blue);
+        }
+
+        .highlight-text {
+            color: var(--neon-green);
+            font-weight: bold;
+        }
+
+        /* Custom Bullet Points */
+        .reveal ul {
+            list-style-type: none;
+        }
+
+        .reveal ul li::before {
+            content: "►";
+            color: var(--neon-pink);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        /* Slide specific styles */
+        .arcade-border {
+            border: 4px solid var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue), inset 0 0 15px var(--neon-blue);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .code-block {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            border-left: 5px solid var(--neon-pink);
+            padding: 10px;
+            text-align: left;
+            font-size: 0.6em;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .architecture-diagram {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .arch-box {
+            border: 2px solid white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7em;
+        }
+
+        .arch-main {
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        .arch-module {
+            border-color: var(--neon-blue);
+        }
+
+        .arch-shared {
+            border-color: var(--neon-green);
+            border-style: dashed;
+        }
+
+        /* Blink animation for Insert Coin */
+        .blink {
+            animation: blinker 1.5s linear infinite;
+            color: var(--neon-green);
+            font-family: 'Orbitron', sans-serif;
+            margin-top: 50px;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Titre -->
+            <section data-background-gradient="radial-gradient(#1a1a2e, #000000)">
+                <div class="arcade-border">
+                    <h1>Neo-Arcade</h1>
+                    <h3>Une Expérience Unifiée en C / Raylib</h3>
+                    <p style="margin-top: 50px; font-size: 0.8em; color: #aaa;">
+                        Projet de Programmation Avancée
+                    </p>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: Introduction -->
+            <section>
+                <h2>1. Le Concept</h2>
+                <div style="display: flex; align-items: center; justify-content: space-around;">
+                    <div style="text-align: left; width: 60%;">
+                        <ul>
+                            <li class="fragment">Plus qu'une liste de jeux : une <span class="highlight-text">Borne
+                                    Virtuelle</span>.</li>
+                            <li class="fragment">Hub Central (Menu) immersif.</li>
+                            <li class="fragment">4 Jeux, 1 Direction Artistique (Néon/Rétro).</li>
+                            <li class="fragment">Fluidité "Zapping" TV.</li>
+                        </ul>
+                    </div>
+                    <div style="width: 35%;">
+                        <!-- Placeholder for screenshot -->
+                        <div
+                            style="width: 100%; height: 200px; background: #222; border: 2px solid var(--neon-pink); display: flex; align-items: center; justify-content: center; color: #555;">
+                            [Capture Menu]
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Gestion de Projet -->
+            <section>
+                <h2>2. Organisation & Workflow</h2>
+                <div class="team-grid">
+                    <div>
+                        <h4>Rôles</h4>
+                        <ul style="font-size: 0.8em;">
+                            <li><span style="color:var(--neon-blue)">Architecture :</span> Intégration, Main, Menu.</li>
+                            <li><span style="color:var(--neon-pink)">Modules Jeux :</span> 1 dev par jeu (Snake,
+                                Survivor...).</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Outils</h4>
+                        <ul style="font-size: 0.8em;">
+                            <li>Git / GitHub (Feature branches).</li>
+                            <li>Trello (Suivi tâches).</li>
+                            <li>Normes de code communes.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="fragment" style="margin-top: 30px; font-style: italic; font-size: 0.7em; color: #888;">
+                    "Le défi n'était pas le code, mais la fusion."
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Fonctionnalités -->
+            <section>
+                <h2>3. Fonctionnalités Clés</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="fragment arcade-border" style="border-width: 2px;">
+                        <h4>Multijoueur</h4>
+                        <p style="font-size: 0.7em;">Local Split-screen (Co-op / Versus).</p>
+                    </div>
+                    <div class="fragment arcade-border" style="border-width: 2px;">
+                        <h4>Zapping</h4>
+                        <p style="font-size: 0.7em;">Rotation auto ou manuelle des jeux.</p>
+                    </div>
+                    <div class="fragment arcade-border" style="border-width: 2px;">
+                        <h4>Persistance</h4>
+                        <p style="font-size: 0.7em;">High Scores sauvegardés localement.</p>
+                    </div>
+                    <div class="fragment arcade-border" style="border-width: 2px;">
+                        <h4>Design</h4>
+                        <p style="font-size: 0.7em;">UI unifiée & Particules partagées.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5.0: Architecture Intro -->
+            <section>
+                <h2>4. Architecture Logicielle</h2>
+                <div class="architecture-diagram">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="arch-box arch-module">Snake.c</div>
+                        <div class="arch-box arch-module">Survivor.c</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <div style="font-size: 2em;">←</div>
+                        <div class="arch-box arch-main">MAIN.C<br><span style="font-size:0.6em">(Orchestrator)</span>
+                        </div>
+                        <div style="font-size: 2em;">→</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="arch-box arch-module">LucaGame.c</div>
+                        <div class="arch-box arch-module">Valentin.c</div>
+                    </div>
+                </div>
+                <p style="margin-top:20px; font-size: 0.6em;">Une approche modulaire basée sur l'injection de
+                    dépendances.</p>
+            </section>
+
+            <!-- SLIDE 5.1: The Loop -->
+            <section>
+                <h3>4.1 Le Cœur : Main Loop</h3>
+                <div style="display: grid; grid-template-columns: 50% 50%; gap: 10px;">
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong>Rôle :</strong> Orchestrer la durée de vie de l'application.</p>
+                        <ul>
+                            <li>Initialise la fenêtre et l'audio.</li>
+                            <li>Gère la machine d'état (Menu vs Jeu).</li>
+                            <li>Pilote la rotation aléatoire des jeux.</li>
+                        </ul>
+                    </div>
+                    <div class="code-block" style="font-size: 0.5em;">
+                        <pre><code class="c">
+// main.c
+while (menu->partie_en_cours) {
+    // 1. Sélection Aléatoire
+    float duration = 5.0f + (rand() % 7);
+    
+    // 2. Lancement du Module
+    switch(current_game) {
+        case GAME_SURVIVOR:
+           RunSurvivorGame(..., &total_time);
+           break;
+        case GAME_SNAKE:
+           RunSnakeGame(..., &total_time);
+           break;
+    }
+}
+</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5.2: Module Interface -->
+            <section>
+                <h3>4.2 Interface des Modules</h3>
+                <div style="display: grid; grid-template-columns: 50% 50%; gap: 10px;">
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// Signature Standard (Contrat)
+void RunGame(
+    Difficulte difficulty,   // Config 
+    ModeJoueur mode,         // Solo/Coop
+    bool resume,             // Persistance
+    bool *game_active,       // Contrôle
+    float timeout_seconds,   // Zapping
+    float *total_time,       // Score Global
+    bool *restart            // Global Reset
+);
+</code></pre>
+                    </div>
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong>Standardisation :</strong></p>
+                        <p>Tous les jeux respectent strictement cette signature.</p>
+                        <ul>
+                            <li><code style="color:var(--neon-green)">resume</code> : Permet de "pauser" un jeu et de le
+                                reprendre plus tard.</li>
+                            <li><code style="color:var(--neon-pink)">*restart</code> : Permet à n'importe quel jeu de
+                                demander un reset complet de la session.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5.3: Shared Services -->
+            <section>
+                <h3>4.3 Services Partagés</h3>
+                <div style="font-size: 0.6em; margin-bottom: 20px;">
+                    Pour éviter la duplication de code, des modules spécialisés fournissent des services communs.
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="arcade-border" style="padding: 10px;">
+                        <h5 style="color:var(--neon-green)">SplitScreen.c</h5>
+                        <p style="font-size: 0.5em; text-align: left;">
+                            Gère le rendu en 2 viewports (RenderTextures) automatiquement.
+                            <br><br>
+                            <code>InitSplitScreen(mode)</code><br>
+                            <code>BeginPlayerViewport(1)</code>
+                        </p>
+                    </div>
+                    <div class="arcade-border" style="padding: 10px;">
+                        <h5 style="color:var(--neon-blue)">Scores.c</h5>
+                        <p style="font-size: 0.5em; text-align: left;">
+                            Gère la persistance CSV et les algos de tri (Temps vs Points).
+                            <br><br>
+                            <code>add_score(list, time, type)</code><br>
+                            <code>save_scores(filename)</code>
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 6: Démo -->
+            <section data-background-color="#000">
+                <h1 style="font-size: 4em;">DEMO TIME</h1>
+                <h3 class="blink">INSERT COIN</h3>
+                <p style="font-size: 0.5em; margin-top: 50px;">(Menu -> Solo -> Split-screen -> Rotation)</p>
+            </section>
+
+            <!-- SLIDE 7: Focus Tech 1 - Split Screen -->
+            <section>
+                <h3>5. Focus Tech : Rendu Split-Screen</h3>
+                <h4>Virtualisation de l'affichage</h4>
+
+                <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong style="color:var(--neon-blue)">Problème :</strong> Comment gérer 1 ou 2 vues sans
+                            réécrire le code de rendu ?</p>
+                        <p><strong>Solution :</strong> Utilisation de <code>RenderTexture2D</code>.</p>
+                        <ul>
+                            <li><strong>Étape 1 :</strong> Chaque vue (P1, P2) dessine dans une texture hors-écran
+                                (640x720).</li>
+                            <li><strong>Étape 2 :</strong> <code>splitscreen.c</code> composite ces textures sur l'écran
+                                final.</li>
+                        </ul>
+                    </div>
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// splitscreen.c
+void DrawSplitScreen(SplitScreenContext *ctx) {
+    if (ctx->is_split_screen) {
+        // Collage P1 à gauche (src -> dest)
+        Rectangle src1 = {0, 0, SPLIT_WIDTH, -SPLIT_HEIGHT};
+        Rectangle dst1 = {0, 0, SPLIT_WIDTH, SPLIT_HEIGHT};
+        DrawTexturePro(ctx->target1, src1, dst1, ...);
+
+        // Collage P2 à droite (Offset X)
+        Rectangle dst2 = {SPLIT_WIDTH, 0, SPLIT_WIDTH, ...};
+        DrawTexturePro(ctx->target2, src2, dst2, ...);
+    }
+}
+</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 8: Focus Tech 2 - Input Abstraction -->
+            <section>
+                <h3>6. Focus Tech : Abstraction Inputs</h3>
+                <h4>Mapping Physique & Macros</h4>
+
+                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// player_input.h
+// Mapping physique (W = Z sur Azerty)
+#define IS_P1_UP()     (IsKeyDown(KEY_W))
+#define IS_P1_LEFT()   (IsKeyDown(KEY_A))
+
+// Structure de config (extensible)
+typedef struct {
+    int key_up;
+    int key_action;
+} PlayerControls;
+
+static const PlayerControls P2_CONTROLS = {
+    .key_up = KEY_UP,
+    .key_action = KEY_RIGHT_CONTROL
+};
+</code></pre>
+                    </div>
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong style="color:var(--neon-pink)">Avantages :</strong></p>
+                        <ul>
+                            <li><span style="color:var(--neon-green)">Lisibilité :</span> Les jeux utilisent
+                                <code>IS_P1_UP()</code> au lieu de <code>IsKeyDown(KEY_W)</code>.</li>
+                            <li><span style="color:var(--neon-green)">Portabilité :</span> Si on change les touches (ex:
+                                support Manette), on modifie un seul fichier header.</li>
+                            <li><span style="color:var(--neon-green)">Zéro Coût :</span> Les macros sont résolues à la
+                                compilation.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Focus Tech 3 - Hyperspace -->
+            <section>
+                <h3>7. Focus Tech : Animations 3D</h3>
+                <h4>L'Effet Hyperspace</h4>
+
+                <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; align-items: center;">
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p>Simule un vol spatial en utilisant la projection 3D vers 2D simple (Perspective).</p>
+                        <ul>
+                            <li><strong>Maths :</strong> Projection <code>x_screen = x / z</code>.</li>
+                            <li><strong>Animation :</strong> Lerp (Linear Interpolation) pour l'entrée du vaisseau.</li>
+                            <li><strong>Performance :</strong> Array statique de 420 étoiles recyclées.</li>
+                        </ul>
+                    </div>
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// hyperspace.c
+// Projection 3D -> 2D
+starsScreenPos[i] = (Vector2){
+    screenWidth * 0.5f + stars[i].x / stars[i].z,
+    screenHeight * 0.5f + stars[i].y / stars[i].z,
+};
+
+// Lerp pour effet "Dash"
+if (timer < 1.0f) {
+    speed = Lerp(0.1f, 2.0f, timer);
+}
+</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Focus Module - Scores -->
+            <section>
+                <h3>8. Focus Module : Scores</h3>
+                <h4>Robustesse & IO</h4>
+
+                <div style="display: grid; grid-template-columns: 45% 55%; gap: 15px; align-items: center;">
+                    <div class="code-block" style="font-size: 0.45em;">
+                        <pre><code class="c">
+// scores.c : Parsing CSV sécurisé
+while (fgets(line, ..., file)) {
+    char *token = strtok(line, ",");
+    strncpy(entry->name, token, ...);
+    
+    // Conversion Safe
+    token = strtok(NULL, ",");
+    if(token) entry->time = atof(token);
+}
+
+// Tri via qsort (O(n log n))
+int compare_scores(const void *a, const void *b) {
+    return (entry_b->score - entry_a->score);
+}
+</code></pre>
+                    </div>
+                    <div style="font-size: 0.6em; text-align: left;">
+                        <p><strong style="color:var(--neon-blue)">Points Clés :</strong></p>
+                        <ul>
+                            <li>Gestion des erreurs (Fichiers manquants, lignes corrompues).</li>
+                            <li>Indépendance totale (Module autonome sans dépendance Raylib).</li>
+                            <li>Supporte <strong>deux classements parallèles</strong> (Temps vs Points).</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Conclusion -->
+            <section>
+                <h2>Conclusion</h2>
+                <div style="text-align: left; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                    <p>✅ <strong>Réussites :</strong></p>
+                    <ul style="font-size: 0.8em; margin-bottom: 20px;">
+                        <li>Architecture stable & modulaire.</li>
+                        <li>Gameplay dynamique grâce au Zapping.</li>
+                        <li>Aucun memory leak (UnloadGame).</li>
+                    </ul>
+
+                    <p>🚀 <strong>Perspectives (V2) :</strong></p>
+                    <ul style="font-size: 0.8em;">
+                        <li>Réseau (Sockets) pour jeu distant.</li>
+                        <li>Ajout de transitions visuelles (fade in/out) entre les jeux.</li>
+                    </ul>
+                </div>
+                <h3 style="margin-top: 40px; color: var(--neon-pink);">Merci de votre écoute !</h3>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+    <script>
+        Reveal.initialize({
+            controls: true,
+            progress: true,
+            center: true,
+            hash: false, // Modification ici : désactivé pour éviter les erreurs SecurityError
+            history: false, // Modification ici : explicitement désactivé
+            transition: 'convex', // none/fade/slide/convex/concave/zoom
+            plugins: [RevealHighlight]
+        });
+    </script>
+</body>
+
+</html>

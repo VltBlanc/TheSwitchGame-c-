@@ -10,7 +10,7 @@
 #include <time.h>
 
 int main(void) {
-  
+
   printf("Démarrage du jeu...\n");
   // Initialisation de la fenêtre Raylib
   InitWindow(LARGEUR_ECRAN, HAUTEUR_ECRAN, "Jeu de Menu - Projet C");
@@ -60,7 +60,7 @@ int main(void) {
       srand((unsigned int)time(NULL)); // Initialiser le générateur aléatoire
       GameSelection current_game =
           (GameSelection)(rand() % 4); // Jeu de départ aléatoire
-      bool should_continue = true;
+      // bool should_continue = true; // Unused
 
       // Temps global partagé entre tous les jeux
       float total_game_time = 0.0f;
@@ -81,32 +81,50 @@ int main(void) {
         // resume = true si le jeu a déjà été lancé (pour préserver l'état)
         bool resume = game_started[current_game];
 
-        float start_delay = 0.4f;
+        float start_delay = 0.7f;
+        bool restart = false;
+
         switch (current_game) {
         case GAME_SURVIVOR:
-          RunSurvivorGame(menu->niveau, resume, &menu->partie_en_cours,
-                          menu->playerName, menu->scores, game_duration,
-                          &total_game_time, start_delay);
+          RunSurvivorGame(menu->niveau, menu->mode, resume,
+                          &menu->partie_en_cours, menu->playerName,
+                          game_duration, &total_game_time, start_delay,
+                          &restart);
           break;
         case GAME_SNAKE:
-          RunSnakeGame(menu->niveau, resume, &menu->partie_en_cours,
-                       menu->playerName, menu->scores, game_duration,
-                       &total_game_time, start_delay);
+          RunSnakeGame(menu->niveau, menu->mode, resume, &menu->partie_en_cours,
+                       menu->playerName, game_duration, &total_game_time,
+                       start_delay, &restart);
           break;
         case GAME_LUCA:
-          RunLucaGame(menu->niveau, resume, &menu->partie_en_cours,
-                      menu->playerName, menu->scores, game_duration,
-                      &total_game_time, start_delay);
+          RunLucaGame(menu->niveau, menu->mode, resume, &menu->partie_en_cours,
+                      menu->playerName, game_duration, &total_game_time,
+                      start_delay, &restart);
           break;
         case GAME_VALENTIN:
-          RunValentinGame(menu->niveau, resume, &menu->partie_en_cours,
-                          menu->playerName, menu->scores, game_duration,
-                          &total_game_time, start_delay);
+          RunValentinGame(menu->niveau, menu->mode, resume,
+                          &menu->partie_en_cours, menu->playerName,
+                          game_duration, &total_game_time, start_delay,
+                          &restart);
           break;
         }
 
         // Marquer le jeu comme déjà initialisé pour la prochaine fois
         game_started[current_game] = true;
+
+        if (restart) {
+          printf("=== GLOBAL RESTART TRIGGERED ===\n");
+          // Reset Time
+          total_game_time = 0.0f;
+          // Reset Game States
+          for (int i = 0; i < 4; i++) {
+            game_started[i] = false;
+          }
+          // Pick new random game
+          current_game = (GameSelection)(rand() % 4);
+          printf("Restarting with game: %s\n", game_names[current_game]);
+          continue;
+        }
 
         printf("Après jeu: partie_en_cours = %s, temps global = %.1f\n",
                menu->partie_en_cours ? "true" : "false", total_game_time);
@@ -115,13 +133,24 @@ int main(void) {
         if (!menu->partie_en_cours || WindowShouldClose()) {
           printf("!!! ARRÊT DE LA ROTATION !!!\n");
           // Sauvegarder le score final (Temps Total)
-          if (menu->scores) {
-            add_score(menu->scores, menu->playerName, total_game_time);
-            save_scores(menu->scores);
-            printf("Score sauvegardé: %.2fs pour %s\n", total_game_time,
-                   menu->playerName);
+          // Sauvegarder (Temps et Points)
+          if (menu->scores_time) {
+            int rankTime =
+                add_score(menu->scores_time, menu->playerName, total_game_time,
+                          menu->niveau, SCORE_BY_TIME);
+            save_scores(menu->scores_time, SCORES_TIME_FILE);
+            if (rankTime > 0)
+              printf(">>> NOUVEAU RECORD TEMPS! Rang #%d <<<\n", rankTime);
           }
-          should_continue = false;
+          if (menu->scores_points) {
+            int rankPoints =
+                add_score(menu->scores_points, menu->playerName,
+                          total_game_time, menu->niveau, SCORE_BY_POINTS);
+            save_scores(menu->scores_points, SCORES_POINTS_FILE);
+            if (rankPoints > 0)
+              printf(">>> NOUVEAU RECORD POINTS! Rang #%d <<<\n", rankPoints);
+          }
+          // should_continue = false; // Unused
           break;
         }
 
@@ -138,9 +167,16 @@ int main(void) {
         menu->etat = MENU_PRINCIPAL;
       }
       // Rafraîchir les meilleurs scores affichés dans le menu
-      if (menu->scores) {
-        menu->nombre_scores = get_high_scores(
-            menu->scores, menu->meilleurs_scores, NOMBRE_MEILLEURS_SCORES);
+      if (menu->scores_time) {
+        sort_scores_by_time(menu->scores_time);
+        menu->count_time_scores = get_top_scores_by_time(
+            menu->scores_time, menu->top_time_scores, NOMBRE_MEILLEURS_SCORES);
+      }
+      if (menu->scores_points) {
+        sort_scores_by_points(menu->scores_points);
+        menu->count_point_scores = get_top_scores_by_points(
+            menu->scores_points, menu->top_point_scores,
+            NOMBRE_MEILLEURS_SCORES);
       }
 
       // Restaurer la fenêtre du menu

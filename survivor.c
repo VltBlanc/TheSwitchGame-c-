@@ -14,6 +14,8 @@
 
 #include "include/hyperspace.h"
 #include "include/menu.h"
+#include "include/player_input.h"
+#include "include/splitscreen.h"
 
 // ============================================================================
 // CONSTANTES LOCALES
@@ -31,24 +33,22 @@ typedef SurvivorEnemy Enemy;
 typedef SurvivorBullet Bullet;
 typedef SurvivorBonus Bonus;
 typedef SurvivorTrainee Trainee;
-typedef SurvivorMissile Missile;
 
 // ============================================================================
 // VARIABLES GLOBALES - ENTITÉS
 // ============================================================================
 
-static Player player;
+static Player player1;
+static Player player2;
 static Enemy *enemies = NULL;
 static Bullet *bullets = NULL;
 static Bonus *bonuses = NULL;
 static Trainee *trainee = NULL;
-static Missile *missiles = NULL;
 
 // ============================================================================
 // VARIABLES GLOBALES - SCORE & SESSION
 // ============================================================================
 
-static ScoreList *currentScores = NULL;
 static char currentPlayerName[32] = "Unknown";
 static bool scoreSaved = false;
 
@@ -65,7 +65,8 @@ static Texture2D tankTexture;
 // VARIABLES GLOBALES - CAMÉRA & ÉTAT DU JEU
 // ============================================================================
 
-static Camera2D camera = {0};
+static Camera2D camera1 = {0};
+static Camera2D camera2 = {0};
 
 static float gameTime = 0.0f;
 static float *globalTotalTime = NULL; // Pointeur vers le temps global
@@ -75,75 +76,86 @@ static float timeToSpawn = 1.0f;
 static int score = 0;
 static bool gameOver = false;
 static Difficulte currentDifficulty = MOYEN;
+static ModeJoueur currentMode = UN_JOUEUR;
+static int winner = 0; // 0 = none, 1 = P1 wins, 2 = P2 wins
+static SplitScreenContext splitCtx = {0};
 
 // ============================================================================
 // FONCTIONS - INITIALISATION
 // ============================================================================
 
+static void InitPlayer(Player *p, Vector2 position, Difficulte difficulty) {
+  p->position = position;
+  p->radius = 20.0f;
+  p->speed = 450.0f;
+
+  // Stats selon la difficulte
+  if (difficulty == FACILE) {
+    p->maxHealth = 10;
+    p->damage = 2;
+  } else if (difficulty == DIFFICILE) {
+    p->maxHealth = 3;
+    p->damage = 1;
+  } else {
+    p->maxHealth = 5;
+    p->damage = 1;
+  }
+
+  p->health = p->maxHealth;
+  p->isAlive = true;
+  p->rotation = 0.0f;
+
+  // Animation
+  p->currentFrame = 0;
+  p->frameTimer = 0.0f;
+  p->frameRec = (Rectangle){0.0f, 0.0f, 331.0f, 399.0f};
+
+  p->fireRate = 1.0f;
+  p->shootTimer = 0.0f;
+  p->bulletSpeed = 1200.0f;
+  p->bulletSize = 10.0f;
+
+  // Dash
+  p->isDashing = false;
+  p->dashTimer = 0.0f;
+  p->dashCooldown = 0.1f;
+  p->dashSpeed = 2000.0f;
+  p->dashDuration = 0.1f;
+}
+
 void InitGame(Difficulte difficulty) {
   currentDifficulty = difficulty;
 
-  // Initialisation du joueur
-  player.position = (Vector2){
-      MAP_WIDTH / 2, MAP_HEIGHT / 2}; // le joueur est au centre de la map
-  player.radius = 20.0f;
-  player.speed = 450.0f;
-
-  // Définir les stats selon la difficulté
-  if (difficulty == FACILE) {
-    player.maxHealth = 10;
-    player.damage = 2;
-  } else if (difficulty == DIFFICILE) {
-    player.maxHealth = 3;
-    player.damage = 1;
+  // Initialisation des joueurs, en fonction du mode
+  Vector2 camOffset = GetCameraOffset(currentMode);
+  Vector2 p1Pos;
+  if (currentMode == DEUX_JOUEURS) {
+    p1Pos = (Vector2){MAP_WIDTH / 2 - 200, MAP_HEIGHT / 2};
+    Vector2 p2Pos = {MAP_WIDTH / 2 + 200, MAP_HEIGHT / 2};
+    InitPlayer(&player2, p2Pos, difficulty);
+    camera2.target = player2.position;
+    camera2.offset = camOffset;
+    camera2.rotation = 0.0f;
+    camera2.zoom = 1.0f;
   } else {
-    player.maxHealth = 5;
-    player.damage = 1;
+    p1Pos = (Vector2){MAP_WIDTH / 2, MAP_HEIGHT / 2};
   }
+  InitPlayer(&player1, p1Pos, difficulty);
 
-  player.health = player.maxHealth;
-  player.isAlive = true;
-  player.rotation = 0.0f;
+  // Initialisation de la camera
+  camera1.target = player1.position;
+  camera1.offset = camOffset;
+  camera1.rotation = 0.0f;
+  camera1.zoom = 1.0f;
 
-  // Animation
-  player.currentFrame = 0;
-  player.frameTimer = 0.0f;
-
-  // Le sprite fait 331x1197, 3 frames verticales -> 331x399 par frame
-  player.frameRec = (Rectangle){0.0f, 0.0f, 331.0f, 399.0f};
-
-  player.fireRate = 1.0f; // Cadence de tir rapide
-  player.shootTimer = 0.0f;
-
-  player.bulletSpeed = 1200.0f;
-  player.bulletSize = 10.0f;
-
-  // Initialisation du Dash
-  player.isDashing = false;
-  player.dashTimer = 0.0f;
-  player.dashCooldown = 0.1f;
-  player.dashSpeed = 2000.0f; // Dash rapide
-  player.dashDuration = 0.1f; // Courte durée
-
-  // Initialisation du missile
-  player.missileMaxCooldown = 15.0f;
-  player.missileCooldownTimer = 0.0f;
-
-  // Initialisation de la caméra
-  camera.target = player.position;
-  camera.offset = (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f};
-  camera.rotation = 0.0f;
-  camera.zoom = 1.0f;
-
-  // Réinitialisation des variables globales
+  // Reset des variables globales
   gameTime = 0.0f;
-  spawnTimer = 0.0f;
-  timeToSpawn = 2.0f;
   spawnTimer = 0.0f;
   timeToSpawn = 2.0f;
   score = 0;
   gameOver = false;
   scoreSaved = false;
+  winner = 0;
 
   for (int i = 0; i < MAX_ENEMIES; i++)
     enemies[i].active = false;
@@ -153,8 +165,6 @@ void InitGame(Difficulte difficulty) {
     bonuses[i].active = false;
   for (int i = 0; i < MAX_trainee; i++)
     trainee[i].active = false;
-  for (int i = 0; i < MAX_MISSILES; i++)
-    missiles[i].active = false;
 }
 
 // ============================================================================
@@ -194,12 +204,8 @@ void SpawnBonus() {
   } else if (typeRoll < 60) {
     bonuses[slot].type = BONUS_SPEED;
     bonuses[slot].color = SKYBLUE;
-  } else if (typeRoll < 80) { //
     bonuses[slot].type = BONUS_TIR_RAPIDE;
     bonuses[slot].color = YELLOW;
-  } else {
-    bonuses[slot].type = BONUS_MISSILE_CD;
-    bonuses[slot].color = PURPLE;
   }
 }
 
@@ -230,11 +236,18 @@ void SpawnEnemy() {
     difficultyFactor = gameTime / 5.0f; // Augmentation plus rapide
   }
 
-  // Position de spawn (hors du champ de la caméra)
+  // Position de spawn (hors du champ de la camera)
+  // En mode 2 joueurs, spawn autour d'un joueur aleatoire
+  Vector2 spawnCenter = player1.position;
+  if (currentMode == DEUX_JOUEURS && player2.isAlive) {
+    if (GetRandomValue(0, 1) == 1) {
+      spawnCenter = player2.position;
+    }
+  }
   float angle = GetRandomValue(0, 360) * DEG2RAD;
-  float dist = 800.0f; // Hors de la portée typique de l'écran
-  Vector2 spawnPos = {player.position.x + cosf(angle) * dist,
-                      player.position.y + sinf(angle) * dist};
+  float dist = 800.0f; // Hors de la portee typique de l'ecran
+  Vector2 spawnPos = {spawnCenter.x + cosf(angle) * dist,
+                      spawnCenter.y + sinf(angle) * dist};
 
   // Restreindre à la map
   if (spawnPos.x < 0)
@@ -305,14 +318,14 @@ void SpawnEnemy() {
 // FONCTIONS - UTILITAIRES
 // ============================================================================
 
-int FindNearestEnemy() {
+// Trouve l'ennemi le plus proche d'une position donnee
+int FindNearestEnemyToPos(Vector2 pos) {
   int nearest = -1;
   float minDistSq = 99999999.0f;
-  // on regarde chaque enemi actif
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
-      float dx = player.position.x - enemies[i].position.x;
-      float dy = player.position.y - enemies[i].position.y;
+      float dx = pos.x - enemies[i].position.x;
+      float dy = pos.y - enemies[i].position.y;
       float d = dx * dx + dy * dy;
       if (d < minDistSq) {
         minDistSq = d;
@@ -323,157 +336,123 @@ int FindNearestEnemy() {
   return nearest;
 }
 
+// Trouve l'ennemi le plus proche (utilise par les missiles pour le homing)
+int FindNearestEnemy() {
+  // En mode 2 joueurs, trouve l'ennemi le plus proche des deux joueurs
+  if (currentMode == DEUX_JOUEURS) {
+    int nearest1 = FindNearestEnemyToPos(player1.position);
+    int nearest2 =
+        player2.isAlive ? FindNearestEnemyToPos(player2.position) : -1;
+
+    if (nearest1 == -1)
+      return nearest2;
+    if (nearest2 == -1)
+      return nearest1;
+
+    // Retourne celui qui est globalement le plus proche
+    float d1 = Vector2DistanceSqr(player1.position, enemies[nearest1].position);
+    float d2 = Vector2DistanceSqr(player2.position, enemies[nearest2].position);
+    return (d1 < d2) ? nearest1 : nearest2;
+  }
+  return FindNearestEnemyToPos(player1.position);
+}
+
 // ============================================================================
 // FONCTIONS - LOGIQUE DE JEU
 // ============================================================================
 
-void UpdateGame(float dt) {
-  if (gameOver) {
-    // Le score est maintenant géré par le menu principal à la fin de la
-    // rotation N'importe quelle touche met fin au jeu (géré dans
-    // RunSurvivorGame)
+// Mise a jour du mouvement d'un joueur
+static void UpdatePlayerMovement(Player *p, Vector2 move, bool dashPressed,
+                                 float dt) {
+  if (!p->isAlive)
     return;
-    // N'importe quelle touche met fin au jeu (géré dans RunSurvivorGame)
-    return;
-  }
 
-  gameTime += dt;
-
-  // Accumuler le temps dans le temps global (si disponible)
-  if (globalTotalTime != NULL) {
-    *globalTotalTime += dt;
-  }
-
-  // --- MOUVEMENT DU JOUEUR ---
-  Vector2 move = {0};
-  if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
-    move.y -= 1;
-  if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
-    move.y += 1;
-  if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
-    move.x -= 1;
-  if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
-    move.x += 1;
-  // on calcule la longueur du vecteur move
   float moveLen = sqrtf(move.x * move.x + move.y * move.y);
-  // on normalise le vecteur move
   if (moveLen > 0) {
     move.x /= moveLen;
     move.y /= moveLen;
-    // on calcule la rotation du joueur
-    player.rotation = atan2f(move.y, move.x) * RAD2DEG + 90.0f;
+    p->rotation = atan2f(move.y, move.x) * RAD2DEG + 90.0f;
   }
 
   // Logique du Dash
-  // on décrémente le cooldown du dash
-  if (player.dashCooldown > 0)
-    player.dashCooldown -= dt;
+  if (p->dashCooldown > 0)
+    p->dashCooldown -= dt;
 
-  // si on appuie sur espace et que le cooldown est terminé et que le joueur
-  // bouge, on lance le dash
-  if (IsKeyPressed(KEY_SPACE) && player.dashCooldown <= 0 && moveLen > 0) {
-    player.isDashing = true;
-    player.dashTimer = player.dashDuration;
-    player.dashCooldown = 1.0f; // 1 seconde de cooldown
+  if (dashPressed && p->dashCooldown <= 0 && moveLen > 0) {
+    p->isDashing = true;
+    p->dashTimer = p->dashDuration;
+    p->dashCooldown = 1.0f;
   }
 
-  float currentSpeed = player.speed;
-  // Etat de Dash
-  if (player.isDashing) {
-    currentSpeed = player.dashSpeed;
-    player.dashTimer -= dt;
-    // effet de trainée du dash
-    static float traineeSpawnTimer = 0.0f;
-    traineeSpawnTimer += dt;
-    if (traineeSpawnTimer >= 0.02f) { // Spawn toutes les 20ms
-      traineeSpawnTimer = 0.0f;
+  float currentSpeed = p->speed;
+  if (p->isDashing) {
+    currentSpeed = p->dashSpeed;
+    p->dashTimer -= dt;
+
+    // Effet de trainee
+    static float traineeSpawnTimer1 = 0.0f;
+    static float traineeSpawnTimer2 = 0.0f;
+    float *traineeTimer =
+        (p == &player1) ? &traineeSpawnTimer1 : &traineeSpawnTimer2;
+    *traineeTimer += dt;
+    if (*traineeTimer >= 0.02f) {
+      *traineeTimer = 0.0f;
       for (int i = 0; i < MAX_trainee; i++) {
         if (!trainee[i].active) {
           trainee[i].active = true;
-          trainee[i].position = player.position;
-          trainee[i].rotation = player.rotation;
-          trainee[i].frameRec = player.frameRec;
+          trainee[i].position = p->position;
+          trainee[i].rotation = p->rotation;
+          trainee[i].frameRec = p->frameRec;
           trainee[i].alpha = 0.8f;
           break;
         }
       }
     }
 
-    if (player.dashTimer <= 0) {
-      player.isDashing = false;
-    }
+    if (p->dashTimer <= 0)
+      p->isDashing = false;
   }
 
-  // Update trainee
-  for (int i = 0; i < MAX_trainee; i++) {
-    if (trainee[i].active) {
-      trainee[i].alpha -= 2.0f * dt; // Fade out rapide
-      if (trainee[i].alpha <= 0)
-        trainee[i].active = false;
-    }
-  }
+  if (moveLen > 0 || p->isDashing) {
+    p->position.x += move.x * currentSpeed * dt;
+    p->position.y += move.y * currentSpeed * dt;
 
-  // Camera Zoom Effect
-  float targetZoom = player.isDashing ? 0.9f : 1.0f;
-  camera.zoom += (targetZoom - camera.zoom) * 5.0f * dt;
-
-  if (moveLen > 0 || player.isDashing) {
-    // Le dash ne fonctionne que si on bouge
-    player.position.x += move.x * currentSpeed * dt;
-    player.position.y += move.y * currentSpeed * dt;
-
-    // Animation du vaisseau quand on bouge
-    player.frameTimer += dt;
-    if (player.frameTimer >= 0.1f) {
-      player.frameTimer = 0.0f;
-      player.currentFrame++;
-      if (player.currentFrame >= 3)
-        player.currentFrame = 0;
-      player.frameRec.y = (float)player.currentFrame * 399.0f;
+    // Animation
+    p->frameTimer += dt;
+    if (p->frameTimer >= 0.1f) {
+      p->frameTimer = 0.0f;
+      p->currentFrame++;
+      if (p->currentFrame >= 3)
+        p->currentFrame = 0;
+      p->frameRec.y = (float)p->currentFrame * 399.0f;
     }
   } else {
-    // Reset animation frame si on ne bouge pas
-    player.currentFrame = 1; // Frame du milieu (souvent neutre)
-    player.frameRec.y = 399.0f;
+    p->currentFrame = 1;
+    p->frameRec.y = 399.0f;
   }
 
-  // Empêche le joueur de sortir de la map
-  player.position.x = Clamp(player.position.x, 0, MAP_WIDTH);
-  player.position.y = Clamp(player.position.y, 0, MAP_HEIGHT);
+  // Limites de la map
+  p->position.x = Clamp(p->position.x, 0, MAP_WIDTH);
+  p->position.y = Clamp(p->position.y, 0, MAP_HEIGHT);
+}
 
-  // Suivi de la caméra
-  camera.target = player.position;
+// Mise a jour du tir automatique d'un joueur
+static void UpdatePlayerShooting(Player *p, float dt) {
+  if (!p->isAlive)
+    return;
 
-  // Empêche la caméra de sortir de la map
-  float minX = SCREEN_WIDTH / 2.0f;
-  float minY = SCREEN_HEIGHT / 2.0f;
-  float maxX = MAP_WIDTH - SCREEN_WIDTH / 2.0f;
-  float maxY = MAP_HEIGHT - SCREEN_HEIGHT / 2.0f;
-
-  if (camera.target.x < minX)
-    camera.target.x = minX;
-  if (camera.target.x > maxX)
-    camera.target.x = maxX;
-  if (camera.target.y < minY)
-    camera.target.y = minY;
-  if (camera.target.y > maxY)
-    camera.target.y = maxY;
-
-  // --- TIR ---
-  player.shootTimer += dt;
-  if (player.shootTimer >= player.fireRate) {
-    int targetIdx = FindNearestEnemy();
+  p->shootTimer += dt;
+  if (p->shootTimer >= p->fireRate) {
+    int targetIdx = FindNearestEnemyToPos(p->position);
     if (targetIdx != -1) {
-      float dx = player.position.x - enemies[targetIdx].position.x;
-      float dy = player.position.y - enemies[targetIdx].position.y;
+      float dx = p->position.x - enemies[targetIdx].position.x;
+      float dy = p->position.y - enemies[targetIdx].position.y;
       float distSq = dx * dx + dy * dy;
-      // Si l'ennemi est trop éloigné, on ne tire pas
       if (distSq > 675.0f * 675.0f)
         targetIdx = -1;
     }
 
     if (targetIdx != -1) {
-      // Trouve un slot pour la balle
       int bSlot = -1;
       for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
@@ -481,154 +460,130 @@ void UpdateGame(float dt) {
           break;
         }
       }
-      // test
-      //  si on a une balle de disponible
+
       if (bSlot != -1) {
-        Vector2 dir = {enemies[targetIdx].position.x - player.position.x,
-                       enemies[targetIdx].position.y - player.position.y};
+        Vector2 dir = {enemies[targetIdx].position.x - p->position.x,
+                       enemies[targetIdx].position.y - p->position.y};
         float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
-        // Normalize direction
         if (dirLen > 0) {
           dir.x /= dirLen;
           dir.y /= dirLen;
         }
 
         bullets[bSlot].active = true;
-        bullets[bSlot].position = player.position;
+        bullets[bSlot].position = p->position;
         bullets[bSlot].velocity =
-            (Vector2){dir.x * player.bulletSpeed, dir.y * player.bulletSpeed};
-        bullets[bSlot].radius = player.bulletSize;
-
-        bullets[bSlot].damage = player.damage;
-        bullets[bSlot].lifeTime = 2.0f; // Balle dure 2.0 secondes
-        player.shootTimer = 0.0f;
+            (Vector2){dir.x * p->bulletSpeed, dir.y * p->bulletSpeed};
+        bullets[bSlot].radius = p->bulletSize;
+        bullets[bSlot].damage = p->damage;
+        bullets[bSlot].lifeTime = 2.0f;
+        p->shootTimer = 0.0f;
       }
     }
   }
+}
 
-  // --- MISSILE ---
-  if (player.missileCooldownTimer > 0) {
-    player.missileCooldownTimer -= dt;
+// Mise a jour de la camera pour un joueur
+static void UpdateCameraForPlayer(Camera2D *cam, Player *p) {
+  cam->target = p->position;
+
+  // Calcul des limites selon le mode (split = 640x720, full = 1280x720)
+  float viewW = (currentMode == DEUX_JOUEURS) ? SPLIT_WIDTH : SCREEN_WIDTH;
+  float viewH = (currentMode == DEUX_JOUEURS) ? SPLIT_HEIGHT : SCREEN_HEIGHT;
+
+  float minX = viewW / 2.0f;
+  float minY = viewH / 2.0f;
+  float maxX = MAP_WIDTH - viewW / 2.0f;
+  float maxY = MAP_HEIGHT - viewH / 2.0f;
+
+  if (cam->target.x < minX)
+    cam->target.x = minX;
+  if (cam->target.x > maxX)
+    cam->target.x = maxX;
+  if (cam->target.y < minY)
+    cam->target.y = minY;
+  if (cam->target.y > maxY)
+    cam->target.y = maxY;
+}
+
+// Application d'un bonus a un joueur
+static void ApplyBonusToPlayer(Player *p, Bonus *b) {
+  if (b->type == BONUS_DAMAGE) {
+    p->damage += 1;
+  } else if (b->type == BONUS_HEALTH) {
+    p->maxHealth += 1;
+    p->health = p->maxHealth;
+  } else if (b->type == BONUS_SPEED) {
+    p->speed += 50.0f;
+    if (p->speed > 800.0f)
+      p->speed = 800.0f;
+  } else if (b->type == BONUS_TIR_RAPIDE) {
+    p->fireRate = p->fireRate / 1.15f;
+  }
+  b->active = false;
+}
+
+void UpdateGame(float dt) {
+  if (gameOver)
+    return;
+
+  gameTime += dt;
+  if (globalTotalTime != NULL)
+    *globalTotalTime += dt;
+
+  // --- MOUVEMENT JOUEUR 1 (ZQSD + SPACE) ---
+  Vector2 move1 = {0};
+  if (IS_P1_UP())
+    move1.y -= 1;
+  if (IS_P1_DOWN())
+    move1.y += 1;
+  if (IS_P1_LEFT())
+    move1.x -= 1;
+  if (IS_P1_RIGHT())
+    move1.x += 1;
+  UpdatePlayerMovement(&player1, move1, IS_P1_ACTION(), dt);
+
+  // --- MOUVEMENT JOUEUR 2 (Fleches + CTRL) ---
+  if (currentMode == DEUX_JOUEURS && player2.isAlive) {
+    Vector2 move2 = {0};
+    if (IS_P2_UP())
+      move2.y -= 1;
+    if (IS_P2_DOWN())
+      move2.y += 1;
+    if (IS_P2_LEFT())
+      move2.x -= 1;
+    if (IS_P2_RIGHT())
+      move2.x += 1;
+    UpdatePlayerMovement(&player2, move2, IS_P2_ACTION(), dt);
   }
 
-  if (IsKeyPressed(KEY_E) && player.missileCooldownTimer <= 0) {
-    // Find a slot
-    int mSlot = -1;
-    for (int i = 0; i < MAX_MISSILES; i++) {
-      if (!missiles[i].active) {
-        mSlot = i;
-        break;
-      }
-    }
-
-    if (mSlot != -1) {
-      missiles[mSlot].active = true;
-      missiles[mSlot].position = player.position;
-      // Direction based on player rotation
-      float rad = (player.rotation - 90.0f) * DEG2RAD;
-      Vector2 dir = {cosf(rad), sinf(rad)};
-
-      missiles[mSlot].velocity =
-          (Vector2){dir.x * 600.0f, dir.y * 600.0f}; // Slower than bullets
-      missiles[mSlot].radius = 15.0f;
-      missiles[mSlot].damage = 10.0f; // High damage
-      missiles[mSlot].explosionRadius = 150.0f;
-
-      player.missileCooldownTimer = player.missileMaxCooldown;
-    }
-  }
-
-  // Update Missiles
-  for (int i = 0; i < MAX_MISSILES; i++) {
-    if (missiles[i].active) {
-      // Homing Logic
-      int targetIdx = FindNearestEnemy();
-      if (targetIdx != -1) {
-        // Simple steering towards target
-        Vector2 targetPos = enemies[targetIdx].position;
-        Vector2 desiredDir = {targetPos.x - missiles[i].position.x,
-                              targetPos.y - missiles[i].position.y};
-        float dist =
-            sqrtf(desiredDir.x * desiredDir.x + desiredDir.y * desiredDir.y);
-
-        if (dist > 0) {
-          desiredDir.x /= dist;
-          desiredDir.y /= dist;
-
-          float currentSpeed =
-              sqrtf(missiles[i].velocity.x * missiles[i].velocity.x +
-                    missiles[i].velocity.y * missiles[i].velocity.y);
-
-          // Turn rate factor (adjust for sharper/slower turns)
-          float turnRate = 4.0f * dt;
-
-          // Lerp velocity direction
-          missiles[i].velocity.x +=
-              (desiredDir.x * currentSpeed - missiles[i].velocity.x) * turnRate;
-          missiles[i].velocity.y +=
-              (desiredDir.y * currentSpeed - missiles[i].velocity.y) * turnRate;
-
-          // Maintain speed
-          float newSpeed =
-              sqrtf(missiles[i].velocity.x * missiles[i].velocity.x +
-                    missiles[i].velocity.y * missiles[i].velocity.y);
-          if (newSpeed > 0) {
-            missiles[i].velocity.x =
-                (missiles[i].velocity.x / newSpeed) * currentSpeed;
-            missiles[i].velocity.y =
-                (missiles[i].velocity.y / newSpeed) * currentSpeed;
-          }
-        }
-      }
-      missiles[i].position.x += missiles[i].velocity.x * dt;
-      missiles[i].position.y += missiles[i].velocity.y * dt;
-
-      bool exploded = false;
-
-      // Check bounds
-      if (missiles[i].position.x < 0 || missiles[i].position.x > MAP_WIDTH ||
-          missiles[i].position.y < 0 || missiles[i].position.y > MAP_HEIGHT) {
-        exploded = true; // Explode on wall hit
-      }
-
-      // Check collision with enemies (Direct hit)
-      if (!exploded) {
-        for (int e = 0; e < MAX_ENEMIES; e++) {
-          if (enemies[e].active) {
-            if (CheckCollisionCircles(missiles[i].position, missiles[i].radius,
-                                      enemies[e].position, enemies[e].radius)) {
-              exploded = true;
-              break;
-            }
-          }
-        }
-      }
-
-      if (exploded) {
-        missiles[i].active = false;
-
-        // AOE Damage
-        for (int e = 0; e < MAX_ENEMIES; e++) {
-          if (enemies[e].active) {
-            float dx = missiles[i].position.x - enemies[e].position.x;
-            float dy = missiles[i].position.y - enemies[e].position.y;
-            float distSq = dx * dx + dy * dy;
-
-            if (distSq <=
-                missiles[i].explosionRadius * missiles[i].explosionRadius) {
-              enemies[e].health -= (int)missiles[i].damage;
-              if (enemies[e].health <= 0) {
-                enemies[e].active = false;
-                score += 15; // More points
-              }
-            }
-          }
-        }
-      }
+  // --- UPDATE TRAINEES ---
+  for (int i = 0; i < MAX_trainee; i++) {
+    if (trainee[i].active) {
+      trainee[i].alpha -= 2.0f * dt;
+      if (trainee[i].alpha <= 0)
+        trainee[i].active = false;
     }
   }
 
-  // on fait partir la balle
+  // --- CAMERA ZOOM ---
+  float targetZoom1 = player1.isDashing ? 0.9f : 1.0f;
+  camera1.zoom += (targetZoom1 - camera1.zoom) * 5.0f * dt;
+  UpdateCameraForPlayer(&camera1, &player1);
+
+  if (currentMode == DEUX_JOUEURS && player2.isAlive) {
+    float targetZoom2 = player2.isDashing ? 0.9f : 1.0f;
+    camera2.zoom += (targetZoom2 - camera2.zoom) * 5.0f * dt;
+    UpdateCameraForPlayer(&camera2, &player2);
+  }
+
+  // --- TIR AUTOMATIQUE ---
+  UpdatePlayerShooting(&player1, dt);
+  if (currentMode == DEUX_JOUEURS && player2.isAlive) {
+    UpdatePlayerShooting(&player2, dt);
+  }
+
+  // --- UPDATE BALLES ---
   for (int i = 0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       bullets[i].position.x += bullets[i].velocity.x * dt;
@@ -640,33 +595,24 @@ void UpdateGame(float dt) {
         continue;
       }
 
-      // Collision avec les ennemis
       for (int e = 0; e < MAX_ENEMIES; e++) {
-        if (enemies[e].active) {
-          if (CheckCollisionCircles(bullets[i].position, bullets[i].radius,
-                                    enemies[e].position, enemies[e].radius)) {
-            enemies[e].health -= bullets[i].damage;
-            bullets[i].active = false; // Détruire la balle
-
-            if (enemies[e].health <= 0) {
-              enemies[e].active = false;
-              score += 10;
-            }
-            break; // La balle touche un ennemi
+        if (enemies[e].active &&
+            CheckCollisionCircles(bullets[i].position, bullets[i].radius,
+                                  enemies[e].position, enemies[e].radius)) {
+          enemies[e].health -= bullets[i].damage;
+          bullets[i].active = false;
+          if (enemies[e].health <= 0) {
+            enemies[e].active = false;
+            score += 10;
           }
+          break;
         }
       }
     }
   }
 
-  // --- APPARITION ---
-  // Le taux d'apparition augmente rapidement
-  // Le taux d'apparition augmente rapidement
-  // Utilise le temps GLOBAL pour que la difficulté augmente même en rotation
-  // MODIFICATION: On utilise gameTime (local) pour le spawn rate pour éviter
-  // que le jeu ne devienne impossible après une rotation
+  // --- SPAWN ENNEMIS ---
   float difficultyTime = gameTime;
-  // Base 0.8s, diminue de 0.05s toutes les 10s, min 0.1s
   float currentSpawnRate = 0.8f - (difficultyTime / 10.0f) * 0.05f;
   if (currentSpawnRate < 0.1f)
     currentSpawnRate = 0.1f;
@@ -677,68 +623,65 @@ void UpdateGame(float dt) {
     spawnTimer = 0.0f;
   }
 
-  // --- BONUSES ---
+  // --- SPAWN BONUSES ---
   bonusSpawnTimer += dt;
   if (bonusSpawnTimer >= 5.0f) {
     SpawnBonus();
     bonusSpawnTimer = 0.0f;
   }
 
+  // --- COLLECTE BONUSES ---
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
-      if (CheckCollisionCircles(player.position, player.radius,
+      // P1 collecte
+      if (player1.isAlive &&
+          CheckCollisionCircles(player1.position, player1.radius,
                                 bonuses[i].position, bonuses[i].radius)) {
-        if (bonuses[i].type == BONUS_DAMAGE) {
-          player.damage += 1;
-        } else if (bonuses[i].type == BONUS_HEALTH) {
-          player.maxHealth += 1;
-          player.health = player.maxHealth;
-        } else if (bonuses[i].type == BONUS_SPEED) {
-          player.speed += 50.0f;
-          if (player.speed > 800.0f)
-            player.speed = 800.0f;
-        } else if (bonuses[i].type == BONUS_TIR_RAPIDE) {
-          player.fireRate = player.fireRate / 1.15;
-        } else if (bonuses[i].type == BONUS_MISSILE_CD) {
-          player.missileMaxCooldown -= 1.0f; // Reduce max cooldown by 1s
-          if (player.missileMaxCooldown < 5.0f)
-            player.missileMaxCooldown = 5.0f; // Cap at 5s
-        }
-        bonuses[i].active = false;
+        ApplyBonusToPlayer(&player1, &bonuses[i]);
+        continue;
+      }
+      // P2 collecte
+      if (currentMode == DEUX_JOUEURS && player2.isAlive &&
+          CheckCollisionCircles(player2.position, player2.radius,
+                                bonuses[i].position, bonuses[i].radius)) {
+        ApplyBonusToPlayer(&player2, &bonuses[i]);
       }
     }
   }
 
-  // --- ENNEMIS ---
+  // --- UPDATE ENNEMIS ---
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
-      Vector2 dir = {player.position.x - enemies[i].position.x,
-                     player.position.y - enemies[i].position.y};
-      // on doit normaliser le vecteur direction sinon
-      // l'ennemi se dirige vers le joueur
-      //  à une vitesse proportionnelle à la distance
+      // En 2P, l'ennemi chasse le joueur le plus proche
+      Vector2 targetPos = player1.position;
+      if (currentMode == DEUX_JOUEURS) {
+        float d1 = player1.isAlive ? Vector2DistanceSqr(enemies[i].position,
+                                                        player1.position)
+                                   : 999999999.0f;
+        float d2 = player2.isAlive ? Vector2DistanceSqr(enemies[i].position,
+                                                        player2.position)
+                                   : 999999999.0f;
+        targetPos = (d1 <= d2) ? player1.position : player2.position;
+      }
+
+      Vector2 dir = {targetPos.x - enemies[i].position.x,
+                     targetPos.y - enemies[i].position.y};
       float dirLen = sqrtf(dir.x * dir.x + dir.y * dir.y);
-      // pour éviter une division par 0
       if (dirLen > 0.001f) {
         dir.x /= dirLen;
         dir.y /= dirLen;
       }
+
       enemies[i].position.x += dir.x * enemies[i].speed * dt;
       enemies[i].position.y += dir.y * enemies[i].speed * dt;
 
       // Rotation
       if (enemies[i].type == ENEMY_TANK) {
-        // Tank: Orientation horizontale fixe (Gauche ou Droite)
-        // On utilise le flip horizontal (largeur négative) au lieu de la
-        // rotation
         enemies[i].rotation = 0.0f;
-
         if (dir.x >= 0) {
-          // Vers la droite : largeur positive
           if (enemies[i].frameRec.width < 0)
             enemies[i].frameRec.width *= -1;
         } else {
-          // Vers la gauche : largeur négative (flip)
           if (enemies[i].frameRec.width > 0)
             enemies[i].frameRec.width *= -1;
         }
@@ -758,17 +701,46 @@ void UpdateGame(float dt) {
             (float)enemies[i].currentFrame * enemies[i].frameRec.height;
       }
 
-      // Collision avec le joueur
-      if (CheckCollisionCircles(player.position, player.radius,
+      // Collision avec P1
+      if (player1.isAlive &&
+          CheckCollisionCircles(player1.position, player1.radius,
                                 enemies[i].position, enemies[i].radius)) {
-        player.health--;
-        enemies[i].active = false; // L'ennemi meurt à l'impact
-
-        if (player.health <= 0) {
-          player.isAlive = false;
-          gameOver = true;
+        player1.health--;
+        enemies[i].active = false;
+        if (player1.health <= 0) {
+          player1.isAlive = false;
         }
       }
+
+      // Collision avec P2
+      if (currentMode == DEUX_JOUEURS && player2.isAlive && enemies[i].active &&
+          CheckCollisionCircles(player2.position, player2.radius,
+                                enemies[i].position, enemies[i].radius)) {
+        player2.health--;
+        enemies[i].active = false;
+        if (player2.health <= 0) {
+          player2.isAlive = false;
+        }
+      }
+    }
+  }
+
+  // --- CONDITION DE VICTOIRE (2P) ---
+  if (currentMode == DEUX_JOUEURS) {
+    if (!player1.isAlive && player2.isAlive) {
+      winner = 2;
+      gameOver = true;
+    } else if (!player2.isAlive && player1.isAlive) {
+      winner = 1;
+      gameOver = true;
+    } else if (!player1.isAlive && !player2.isAlive) {
+      winner = -1; // Egalite
+      gameOver = true;
+    }
+  } else {
+    // Mode 1P classique
+    if (!player1.isAlive) {
+      gameOver = true;
     }
   }
 }
@@ -777,266 +749,267 @@ void UpdateGame(float dt) {
 // FONCTIONS - RENDU
 // ============================================================================
 
-void DrawGame() {
-  BeginDrawing();
-  ClearBackground(RAYWHITE);
-
-  BeginMode2D(camera);
-
-  // Dessiner le fond
+// Dessine le monde (background, entites, effets) - appele pour chaque viewport
+static void DrawWorld(Camera2D *cam, Player *viewPlayer) {
+  BeginMode2D(*cam);
+  // Fond
   DrawTexture(background, 0, 0, WHITE);
-
-  // Dessiner les trainees (Ghost effect)
+  // Trainees (effet de dash)
   for (int i = 0; i < MAX_trainee; i++) {
     if (trainee[i].active) {
       float scale = 0.15f;
-      float width = 331.0f * scale;
-      float height = 399.0f * scale;
-      Rectangle destRec = {trainee[i].position.x, trainee[i].position.y, width,
-                           height};
-      Vector2 origin = {width / 2.0f, height / 2.0f};
-      Color traineeColor = WHITE;
-      traineeColor.a = (unsigned char)(trainee[i].alpha * 255);
+      float w = 331.0f * scale;
+      float h = 399.0f * scale;
+      Rectangle destRec = {trainee[i].position.x, trainee[i].position.y, w, h};
+      Vector2 origin = {w / 2.0f, h / 2.0f};
+      Color col = WHITE;
+      col.a = (unsigned char)(trainee[i].alpha * 255);
       DrawTexturePro(spaceshipTexture, trainee[i].frameRec, destRec, origin,
-                     trainee[i].rotation, traineeColor);
+                     trainee[i].rotation, col);
     }
   }
 
-  // Draw Player (Spaceship)
-  float scale = 0.15f;
-  float width = 331.0f * scale;
-  float height = 399.0f * scale;
-  Rectangle destRec = {player.position.x, player.position.y, width, height};
-  Vector2 origin = {width / 2.0f, height / 2.0f}; // Rotation autour du centre
+  // Dessiner P1 si vivant
+  if (player1.isAlive) {
+    float scale = 0.15f;
+    float w = 331.0f * scale;
+    float h = 399.0f * scale;
+    Rectangle destRec = {player1.position.x, player1.position.y, w, h};
+    Vector2 origin = {w / 2.0f, h / 2.0f};
+    DrawTexturePro(spaceshipTexture, player1.frameRec, destRec, origin,
+                   player1.rotation, WHITE);
+  }
 
-  DrawTexturePro(spaceshipTexture, player.frameRec, destRec, origin,
-                 player.rotation, WHITE);
+  // Dessiner P2 si vivant (mode 2P)
+  if (currentMode == DEUX_JOUEURS && player2.isAlive) {
+    float scale = 0.15f;
+    float w = 331.0f * scale;
+    float h = 399.0f * scale;
+    Rectangle destRec = {player2.position.x, player2.position.y, w, h};
+    Vector2 origin = {w / 2.0f, h / 2.0f};
+    // P2 avec une teinte differente pour le distinguer
+    DrawTexturePro(spaceshipTexture, player2.frameRec, destRec, origin,
+                   player2.rotation, (Color){180, 180, 255, 255});
+  }
 
-  // Dessiner les ennemis
+  // Ennemis
   for (int i = 0; i < MAX_ENEMIES; i++) {
     if (enemies[i].active) {
       Texture2D tex =
           (enemies[i].type == ENEMY_TANK) ? tankTexture : chasseurTexture;
-      float baseScale = (enemies[i].type == ENEMY_TANK)
-                            ? 0.4f
-                            : 0.6f; // Chasseurs plus gros (0.6 vs 0.4)
-      // On utilise la valeur absolue pour la taille de destination car
-      // frameRec.width peut être négatif pour le flip
-      float width = fabsf(enemies[i].frameRec.width) * baseScale;
-      float height = enemies[i].frameRec.height * baseScale;
-      Rectangle dest = {enemies[i].position.x, enemies[i].position.y, width,
-                        height};
-      Vector2 origin = {width / 2.0f, height / 2.0f};
+      float baseScale = (enemies[i].type == ENEMY_TANK) ? 0.4f : 0.6f;
+      float w = fabsf(enemies[i].frameRec.width) * baseScale;
+      float h = enemies[i].frameRec.height * baseScale;
+      Rectangle dest = {enemies[i].position.x, enemies[i].position.y, w, h};
+      Vector2 origin = {w / 2.0f, h / 2.0f};
       DrawTexturePro(tex, enemies[i].frameRec, dest, origin,
                      enemies[i].rotation, WHITE);
     }
   }
 
-  // Dessiner les balles
+  // Balles
   for (int i = 0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       DrawCircleV(bullets[i].position, bullets[i].radius, GREEN);
     }
   }
 
-  // Dessiner les missiles
-  for (int i = 0; i < MAX_MISSILES; i++) {
-    if (missiles[i].active) {
-      DrawCircleV(missiles[i].position, missiles[i].radius, ORANGE);
-      DrawCircleLines(missiles[i].position.x, missiles[i].position.y,
-                      missiles[i].radius, RED);
-    }
-  }
-
-  // Dessiner les bonus et indicateurs
+  // Bonus
   for (int i = 0; i < MAX_BONUSES; i++) {
     if (bonuses[i].active) {
-      // Dessin du bonus
       DrawCircleV(bonuses[i].position, bonuses[i].radius, bonuses[i].color);
       DrawCircleLines(bonuses[i].position.x, bonuses[i].position.y,
                       bonuses[i].radius, WHITE);
 
-      // Indicateur hors écran
-      Vector2 screenPos = GetWorldToScreen2D(bonuses[i].position, camera);
-      if (screenPos.x < 0 || screenPos.x > GetScreenWidth() ||
-          screenPos.y < 0 || screenPos.y > GetScreenHeight()) {
+      // Indicateur hors ecran (fleche vers bonus)
+      Vector2 screenPos = GetWorldToScreen2D(bonuses[i].position, *cam);
+      int viewW = (currentMode == DEUX_JOUEURS) ? SPLIT_WIDTH : SCREEN_WIDTH;
+      int viewH = (currentMode == DEUX_JOUEURS) ? SPLIT_HEIGHT : SCREEN_HEIGHT;
 
-        // Calcul en coordonnées MONDE (World Coordinates)
-        Vector2 dir = Vector2Subtract(bonuses[i].position, player.position);
-
-        // Normaliser la direction
+      if (screenPos.x < 0 || screenPos.x > viewW || screenPos.y < 0 ||
+          screenPos.y > viewH) {
+        Vector2 dir =
+            Vector2Subtract(bonuses[i].position, viewPlayer->position);
         float length = Vector2Length(dir);
-        if (length > 0) {
+        if (length > 0)
           dir = Vector2Scale(dir, 1.0f / length);
-        }
 
-        // Rayon du cercle autour du joueur
         float indicatorRadius = 60.0f;
-
-        // Calcul des sommets du triangle isocèle
         float triangleSize = 15.0f;
 
-        // Centre de la base du triangle (sur le cercle)
-        Vector2 baseCenter =
-            Vector2Add(player.position, Vector2Scale(dir, indicatorRadius));
-
-        // Pointe du triangle (vers le bonus, vers l'extérieur du
-        // cercle)
-        Vector2 tip = Vector2Add(
-            player.position, Vector2Scale(dir, indicatorRadius + triangleSize));
-
-        // Vecteur perpendiculaire pour la base
+        Vector2 baseCenter = Vector2Add(viewPlayer->position,
+                                        Vector2Scale(dir, indicatorRadius));
+        Vector2 tip =
+            Vector2Add(viewPlayer->position,
+                       Vector2Scale(dir, indicatorRadius + triangleSize));
         Vector2 perp = {-dir.y, dir.x};
-
-        // Coins de la base
         Vector2 baseLeft =
             Vector2Add(baseCenter, Vector2Scale(perp, -triangleSize * 0.5f));
         Vector2 baseRight =
             Vector2Add(baseCenter, Vector2Scale(perp, triangleSize * 0.5f));
 
-        // Dessiner le triangle
         DrawTriangle(tip, baseLeft, baseRight, bonuses[i].color);
       }
     }
   }
 
   EndMode2D();
+}
 
-  // UI
-  int screenW = GetScreenWidth();
-  int screenH = GetScreenHeight();
-
-  // Header Stats (Score & Time) - Top Center, Large, Space Blue
+// Dessine l'UI pour un joueur specifique
+static void DrawPlayerUI(Player *p, int playerId, int screenW, int screenH) {
+  // Score et temps (en haut au centre)
   const char *scoreText = TextFormat("SCORE: %d", score);
-  // Afficher le temps global si disponible
   float displayTime = (globalTotalTime != NULL) ? *globalTotalTime : gameTime;
   const char *timeText = TextFormat("TIME: %.1fs", displayTime);
-  int scoreW = MeasureText(scoreText, 40);
-  int timeW = MeasureText(timeText, 40);
 
-  // Draw with a slight shadow for "glow" effect
-  DrawText(scoreText, screenW / 2 - scoreW / 2 + 2, 22, 40, DARKBLUE);
-  DrawText(scoreText, screenW / 2 - scoreW / 2, 20, 40, SKYBLUE);
+  int fontSize = (currentMode == DEUX_JOUEURS) ? 24 : 40;
+  int scoreW = MeasureText(scoreText, fontSize);
+  int timeW = MeasureText(timeText, fontSize);
 
-  // Player Name Display (Top Left)
-  DrawText(TextFormat("PILOT: %s", currentPlayerName), 10, 10, 20, WHITE);
+  DrawText(scoreText, screenW / 2 - scoreW / 2 + 1, 12, fontSize, DARKBLUE);
+  DrawText(scoreText, screenW / 2 - scoreW / 2, 10, fontSize, SKYBLUE);
+  DrawText(timeText, screenW / 2 - timeW / 2 + 1, 10 + fontSize + 2, fontSize,
+           DARKBLUE);
+  DrawText(timeText, screenW / 2 - timeW / 2, 10 + fontSize, fontSize, SKYBLUE);
 
-  DrawText(timeText, screenW / 2 - timeW / 2 + 2, 62, 40, DARKBLUE);
-  DrawText(timeText, screenW / 2 - timeW / 2, 60, 40, SKYBLUE);
+  // Nom du joueur
+  const char *label = (playerId == 1) ? "P1" : "P2";
+  DrawText(label, 10, 10, 30, YELLOW);
 
-  // --- COCKPIT UI ---
-  int panelHeight = 90;
+  // Panel en bas
+  int panelHeight = (currentMode == DEUX_JOUEURS) ? 60 : 90;
   int panelY = screenH - panelHeight;
 
-  // Background Panel
   DrawRectangle(0, panelY, screenW, panelHeight, Fade(DARKGRAY, 0.9f));
-  DrawLine(0, panelY, screenW, panelY, LIGHTGRAY); // Top border border
+  DrawLine(0, panelY, screenW, panelY, LIGHTGRAY);
 
-  int sectionWidth = screenW / 4;
+  // Barre de vie
+  float hpPct = (p->maxHealth > 0) ? (float)p->health / (float)p->maxHealth : 0;
+  int barW = screenW / 3;
+  int barH = 15;
+  int barX = 10;
+  int barY = panelY + 10;
 
-  // Section 1: Health (Integrity)
-  float hpPct = (float)player.health / (float)player.maxHealth;
-  int barWidth = sectionWidth - 40;
-  int barHeight = 20;
-  int barX = 20;
-  int barY = panelY + 45;
+  DrawText("HP", barX, panelY + 30, 16, LIGHTGRAY);
+  DrawRectangle(barX + 25, barY, barW, barH, Fade(RED, 0.5f));
+  DrawRectangle(barX + 25, barY, (int)(barW * hpPct), barH, GREEN);
+  DrawRectangleLines(barX + 25, barY, barW, barH, WHITE);
+  DrawText(TextFormat("%d/%d", p->health, p->maxHealth), barX + 30, barY + 1,
+           14, WHITE);
 
-  DrawText("INTEGRITY", 20, panelY + 15, 20, LIGHTGRAY);
-  DrawRectangle(barX, barY, barWidth, barHeight, Fade(RED, 0.5f));
-  DrawRectangle(barX, barY, (int)(barWidth * hpPct), barHeight, GREEN);
-  DrawRectangleLines(barX, barY, barWidth, barHeight, WHITE);
-  DrawText(TextFormat("%d/%d", player.health, player.maxHealth), barX + 5,
-           barY + 2, 18, WHITE);
+  // Stats simples
+  int statsX = barX + barW + 40;
+  DrawText(TextFormat("DMG:%d", (int)p->damage), statsX, panelY + 10, 14, RED);
+  DrawText(TextFormat("SPD:%.0f", p->speed), statsX, panelY + 28, 14, SKYBLUE);
 
-  DrawLine(sectionWidth, panelY + 10, sectionWidth, screenH - 10,
-           GRAY); // Separator
-
-  // Section 2: Damage
-  DrawText("WEAPON", sectionWidth + 20, panelY + 15, 20, LIGHTGRAY);
-  DrawText(TextFormat("DMG: %.0f", player.damage), sectionWidth + 20,
-           panelY + 45, 30, RED);
-
-  DrawLine(sectionWidth * 2, panelY + 10, sectionWidth * 2, screenH - 10,
-           GRAY); // Separator
-
-  // Section 3: Speed
-  DrawText("ENGINE", sectionWidth * 2 + 20, panelY + 15, 20, LIGHTGRAY);
-  DrawText(TextFormat("SPD: %.0f", player.speed), sectionWidth * 2 + 20,
-           panelY + 45, 30, SKYBLUE);
-
-  DrawLine(sectionWidth * 3, panelY + 10, sectionWidth * 3, screenH - 10,
-           GRAY); // Separator
-
-  // Section 4: Fire Rate
-  DrawText("SYSTEMS", sectionWidth * 3 + 20, panelY + 15, 20, LIGHTGRAY);
-  DrawText(TextFormat("Fire Rate: %.2f", player.fireRate),
-           sectionWidth * 3 + 20, panelY + 45, 30, YELLOW);
-
-  // Missile Cooldown UI
-  int missileBarWidth = 200;
-  int missileBarHeight = 10;
-  int missileBarX = screenW / 2 - missileBarWidth / 2;
-  int missileBarY = screenH - panelHeight - 30; // Above panel
-
-  DrawText("MISSILE (E)", missileBarX, missileBarY - 20, 20, ORANGE);
-  DrawRectangle(missileBarX, missileBarY, missileBarWidth, missileBarHeight,
-                DARKGRAY);
-
-  float cooldownPct = 0.0f;
-  if (player.missileMaxCooldown > 0) {
-    cooldownPct =
-        1.0f - (player.missileCooldownTimer / player.missileMaxCooldown);
+  // Controles (seulement en 1P ou texte adapte)
+  if (currentMode == UN_JOUEUR) {
+    DrawText("ZQSD: Move  SPACE: Dash", 10, panelY - 20, 16, DARKGRAY);
   }
-  if (cooldownPct < 0)
-    cooldownPct = 0;
-  if (cooldownPct > 1)
-    cooldownPct = 1;
+}
 
-  DrawRectangle(missileBarX, missileBarY, (int)(missileBarWidth * cooldownPct),
-                missileBarHeight, ORANGE);
-  DrawRectangleLines(missileBarX, missileBarY, missileBarWidth,
-                     missileBarHeight, WHITE);
+void DrawGame() {
+  if (currentMode == DEUX_JOUEURS) {
+    // --- MODE 2 JOUEURS (SPLIT-SCREEN) ---
 
-  if (player.missileCooldownTimer <= 0) {
-    DrawText("READY", missileBarX + missileBarWidth + 10, missileBarY - 5, 20,
-             GREEN);
+    // Viewport P1 (gauche)
+    BeginPlayerViewport(&splitCtx, 1);
+    ClearBackground(RAYWHITE);
+    DrawWorld(&camera1, &player1);
+    DrawPlayerUI(&player1, 1, SPLIT_WIDTH, SPLIT_HEIGHT);
+    EndPlayerViewport(&splitCtx);
+
+    // Viewport P2 (droite)
+    BeginPlayerViewport(&splitCtx, 2);
+    ClearBackground(RAYWHITE);
+    DrawWorld(&camera2, &player2);
+    DrawPlayerUI(&player2, 2, SPLIT_WIDTH, SPLIT_HEIGHT);
+    EndPlayerViewport(&splitCtx);
+
+    // Composite les deux viewports
+    DrawSplitScreen(&splitCtx);
+
+    // Affichage du gagnant par dessus
+    if (gameOver && winner != 0) {
+      BeginDrawing();
+      // Overlay sur P1
+      const char *p1Text = (winner == 1) ? "GAGNANT!" : "PERDU";
+      Color p1Col = (winner == 1) ? GREEN : RED;
+      DrawRectangle(0, 0, SPLIT_WIDTH, SPLIT_HEIGHT, Fade(BLACK, 0.5f));
+      int tw1 = MeasureText(p1Text, 50);
+      DrawText(p1Text, SPLIT_WIDTH / 2 - tw1 / 2, SPLIT_HEIGHT / 2 - 25, 50,
+               p1Col);
+
+      // Overlay sur P2
+      const char *p2Text = (winner == 2) ? "GAGNANT!" : "PERDU";
+      Color p2Col = (winner == 2) ? GREEN : RED;
+      DrawRectangle(SPLIT_WIDTH, 0, SPLIT_WIDTH, SPLIT_HEIGHT,
+                    Fade(BLACK, 0.5f));
+      int tw2 = MeasureText(p2Text, 50);
+      DrawText(p2Text, SPLIT_WIDTH + SPLIT_WIDTH / 2 - tw2 / 2,
+               SPLIT_HEIGHT / 2 - 25, 50, p2Col);
+
+      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SPLIT_HEIGHT / 2 + 50, 20,
+               WHITE);
+      EndDrawing();
+    } else if (gameOver && winner == -1) {
+      // Egalite
+      BeginDrawing();
+      DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.5f));
+      const char *txt = "EGALITE!";
+      int tw = MeasureText(txt, 50);
+      DrawText(txt, SCREEN_WIDTH / 2 - tw / 2, SCREEN_HEIGHT / 2 - 25, 50,
+               YELLOW);
+      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 + 50,
+               20, WHITE);
+      EndDrawing();
+    }
+
   } else {
-    DrawText(TextFormat("%.1fs", player.missileCooldownTimer),
-             missileBarX + missileBarWidth + 10, missileBarY - 5, 20, WHITE);
+    // --- MODE 1 JOUEUR (classique) ---
+    BeginDrawing();
+    ClearBackground(RAYWHITE);
+
+    DrawWorld(&camera1, &player1);
+    DrawPlayerUI(&player1, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    if (gameOver) {
+      DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.5f));
+      const char *txt = "GAME OVER";
+      int tw = MeasureText(txt, 50);
+      DrawText(txt, SCREEN_WIDTH / 2 - tw / 2, SCREEN_HEIGHT / 2 - 25, 50, RED);
+      DrawText("ESCAPE: Menu", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 + 50,
+               20, WHITE);
+    }
+
+    EndDrawing();
   }
-
-  // Controls Display
-  DrawText("WASD/Arrows: Move", screenW - 200, 20, 20, DARKGRAY);
-  DrawText("SPACE: Dash", screenW - 200, 45, 20, DARKGRAY);
-
-  if (gameOver) {
-    DrawText("GAME OVER", screenW / 2 - 100, screenH / 2 - 40, 40, RED);
-    DrawText("ESCAPE: Menu", screenW / 2 - 80, screenH / 2 + 10, 20, DARKGRAY);
-  }
-
-  EndDrawing();
 }
 
 // ============================================================================
 // FONCTION PUBLIQUE - POINT D'ENTRÉE DU JEU
 // ============================================================================
 
-void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
-                     const char *playerName, ScoreList *scores,
+void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
+                     bool *game_active, const char *playerName,
                      float timeout_seconds, float *total_time,
-                     float start_delay) {
-  // Stocker le pointeur vers le temps global
+                     float start_delay, bool *restart) {
+  // Stocker le mode et le pointeur vers le temps global
+  currentMode = mode;
   globalTotalTime = total_time;
 
-  // On ajuste la fenêtre à la taille standard
+  // On ajuste la fenetre a la taille standard
   SetWindowSize(LARGEUR_ECRAN, HAUTEUR_ECRAN);
-  SetWindowTitle("survivor");
+  SetWindowTitle((mode == DEUX_JOUEURS) ? "Survivor - 2 Joueurs" : "Survivor");
   SetTargetFPS(60);
 
-  // Allocation dynamique seulement si on ne reprend pas une partie (nouvelle
-  // partie)
+  // Initialiser le contexte split-screen
+  splitCtx = InitSplitScreen(mode);
+
+  // Allocation dynamique seulement si on ne reprend pas une partie
   if (!resume) {
-    // Sécurité : on libère si jamais il restait quelque chose
+    // Securite : on libere si jamais il restait quelque chose
     if (enemies)
       free(enemies);
     if (bullets)
@@ -1050,11 +1023,10 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     bullets = (Bullet *)calloc(MAX_BULLETS, sizeof(Bullet));
     bonuses = (Bonus *)calloc(MAX_BONUSES, sizeof(Bonus));
     trainee = (Trainee *)calloc(MAX_trainee, sizeof(Trainee));
-    missiles = (Missile *)calloc(MAX_MISSILES, sizeof(Missile));
 
     if (enemies == NULL || bullets == NULL || bonuses == NULL ||
-        trainee == NULL || missiles == NULL) {
-      printf("Erreur d'allocation mémoire !\n");
+        trainee == NULL) {
+      printf("Erreur d'allocation memoire !\n");
       if (enemies)
         free(enemies);
       if (bullets)
@@ -1063,9 +1035,7 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
         free(bonuses);
       if (trainee)
         free(trainee);
-      if (missiles)
-        free(missiles);
-      // On ne ferme pas la fenêtre ici car elle appartient au main
+      UnloadSplitScreen(&splitCtx);
       *game_active = false;
       return;
     }
@@ -1074,7 +1044,7 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
   }
 
   // Stocker les pointeurs globaux pour l'accès dans UpdateGame
-  currentScores = scores;
+  // currentScores = scores; // Removed
   // Reset name content first
   memset(currentPlayerName, 0, sizeof(currentPlayerName));
   if (playerName && strlen(playerName) > 0) {
@@ -1132,12 +1102,9 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       shake_offset.y = (float)GetRandomValue(-100, 100) / 100.0f * shake_amount;
     }
 
-    // Appliquer le zoom et shake à la caméra
-    // Sauvegarder l'offset original/target original car UpdateGame le modifie
-    Vector2 original_target = camera.target;
-    // Note: UpdateGame met à jour camera.target sur le joueur.
-    // On doit appliquer le shake APRES UpdateGame mais AVANT DrawGame,
-    // ou alors manipuler camera.zoom ici.
+    // Appliquer le zoom et shake aux cameras
+    // Note: UpdateGame met a jour camera.target sur le joueur.
+    // On applique le shake APRES UpdateGame mais AVANT DrawGame.
 
     // Vérifier timeout (si > 0)
     if (!gameOver && timeout_seconds > 0 && elapsed_time >= timeout_seconds) {
@@ -1156,7 +1123,12 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     }
 
     if (gameOver) {
-      // Only Escape allows to quit, handled at the top of the loop
+      if (IsKeyPressed(KEY_R)) {
+        if (restart)
+          *restart = true;
+        *game_active = true;
+        break;
+      }
     }
 
     // Si le jeu est actif et PAS en transition d'intro (start_delay), on met à
@@ -1170,24 +1142,32 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
     // UpdateGame a mis à jour camera.target sur le joueur.
     // On applique ici le shake et le zoom d'animation.
 
-    // Appliquer le Zoom d'animation
-    // Attention: UpdateGame fait aussi du zoom (effet dash), on va multiplier
-    // ou écraser ? UpdateGame fait: camera.zoom += (target - camera.zoom) * dt;
-    // Ici on force le zoom de transition qui est prioritaire
+    // Appliquer le Zoom d'animation (prioritaire sur le zoom du dash)
     if (elapsed_time < start_delay ||
         (timeout_seconds > 0 && (timeout_seconds - elapsed_time) < 0.5f)) {
-      camera.zoom = current_zoom;
+      camera1.zoom = current_zoom;
+      if (currentMode == DEUX_JOUEURS)
+        camera2.zoom = current_zoom;
     }
 
-    camera.target.x += shake_offset.x;
-    camera.target.y += shake_offset.y;
+    // Appliquer le shake
+    camera1.target.x += shake_offset.x;
+    camera1.target.y += shake_offset.y;
+    if (currentMode == DEUX_JOUEURS) {
+      camera2.target.x += shake_offset.x;
+      camera2.target.y += shake_offset.y;
+    }
 
-    // Dessiner le jeu à chaque frame
+    // Dessiner le jeu
     DrawGame();
 
-    // Restaurer target (le shake ne doit pas dériver)
-    camera.target.x -= shake_offset.x;
-    camera.target.y -= shake_offset.y;
+    // Restaurer target (le shake ne doit pas deriver)
+    camera1.target.x -= shake_offset.x;
+    camera1.target.y -= shake_offset.y;
+    if (currentMode == DEUX_JOUEURS) {
+      camera2.target.x -= shake_offset.x;
+      camera2.target.y -= shake_offset.y;
+    }
   }
 
   // Si la fenêtre est fermée par la croix, on ne sauvegarde pas forcément
@@ -1202,8 +1182,11 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
 
   UnloadTexture(background);
   UnloadTexture(spaceshipTexture);
+  UnloadTexture(chasseurTexture);
+  UnloadTexture(tankTexture);
+  UnloadSplitScreen(&splitCtx);
 
-  // Libération de la mémoire seulement si la partie est finie
+  // Liberation de la memoire seulement si la partie est finie
   if (!*game_active) {
     if (enemies)
       free(enemies);
@@ -1213,12 +1196,9 @@ void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
       free(bonuses);
     if (trainee)
       free(trainee);
-    if (missiles)
-      free(missiles);
     enemies = NULL;
     bullets = NULL;
     bonuses = NULL;
     trainee = NULL;
-    missiles = NULL;
   }
 }

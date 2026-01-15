@@ -19,7 +19,6 @@
 #define MAX_BULLETS 1000
 #define MAX_BONUSES 50
 #define MAX_TRAINEE 20
-#define MAX_MISSILES 10
 
 // ============================================================================
 // TYPES - PLAYER
@@ -53,11 +52,6 @@ typedef struct {
   float dashCooldown;
   float dashSpeed;
   float dashDuration;
-
-  // Missile
-  float missileCooldown;
-  float missileMaxCooldown;
-  float missileCooldownTimer; // Timer actuel
 } SurvivorPlayer;
 
 // ============================================================================
@@ -96,15 +90,6 @@ typedef struct {
   int damage;
 } SurvivorBullet;
 
-typedef struct {
-  bool active;
-  Vector2 position;
-  Vector2 velocity;
-  float radius;
-  float damage;
-  float explosionRadius;
-} SurvivorMissile;
-
 // ============================================================================
 // TYPES - BONUS
 // ============================================================================
@@ -113,8 +98,7 @@ typedef enum {
   BONUS_DAMAGE,
   BONUS_HEALTH,
   BONUS_SPEED,
-  BONUS_TIR_RAPIDE,
-  BONUS_MISSILE_CD
+  BONUS_TIR_RAPIDE
 } BonusType;
 
 typedef struct {
@@ -162,9 +146,9 @@ void DrawGame(void);
 // timeout_seconds: 0 = pas de limite, >0 = durée max en secondes
 // total_time: pointeur vers le temps total écoulé (tous jeux confondus)
 // start_delay: temps d'attente avant le début du jeu (animation zoom in)
-void RunSurvivorGame(Difficulte difficulty, bool resume, bool *game_active,
-                     const char *playerName, ScoreList *scores,
+void RunSurvivorGame(Difficulte difficulty, ModeJoueur mode, bool resume,
+                     bool *game_active, const char *playerName,
                      float timeout_seconds, float *total_time,
-                     float start_delay);
+                     float start_delay, bool *restart);
 
 #endif // SURVIVOR_H
